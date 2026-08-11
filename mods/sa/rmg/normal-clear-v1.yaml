@@ -1,0 +1,18 @@
+ProfileId: normal-clear-v1
+ConfigurationVersion: 1
+GeneratorVersion: 1
+Tileset: NORMAL
+PlayableWidth: 128
+PlayableHeight: 128
+CordonWidth: 2
+LogicalWidth: 64
+LogicalHeight: 64
+MinimumRouteWidthNative: 5
+StartRegionRadiusNative: 12
+ClearTemplateIds: 32, 33, 34, 35, 36, 61, 62
+NeutralColonyActors: ants_colony, beetles_colony, scorpions_colony, spiders_colony, wasps_colony
+SpawnActor: mpspawn
+SpawnOwner: Neutral
+ColonyOwner: Creeps
+ObstacleDensity: 0
+VegetationDensity: 0

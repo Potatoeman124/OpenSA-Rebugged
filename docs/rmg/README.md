@@ -27,15 +27,23 @@ The audited map corpus strongly favors a logical 2x2 macro-cell structure. That 
 
 Mixed terrain boundaries require transition-aware tiling rather than independent random tile selection. Validation must account for the existing ground movement costs: Clear is the baseline, Rock is passable at reduced speed, Vegetation is slower, and Water and Air are impassable to ground movement. Wasp movement traverses terrain independently, so movement-class validation must not assume ground connectivity proves connectivity for every unit type.
 
-## Reference maps and initial presets
+The frozen Generator Version 1 contract is intentionally Clear-only. Because Rock and Vegetation are traversable and Water/shoreline transitions are deferred, obstacle and vegetation densities resolve to zero for the first vertical slice.
 
-The first implementation should use these maps as behavioral references, not as source material to copy:
+## Frozen MVP contract
+
+Generator Version 1 is the deterministic 128x128 `NORMAL`-tileset vertical slice for two or four players. It supports horizontal reflection, vertical reflection, and 180-degree rotation, plus the `open` and `central-contest` archetypes. Its only terrain class is Clear; blocking terrain, rough-terrain variation, and chokepoint generation require a later contract revision.
+
+The point-in-time Phase 2 specification and gate evidence are retained locally under `artifacts/rmg/phase-2-mvp-contract/` and intentionally ignored. Durable constraints and user-facing behavior are kept here and updated with the implementation.
+
+## Reference maps and calibration roles
+
+Use these maps as measurement references, not as source material to copy:
 
 - `Two_Armies` for a compact two-player baseline;
 - `Team_Battle` for a four-player/team baseline;
-- `Narrow_Passage` for choke-point topology;
-- `Suprise` for dense or irregular terrain pressure; and
-- the remaining skirmish-reference maps for terrain-transition and validation stress cases.
+- `Suprise` for dense colony-placement pressure;
+- `Narrow_Passage` for a future blocking-terrain/chokepoint contract, not Generator Version 1; and
+- `skirmish` as a native-cell terrain-transition stress case and negative placement reference.
 
 ## Reproducible corpus audit
 
@@ -51,4 +59,37 @@ By default, generated JSON is written to `artifacts/rmg/phase-1-existing-map-aud
 
 Keep stable architecture, contracts, and decisions in this document and update them as the RMG evolves. Store temporary investigation notes, phase-gate reports, generated corpora, logs, and test captures under an appropriately named `artifacts/rmg/<phase-or-investigation>/` directory. Promote a finding into this document only when it becomes an ongoing project constraint or design decision.
 
-The next implementation phase should turn this contract into a minimal generator architecture and deterministic validator before adding terrain variety or gameplay tuning.
+## Generator Version 1 usage
+
+Build and validate the project, then generate a map directly into the development user-map folder:
+
+```powershell
+.\build-pipeline.cmd validate
+powershell -ExecutionPolicy Bypass -File .\scripts\rmg\Invoke-MapGenerator.ps1 -Seed 12345 -Players 2 -Symmetry horizontal -Archetype open -InstallForPlay -Overwrite
+```
+
+Start OpenSA with F5 or Ctrl+F5 and select `OpenSA RMG open 12345` from the skirmish map list. The wrapper writes the map to `%APPDATA%\OpenRA\maps\sa\{DEV_VERSION}\` and its validation report to the ignored Phase 3 artifact directory.
+
+Supported switches are:
+
+- `-Players 2` or `-Players 4`;
+- `-Symmetry horizontal`, `vertical`, or `rotational`;
+- `-Archetype open` or `central-contest`;
+- an even `-NeutralColonies` value from 8 through 20 for two players, or a value from 12 through 24 divisible by four for four players; and
+- any unsigned 64-bit `-Seed`.
+
+Omit `-InstallForPlay` to generate into the ignored example directory instead. The utility refuses to overwrite an existing map unless `-Overwrite` is supplied.
+
+Run the full deterministic test matrix with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\rmg\Invoke-MapGeneratorFuzz.ps1 -Overwrite
+```
+
+This checks 100 consecutive seeds for every player-count, symmetry, and archetype profile, followed by 1000 mixed cases. Only failure details and aggregate metrics are retained; accepted fuzz maps are not saved.
+
+## Current implementation boundary
+
+Generator Version 1 now implements deterministic settings, independent random streams, symmetry-aware starts, a strategic graph with two start-to-hub routes, widened route reservations, role-scored neutral colonies, symmetric Clear-template materialization, hard validation, quality metrics, repeatability hashes, and save/reload package validation.
+
+Its obstacle stage is deliberately a validated zero-density no-op. Terrain variety, blocking obstacles, transition tiles, and gameplay tuning follow only after the current package, editor, and skirmish gates pass.
