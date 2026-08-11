@@ -7,18 +7,21 @@ function All-Command
 {
 	If (!(Test-Path "*.sln"))
 	{
-		return
+		Write-Host "No custom solution file found." -ForegroundColor Red
+		exit 1
 	}
 
 	if ((CheckForDotnet) -eq 1)
 	{
-		return
+		exit 1
 	}
 
 	dotnet build -c Release --nologo -p:TargetPlatform=win-x64 -p:EnforceCodeStyleInBuild=true -p:GenerateDocumentationFile=true
 	if ($lastexitcode -ne 0)
 	{
+		$buildExitCode = $lastexitcode
 		Write-Host "Build failed. If just the development tools failed to build, try installing Visual Studio. You may also still be able to run the game." -ForegroundColor Red
+		exit $buildExitCode
 	}
 	else
 	{
@@ -95,7 +98,7 @@ function Test-Command
 {
 	if ((CheckForUtility) -eq 1)
 	{
-		return
+		exit 1
 	}
 
 	Write-Host "Testing $modID mod MiniYAML..." -ForegroundColor Cyan
@@ -114,7 +117,9 @@ function Check-Command
 	dotnet build -c Debug --nologo -p:TargetPlatform=win-x64
 	if ($lastexitcode -ne 0)
 	{
+		$buildExitCode = $lastexitcode
 		Write-Host "Build failed." -ForegroundColor Red
+		exit $buildExitCode
 	}
 
 	if ((CheckForUtility) -eq 0)
@@ -141,6 +146,7 @@ function Check-Scripts-Command
 	else
 	{
 		Write-Host "luac.exe could not be found. Please install Lua." -ForegroundColor Red
+		exit 1
 	}
 }
 
@@ -159,7 +165,7 @@ function CheckForDotnet
 {
 	if ((Get-Command "dotnet" -ErrorAction SilentlyContinue) -eq $null)
 	{
-		Write-Host "The 'dotnet' tool is required to compile OpenRA. Please install the .NET 5.0 SDK and try again. https://dotnet.microsoft.com/download/dotnet/5.0" -ForegroundColor Red
+		Write-Host "The 'dotnet' tool is required to compile OpenRA. Please install the .NET 6.0 SDK and try again. https://dotnet.microsoft.com/download/dotnet/6.0" -ForegroundColor Red
 		return 1
 	}
 
@@ -302,7 +308,7 @@ if ($command -eq "all" -or $command -eq "clean" -or $command -eq "check")
 	if ($currentEngine -ne "" -and $currentEngine -eq $env:ENGINE_VERSION)
 	{
 		cd $env:ENGINE_DIRECTORY
-		Invoke-Expression ".\make.cmd $command"
+		InvokeCommand ".\make.cmd $command"
 		echo ""
 		cd $templateDir
 	}
@@ -359,8 +365,8 @@ if ($command -eq "all" -or $command -eq "clean" -or $command -eq "check")
 		rm $env:AUTOMATIC_ENGINE_EXTRACT_DIRECTORY -r
 
 		cd $env:ENGINE_DIRECTORY
-		Invoke-Expression ".\make.cmd version $env:ENGINE_VERSION"
-		Invoke-Expression ".\make.cmd $command"
+		InvokeCommand ".\make.cmd version $env:ENGINE_VERSION"
+		InvokeCommand ".\make.cmd $command"
 		echo ""
 		cd $templateDir
 	}
@@ -382,7 +388,10 @@ switch ($execute)
 	"test" { Test-Command }
 	"check" { Check-Command }
 	"check-scripts" { Check-Scripts-Command }
-	Default { echo ("Invalid command '{0}'" -f $command) }
+	Default {
+		echo ("Invalid command '{0}'" -f $command)
+		exit 1
+	}
 }
 
 # In case the script was called without any parameters we keep the window open

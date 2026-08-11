@@ -3,22 +3,11 @@
     "configurations": [
         {
             "name": "OpenSA",
-            "type": "clr",
-            "linux": {
-                "type": "mono"
-            },
-            "osx": {
-                "type": "mono"
-            },
+            "type": "node-terminal",
             "request": "launch",
-            "preLaunchTask": "build",
-            "program": "${workspaceRoot}/engine/bin/OpenRA.exe",
-            "args": [
-                "Engine.EngineDir=${workspaceRoot}/engine/",
-                "Engine.ModSearchPaths=${workspaceRoot}/mods",
-                "Game.Mod=sa",
-                "Debug.DisplayDeveloperSettings=true",
-            ]
-        },
+            "preLaunchTask": "OpenSA: Build",
+            "command": "cmd.exe /d /c launch-game.cmd",
+            "cwd": "${workspaceFolder}"
+        }
     ]
 }

@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "game": "Swarm Assault",
+  "notes": "Known-good files from the original Windows release. These files must never be committed or included in OpenSA packages.",
+  "files": [
+    {
+      "source": "Game/Game.ANI",
+      "destination": "Sprites/Game.ANI",
+      "size": 1722820,
+      "sha256": "46DAE2F832B14EBFA99071A93A592B8AD429AB043BEFF69F2E5A94E6918B782B"
+    },
+    {
+      "source": "Game/Game.DDF",
+      "destination": "Sprites/Game.DDF",
+      "size": 9114936,
+      "sha256": "490AE69197565ECF2799D7FE3D639E091A321BC0EFA118C8F8EABB0FF0F30298"
+    },
+    {
+      "source": "Game/Game.MIN",
+      "destination": "Sprites/Game.MIN",
+      "size": 104498,
+      "sha256": "3715EE83FEA5AB07C71F13B914C41082941828300AAFBB7C398026A83CFADF47"
+    },
+    {
+      "source": "Game/Game.SDF",
+      "destination": "Sounds/Game.SDF",
+      "size": 4435403,
+      "sha256": "54BE2B1C2B502D2134B4887094806A41DAB6CEF388362D0E9E8FC70428CA2FA6"
+    },
+    {
+      "source": "Start/Start.ANI",
+      "destination": "Sprites/Start.ANI",
+      "size": 285984,
+      "sha256": "F602E2E622E29975EF6FA538734BB97D3569944EB56516DE55CDFDEFD8FF08DE"
+    },
+    {
+      "source": "Start/Start.DDF",
+      "destination": "Sprites/Start.DDF",
+      "size": 3563316,
+      "sha256": "034725293B469A7992A940C260AFB09D73209B5ACB9D8BFE8BEEF28826D5DFA2"
+    },
+    {
+      "source": "Start/Start.MIN",
+      "destination": "Sprites/Start.MIN",
+      "size": 64606,
+      "sha256": "97753FDE7D45498F3DF6C551CA61D5CCA22E1389D37692BC0967053CF43F3946"
+    },
+    {
+      "source": "Start/Start.SDF",
+      "destination": "Sounds/Start.SDF",
+      "size": 819260,
+      "sha256": "C2D17D5068A8D10BB7D7AA483632DB998292CA2F14059D39AA55273CD45782B7"
+    }
+  ]
+}

@@ -6,9 +6,22 @@ on:
     - '*'
 
 jobs:
+  compliance:
+    name: Asset redistribution gate
+    runs-on: windows-2022
+
+    steps:
+      - name: Clone Repository
+        uses: actions/checkout@v4
+
+      - name: Verify tracked asset provenance
+        shell: powershell
+        run: .\scripts\build\Check-AssetPolicy.ps1 -Mode Release -Root .
+
   linux:
     name: Linux AppImages
     runs-on: ubuntu-22.04
+    needs: compliance
 
     steps:
       - name: Clone Repository
@@ -41,6 +54,7 @@ jobs:
   macos:
     name: macOS Disk Image
     runs-on: macos-11
+    needs: compliance
 
     steps:
       - name: Clone Repository
@@ -80,6 +94,7 @@ jobs:
   windows:
     name: Windows Installers
     runs-on: ubuntu-22.04
+    needs: compliance
 
     steps:
       - name: Clone Repository

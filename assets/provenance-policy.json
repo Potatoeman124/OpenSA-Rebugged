@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "defaultDenyExtensions": [
+    ".ani",
+    ".bin",
+    ".bmp",
+    ".ddf",
+    ".gif",
+    ".ico",
+    ".jpeg",
+    ".jpg",
+    ".min",
+    ".mp3",
+    ".ogg",
+    ".pdf",
+    ".png",
+    ".sdf",
+    ".ttf",
+    ".vqa",
+    ".wav"
+  ],
+  "approved": [],
+  "unresolved": [
+    {
+      "glob": "mods/sa/bits/**",
+      "reason": "Mixed original-derived and third-party media; provenance and redistribution rights need file-by-file resolution."
+    },
+    {
+      "glob": "mods/sa/maps/**",
+      "reason": "Campaign and map data may reproduce original authored level content; provenance needs map-by-map resolution."
+    },
+    {
+      "glob": "mods/sa/uibits/**",
+      "reason": "UI media provenance and redistribution rights are not yet recorded."
+    },
+    {
+      "glob": "mods/sa/Legacy Map Importer Tutorial.pdf",
+      "reason": "Document provenance and redistribution rights are not yet recorded."
+    },
+    {
+      "glob": "mods/sacontent/**",
+      "reason": "Installer UI media provenance and redistribution rights are not yet recorded."
+    },
+    {
+      "glob": "packaging/artwork/**",
+      "reason": "Packaging artwork provenance and redistribution rights are not yet recorded."
+    }
+  ],
+  "textMarkers": [
+    {
+      "pattern": "Source:\\s*Swarm Assault",
+      "reason": "Repository documentation identifies this file as containing or describing original-game-derived content."
+    },
+    {
+      "pattern": "Author:\\s*Gate 5 Creations",
+      "reason": "Map metadata identifies original Gate 5 authored content."
+    }
+  ],
+  "forbiddenPackageFileNames": [
+    "Game.ANI",
+    "Game.DDF",
+    "Game.MIN",
+    "Game.SDF",
+    "Start.ANI",
+    "Start.DDF",
+    "Start.MIN",
+    "Start.SDF"
+  ]
+}

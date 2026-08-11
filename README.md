@@ -23,15 +23,21 @@ Since OpenSA project is based on the OpenRA Mod SDK, it carries on a lot of qual
 
 # How to compile/play
 
-To launch your project from the development environment you must first compile the project by running `make.cmd` (Windows), or opening a terminal in the SDK directory and running `make` (Linux / macOS).  You can then run `launch-game.cmd` (Windows) or `launch-game.sh` (Linux / macOS) to run your game.
+On Windows, use the pinned build entry point:
 
-For more detailed instructions, I recommend reading this: https://github.com/OpenRA/OpenRA/blob/bleed/INSTALL.md
+```powershell
+.\build-pipeline.cmd bootstrap
+.\build-pipeline.cmd build
+.\launch-game.cmd
+```
 
-Otherwise, go to releases and get the latest stable version.
+Run `.\build-pipeline.cmd validate` for the complete check suite. See [docs/BUILDING.md](docs/BUILDING.md) for dependency, validation, portable-package, and external-asset import details.
 
 # Swarm Assault assets status
 
-This project does not include any libre assets. It still requires original Swarm Assault. The game itself hasn't been sold for more than 20 years, the developers are unreachable and the last publisher Mountain King Studios confirmed they do not possess the IP nor they have any contact to the original developers. It's safe to assume the game is abandonware. For this reason, when you launch OpenSA for the first time, the assets will be downloaded and only assets. No exe files, so the original game cannot be run.
+OpenSA requires a user-owned copy of the original Swarm Assault game. The project does not download or redistribute original-game assets: they are imported locally into the OpenRA support directory and remain outside this repository and its release packages.
+
+See [docs/ASSET_POLICY.md](docs/ASSET_POLICY.md) for the repository policy and [docs/BUILDING.md](docs/BUILDING.md) for build and local-import instructions.
 
 # Legal disclaimers
 

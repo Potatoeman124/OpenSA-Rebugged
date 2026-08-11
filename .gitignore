@@ -19,3 +19,5 @@ StyleCopViolations.xml
 .idea/
 .vs/
 .directory
+/.tools/
+/artifacts/

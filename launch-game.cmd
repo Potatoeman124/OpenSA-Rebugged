@@ -2,6 +2,12 @@
 setlocal EnableDelayedExpansion
 title OpenRA
 
+if exist "%~dp0.tools\dotnet\dotnet.exe" (
+	set "DOTNET_ROOT=%~dp0.tools\dotnet"
+	set "DOTNET_MULTILEVEL_LOOKUP=0"
+	set "PATH=!DOTNET_ROOT!;!PATH!"
+)
+
 FOR /F "tokens=1,2 delims==" %%A IN (mod.config) DO (set %%A=%%B)
 if exist user.config (FOR /F "tokens=1,2 delims==" %%A IN (user.config) DO (set %%A=%%B))
 set TEMPLATE_LAUNCHER=%0

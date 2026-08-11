@@ -2,11 +2,27 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "build",
-            "command": "make",
-            "args": ["all"],
-            "windows": {
-                "command": "make.cmd"
+            "label": "OpenSA: Build",
+            "type": "process",
+            "command": "cmd.exe",
+            "args": [
+                "/d",
+                "/c",
+                "${workspaceFolder}/build-pipeline.cmd",
+                "build"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": "$msCompile",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": false
             }
         }
     ]
