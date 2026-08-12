@@ -22,14 +22,15 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 		string IUtilityCommand.Name => "--generate-sa-map";
 		bool IUtilityCommand.ValidateArguments(string[] args) => args.Length >= 1;
 
-		[Desc("OUTPUT.oramap", "--seed N", "[--players 2|4]", "[--symmetry horizontal|vertical|rotational]", "[--archetype open|central-contest]", "[--neutral-colonies N]", "[--report FILE]", "[--overwrite]", "Generate a deterministic OpenSA skirmish map.")]
+		[Desc("OUTPUT.oramap", "--seed N", "[--players 2|4]", "[--symmetry horizontal|vertical|rotational]", "[--archetype open|central-contest]", "[--neutral-colonies N]", "[--movement-validation proxy|native|both]", "[--report FILE]", "[--overwrite]", "Generate a deterministic OpenSA skirmish map.")]
 		void IUtilityCommand.Run(Utility utility, string[] args)
 		{
 			try
 			{
 				var options = Parse(args);
 				var profile = RmgProfile.Load(utility.ModData);
-				var result = OpenRaRmgMapAdapter.GenerateAndSave(utility.ModData, profile, options.Settings, options.OutputPath, options.Overwrite);
+				var result = OpenRaRmgMapAdapter.GenerateAndSave(utility.ModData, profile, options.Settings, options.OutputPath,
+					options.Overwrite, options.MovementValidationMode);
 				var reportPath = options.ReportPath ?? options.OutputPath + ".report.json";
 				var reportDirectory = Path.GetDirectoryName(Path.GetFullPath(reportPath));
 				if (!string.IsNullOrEmpty(reportDirectory))
@@ -56,6 +57,11 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			{
 				Console.Error.WriteLine(e.Message);
 				Environment.ExitCode = 4;
+			}
+			catch (RmgPackageValidationException e)
+			{
+				Console.Error.WriteLine(e.Message);
+				Environment.ExitCode = 5;
 			}
 			catch (InvalidDataException e)
 			{
@@ -96,7 +102,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				values[args[i]] = args[++i];
 			}
 
-			var known = new HashSet<string>(new[] { "--seed", "--players", "--tileset", "--size", "--symmetry", "--archetype", "--neutral-colonies", "--generator-version", "--report" }, StringComparer.OrdinalIgnoreCase);
+			var known = new HashSet<string>(new[] { "--seed", "--players", "--tileset", "--size", "--symmetry", "--archetype", "--neutral-colonies", "--generator-version", "--movement-validation", "--report" }, StringComparer.OrdinalIgnoreCase);
 			foreach (var key in values.Keys)
 				if (!known.Contains(key))
 					throw new CommandLineException($"Unknown option: {key}");
@@ -116,6 +122,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				OutputPath = args[1],
 				ReportPath = values.TryGetValue("--report", out var report) ? report : null,
 				Overwrite = flags.Contains("--overwrite"),
+				MovementValidationMode = ParseMovementValidation(values.TryGetValue("--movement-validation", out var movementValidation) ? movementValidation : "both"),
 				Settings = new RmgGenerationSettings
 				{
 					Seed = seed,
@@ -152,11 +159,20 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			_ => throw new ArgumentException("Archetype must be open or central-contest.")
 		};
 
+		public static RmgMovementValidationMode ParseMovementValidation(string value) => value.ToLowerInvariant() switch
+		{
+			"proxy" => RmgMovementValidationMode.Proxy,
+			"native" => RmgMovementValidationMode.Native,
+			"both" => RmgMovementValidationMode.Both,
+			_ => throw new ArgumentException("Movement validation must be proxy, native, or both.")
+		};
+
 		sealed class Options
 		{
 			public string OutputPath { get; init; }
 			public string ReportPath { get; init; }
 			public bool Overwrite { get; init; }
+			public RmgMovementValidationMode MovementValidationMode { get; init; }
 			public RmgGenerationSettings Settings { get; init; }
 		}
 

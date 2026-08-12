@@ -16,6 +16,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using Newtonsoft.Json.Linq;
 using OpenRA.FileSystem;
+using OpenRA.Mods.Common.Lint;
 using OpenRA.Mods.Common.Terrain;
 
 namespace OpenRA.Mods.OpenSA.Rmg
@@ -26,12 +27,53 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public string OutputPath { get; init; }
 		public string EngineUid { get; init; }
 		public string CanonicalMapHash { get; init; }
+		public RmgNativeMovementValidationResult NativeMovementValidation { get; init; }
 		public JObject Report { get; init; }
+	}
+
+	public sealed class RmgPackageValidationResult
+	{
+		public string EngineUid { get; init; }
+		public string CanonicalMapHash { get; init; }
+		public RmgNativeMovementValidationResult NativeMovementValidation { get; init; }
+		public string[] YamlLintErrors { get; init; }
+		public string[] YamlLintWarnings { get; init; }
+		public int PlayablePlayers { get; init; }
+		public int SpawnActors { get; init; }
+		public int NeutralColonies { get; init; }
+
+		public JObject ToJson()
+		{
+			return new JObject
+			{
+				["package_reload"] = "passed",
+				["rules_sequences_initialization"] = "passed",
+				["map_yaml_lint"] = YamlLintErrors.Length == 0 ? "passed" : "failed",
+				["map_yaml_lint_errors"] = new JArray(YamlLintErrors),
+				["map_yaml_lint_warnings"] = new JArray(YamlLintWarnings),
+				["playable_players"] = PlayablePlayers,
+				["spawn_actors"] = SpawnActors,
+				["neutral_colonies"] = NeutralColonies,
+				["world_initialization"] = "not-run: World constructor is internal to OpenRA.Game and requires live lobby/order/renderer state"
+			};
+		}
+	}
+
+	public sealed class RmgPackageValidationException : Exception
+	{
+		public RmgPackageValidationResult Validation { get; }
+
+		public RmgPackageValidationException(string message, RmgPackageValidationResult validation)
+			: base(message)
+		{
+			Validation = validation;
+		}
 	}
 
 	public static class OpenRaRmgMapAdapter
 	{
-		public static RmgPackageResult GenerateAndSave(ModData modData, RmgProfile profile, RmgGenerationSettings settings, string outputPath, bool overwrite)
+		public static RmgPackageResult GenerateAndSave(ModData modData, RmgProfile profile, RmgGenerationSettings settings, string outputPath,
+			bool overwrite, RmgMovementValidationMode movementValidationMode = RmgMovementValidationMode.Both)
 		{
 			Game.ModData = modData;
 			outputPath = Path.GetFullPath(outputPath);
@@ -58,19 +100,28 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			try
 			{
 				MaterializeAndSave(modData, generation, temporaryPath);
-				var packageValidation = ReloadAndValidate(modData, generation, temporaryPath);
+				var packageValidation = ReloadAndValidate(modData, generation, temporaryPath, movementValidationMode);
+				if (packageValidation.YamlLintErrors.Length > 0)
+					throw new RmgPackageValidationException(
+						"Generated map failed YAML lint: " + string.Join("; ", packageValidation.YamlLintErrors), packageValidation);
+				if (packageValidation.NativeMovementValidation != null && !packageValidation.NativeMovementValidation.Accepted)
+					throw new RmgPackageValidationException(
+						"Generated map failed native movement validation: " + string.Join("; ",
+							packageValidation.NativeMovementValidation.HardFailures.Select(f => $"{f.Code}: {f.Message}")),
+						packageValidation);
 
 				if (File.Exists(outputPath))
 					File.Delete(outputPath);
 				File.Move(temporaryPath, outputPath);
 
-				var report = BuildReport(generation, outputPath, packageValidation.EngineUid, packageValidation.CanonicalMapHash);
+				var report = BuildReport(generation, outputPath, packageValidation, movementValidationMode);
 				return new RmgPackageResult
 				{
 					Generation = generation,
 					OutputPath = outputPath,
 					EngineUid = packageValidation.EngineUid,
 					CanonicalMapHash = packageValidation.CanonicalMapHash,
+					NativeMovementValidation = packageValidation.NativeMovementValidation,
 					Report = report
 				};
 			}
@@ -154,7 +205,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			map.Save(package);
 		}
 
-		static (string EngineUid, string CanonicalMapHash) ReloadAndValidate(ModData modData, RmgGenerationResult generation, string path)
+		static RmgPackageValidationResult ReloadAndValidate(ModData modData, RmgGenerationResult generation, string path,
+			RmgMovementValidationMode movementValidationMode)
 		{
 			var directory = Path.GetDirectoryName(path);
 			using var folder = new Folder(directory);
@@ -187,7 +239,42 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					if (!string.Equals(reloaded.GetTerrainInfo(new CPos(x, y)).Type, "Clear", StringComparison.OrdinalIgnoreCase))
 						throw new InvalidDataException($"Reloaded native cell {x},{y} is not Clear terrain.");
 
-			return (Map.ComputeUID(package), CanonicalMapHash(package));
+			var (lintErrors, lintWarnings) = RunMapLint(modData, reloaded);
+			var nativeMovement = movementValidationMode == RmgMovementValidationMode.Proxy ? null : NativeMovementValidator.Validate(reloaded, generation);
+			return new RmgPackageValidationResult
+			{
+				EngineUid = Map.ComputeUID(package),
+				CanonicalMapHash = CanonicalMapHash(package),
+				NativeMovementValidation = nativeMovement,
+				YamlLintErrors = lintErrors,
+				YamlLintWarnings = lintWarnings,
+				PlayablePlayers = players,
+				SpawnActors = spawnCount,
+				NeutralColonies = colonyCount
+			};
+		}
+
+		static (string[] Errors, string[] Warnings) RunMapLint(ModData modData, Map map)
+		{
+			var errors = new List<string>();
+			var warnings = new List<string>();
+			if (map.InvalidCustomRules)
+				errors.Add(map.InvalidCustomRulesException.ToString());
+			else
+				foreach (var passType in modData.ObjectCreator.GetTypesImplementing<ILintMapPass>().OrderBy(t => t.FullName, StringComparer.Ordinal))
+				{
+					try
+					{
+						var pass = (ILintMapPass)modData.ObjectCreator.CreateBasic(passType);
+						pass.Run(errors.Add, warnings.Add, modData, map);
+					}
+					catch (Exception e)
+					{
+						errors.Add($"{passType.FullName} failed with exception: {e}");
+					}
+				}
+
+			return (errors.ToArray(), warnings.ToArray());
 		}
 
 		static Dictionary<string, int> ReadActorCounts(Map map)
@@ -215,12 +302,13 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			return Convert.ToHexString(SHA256.HashData(combined)).ToLowerInvariant();
 		}
 
-		static JObject BuildReport(RmgGenerationResult generation, string outputPath, string engineUid, string canonicalMapHash)
+		static JObject BuildReport(RmgGenerationResult generation, string outputPath, RmgPackageValidationResult packageValidation,
+			RmgMovementValidationMode movementValidationMode)
 		{
 			var settings = generation.Settings;
 			return new JObject
 			{
-				["schema_version"] = 1,
+				["schema_version"] = 2,
 				["generator_version"] = settings.GeneratorVersion,
 				["configuration_id"] = generation.Profile.ProfileId,
 				["configuration_version"] = generation.Profile.ConfigurationVersion,
@@ -233,10 +321,23 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				["logical_hash_sha256"] = generation.LogicalHash,
 				["actor_hash_sha256"] = generation.ActorHash,
 				["graph_hash_sha256"] = generation.GraphHash,
-				["canonical_map_yaml_bin_sha256"] = canonicalMapHash,
-				["engine_uid_sha1"] = engineUid,
+				["canonical_map_yaml_bin_sha256"] = packageValidation.CanonicalMapHash,
+				["engine_uid_sha1"] = packageValidation.EngineUid,
 				["obstacle_stage"] = "validated-zero-density-no-op",
-				["validation"] = generation.Validation.ToJson()
+				["validation"] = generation.Validation.ToJson(),
+				["movement_validation"] = new JObject
+				{
+					["mode"] = MovementValidationName(movementValidationMode),
+					["proxy"] = new JObject
+					{
+						["accepted"] = generation.Validation.Metrics["native_proxy_reachable_starts"] == settings.PlayerCount,
+						["reachable_starts"] = generation.Validation.Metrics["native_proxy_reachable_starts"],
+						["passable_cells"] = generation.Validation.Metrics["native_proxy_passable_cells"],
+						["maximum_start_distance"] = generation.Validation.Metrics["native_proxy_max_start_distance"]
+					},
+					["native"] = packageValidation.NativeMovementValidation?.ToJson()
+				},
+				["package_validation"] = packageValidation.ToJson()
 			};
 		}
 
@@ -256,6 +357,14 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			RmgArchetype.Open => "open",
 			RmgArchetype.CentralContest => "central-contest",
 			_ => throw new ArgumentOutOfRangeException(nameof(archetype))
+		};
+
+		public static string MovementValidationName(RmgMovementValidationMode mode) => mode switch
+		{
+			RmgMovementValidationMode.Proxy => "proxy",
+			RmgMovementValidationMode.Native => "native",
+			RmgMovementValidationMode.Both => "both",
+			_ => throw new ArgumentOutOfRangeException(nameof(mode))
 		};
 	}
 }

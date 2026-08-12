@@ -4,6 +4,11 @@ param(
     [UInt64]$SeedStart = 1,
     [int]$GateACount = 100,
     [int]$MixedCount = 1000,
+    [int]$ColonyCountCampaign = 25,
+    [int]$RuntimeSampleRate = 100,
+    [ValidateSet("proxy", "native", "both")]
+    [string]$MovementValidation = "both",
+    [switch]$PreserveFailures,
     [switch]$Overwrite
 )
 
@@ -15,7 +20,7 @@ $dotnetRoot = Join-Path $root ".tools\dotnet"
 
 if ([string]::IsNullOrWhiteSpace($ReportPath))
 {
-    $ReportPath = Join-Path $root "artifacts\rmg\phase-3-generator-core\fuzz\phase-3-fuzz.json"
+    $ReportPath = Join-Path $root "artifacts\rmg\phase-4a-native-movement-validation\campaign\phase-4a-fuzz.json"
 }
 elseif (![System.IO.Path]::IsPathRooted($ReportPath))
 {
@@ -33,8 +38,15 @@ $arguments = @(
     $ReportPath,
     "--seed-start", $SeedStart,
     "--gate-a-count", $GateACount,
-    "--mixed-count", $MixedCount
+    "--mixed-count", $MixedCount,
+    "--colony-count-campaign", $ColonyCountCampaign,
+    "--movement-validation", $MovementValidation,
+    "--runtime-sample-rate", $RuntimeSampleRate
 )
+if ($PreserveFailures)
+{
+    $arguments += "--preserve-failures"
+}
 if ($Overwrite)
 {
     $arguments += "--overwrite"

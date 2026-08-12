@@ -8,6 +8,8 @@ param(
     [string]$Symmetry = "horizontal",
     [ValidateSet("open", "central-contest")]
     [string]$Archetype = "open",
+    [ValidateSet("proxy", "native", "both")]
+    [string]$MovementValidation = "both",
     [int]$NeutralColonies = 0,
     [string]$ReportPath,
     [switch]$InstallForPlay,
@@ -44,7 +46,7 @@ if ([string]::IsNullOrWhiteSpace($OutputPath))
     }
     else
     {
-        $OutputPath = Join-Path $root "artifacts\rmg\phase-3-generator-core\examples\manual-$Seed.oramap"
+        $OutputPath = Join-Path $root "artifacts\rmg\phase-4a-native-movement-validation\examples\manual-$Seed.oramap"
     }
 }
 elseif (![System.IO.Path]::IsPathRooted($OutputPath))
@@ -54,7 +56,7 @@ elseif (![System.IO.Path]::IsPathRooted($OutputPath))
 
 if ([string]::IsNullOrWhiteSpace($ReportPath))
 {
-    $ReportPath = Join-Path $root "artifacts\rmg\phase-3-generator-core\reports\manual-$Seed.json"
+    $ReportPath = Join-Path $root "artifacts\rmg\phase-4a-native-movement-validation\reports\manual-$Seed.json"
 }
 elseif (![System.IO.Path]::IsPathRooted($ReportPath))
 {
@@ -73,6 +75,7 @@ $arguments = @(
     "--symmetry", $Symmetry,
     "--archetype", $Archetype,
     "--neutral-colonies", $NeutralColonies,
+    "--movement-validation", $MovementValidation,
     "--generator-version", "1"
 )
 

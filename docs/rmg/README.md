@@ -29,6 +29,23 @@ Mixed terrain boundaries require transition-aware tiling rather than independent
 
 The frozen Generator Version 1 contract is intentionally Clear-only. Because Rock and Vegetation are traversable and Water/shoreline transitions are deferred, obstacle and vegetation densities resolve to zero for the first vertical slice.
 
+The next version is governed by the [Phase 4B terrain, mover, and blocking-topology contract](PHASE_4B_TERRAIN_MOVER_TOPOLOGY_CONTRACT.md). It selects homogeneous Water templates as the first real ground blocker, freezes macro-aligned route/chokepoint geometry and mover-specific validation, and keeps mixed shoreline transitions out of the first implementation slice. Generator Version 1 remains unchanged until the separate Version 2 implementation passes its gate.
+
+## Movement validation architecture
+
+OpenSA has two movement classes relevant to generated maps:
+
+- `unit` is the gameplay-critical ground locomotor. Clear, Rock, and Vegetation have pathing costs 100, 133, and 200 respectively; omitted terrain types are impassable. Ground mobiles occupy one native cell and do not use a 3x3 movement footprint.
+- `wasp` is a separate custom locomotor that permits Clear, Rock, Vegetation, Water, and Air and disables the normal domain passability check. It does not prove ground-map connectivity and is not the blocking-topology gate.
+
+The Phase 4A native validator is implemented in `OpenRA.Mods.OpenSA/Rmg/NativeMovementValidator.cs`. It builds its ground graph from the reloaded map using `LocomotorInfo`, `Map.GetTerrainInfo`, native height transitions, and exact static `IOccupySpaceInfo`/`BuildingInfo` footprints. Building `x` and `X` cells block; `=` cells remain pathable; `+` cells are transit-only and remain traversable. It overlays the union of all five possible runtime starting-colony footprints at every `mpspawn`, then validates a shared start component, neutral-colony access, strategic graph reachability, and configured route width.
+
+The previous 3x3 obstruction proxy remains part of the frozen Version 1 core and is reported beside the native result. It is a regression/debug layer, not the authoritative description of unit size. Both false-negative and false-positive cell classifications are counted, with representative native cells recorded in per-map reports.
+
+This is the strongest safe utility-context validation supported by the pinned engine. A live `World` cannot be constructed from the mod utility assembly without changing the engine API: its constructor is internal and requires lobby, order-manager, renderer, player, and global game state. Bounded samples therefore exercise save/reload, rules and sequences initialization, the engine map-lint passes, player/spawn definitions, exact start footprints, UID/content hashes, and static movement semantics. Final interactive world initialization remains covered by launching the generated map with F5 or Ctrl+F5.
+
+Generator Version 1 strategic edges are abstract node-to-node reachability promises. Route reservations do not yet constrain terrain, so usable route width is the maximum-bottleneck native path between the configured node regions. The blocking-topology contract must explicitly define corridor conformance before route reservations can become terrain constraints.
+
 ## Frozen MVP contract
 
 Generator Version 1 is the deterministic 128x128 `NORMAL`-tileset vertical slice for two or four players. It supports horizontal reflection, vertical reflection, and 180-degree rotation, plus the `open` and `central-contest` archetypes. Its only terrain class is Clear; blocking terrain, rough-terrain variation, and chokepoint generation require a later contract revision.
@@ -75,7 +92,8 @@ Supported switches are:
 - `-Players 2` or `-Players 4`;
 - `-Symmetry horizontal`, `vertical`, or `rotational`;
 - `-Archetype open` or `central-contest`;
-- an even `-NeutralColonies` value from 8 through 20 for two players, or a value from 12 through 24 divisible by four for four players; and
+- an even `-NeutralColonies` value from 8 through 20 for two players, or a value from 12 through 24 divisible by four for four players;
+- `-MovementValidation proxy`, `native`, or `both` (default); and
 - any unsigned 64-bit `-Seed`.
 
 Omit `-InstallForPlay` to generate into the ignored example directory instead. The utility refuses to overwrite an existing map unless `-Overwrite` is supplied.
@@ -86,10 +104,17 @@ Run the full deterministic test matrix with:
 powershell -ExecutionPolicy Bypass -File .\scripts\rmg\Invoke-MapGeneratorFuzz.ps1 -Overwrite
 ```
 
-This checks 100 consecutive seeds for every player-count, symmetry, and archetype profile, followed by 1000 mixed cases. Only failure details and aggregate metrics are retained; accepted fuzz maps are not saved.
+The default Phase 4A gate checks:
+
+- 100 consecutive seeds for every default-count player/symmetry/archetype profile;
+- 25 seeds for each legal-count coverage profile: 8, 10, 14, and 20 colonies for 2P, and 12, 16, 20, and 24 for 4P, crossed with every symmetry and archetype;
+- 1000 mixed legal-count cases; and
+- one repeated save/reload/lint/native sample per 100 cases.
+
+This is 3400 deterministic generator cases and 34 repeated package samples. Accepted sample maps are deleted; aggregate evidence remains under the ignored Phase 4A artifact directory. Use `-RuntimeSampleRate 0` to disable package samples for a quick core-only run, or `-PreserveFailures` to retain a reproducible package when a sampled case fails.
 
 ## Current implementation boundary
 
-Generator Version 1 now implements deterministic settings, independent random streams, symmetry-aware starts, a strategic graph with two start-to-hub routes, widened route reservations, role-scored neutral colonies, symmetric Clear-template materialization, hard validation, quality metrics, repeatability hashes, and save/reload package validation.
+Generator Version 1 now implements deterministic settings, independent random streams, symmetry-aware starts, a strategic graph with two start-to-hub routes, widened route reservations, role-scored neutral colonies, symmetric Clear-template materialization, proxy and engine-grounded static movement validation, map lint, quality metrics, repeatability hashes, and repeated save/reload package validation.
 
 Its obstacle stage is deliberately a validated zero-density no-op. Terrain variety, blocking obstacles, transition tiles, and gameplay tuning follow only after the current package, editor, and skirmish gates pass.
