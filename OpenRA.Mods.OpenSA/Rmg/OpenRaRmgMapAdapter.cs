@@ -139,18 +139,25 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (terrainInfo is not ITemplatedTerrainInfo templated)
 				throw new InvalidDataException($"Tileset {profile.Tileset} is not template-based.");
 
-			foreach (var id in profile.ClearTemplateIds)
-			{
-				if (!templated.Templates.TryGetValue(id, out var template))
-					throw new InvalidDataException($"Configured Clear template {id} does not exist in {profile.Tileset}.");
-				if (template.Size.X != 2 || template.Size.Y != 2 || template.TilesCount != 4)
-					throw new InvalidDataException($"Configured template {id} is not a complete 2x2 macro template.");
+			ValidateTemplates(profile.ClearTemplateIds, "Clear");
+			if (profile.GeneratorVersion >= 2)
+				ValidateTemplates(profile.BlockedTemplateIds, "Water");
 
-				for (var frame = 0; frame < template.TilesCount; frame++)
+			void ValidateTemplates(IEnumerable<ushort> templateIds, string expectedTerrain)
+			{
+				foreach (var id in templateIds)
 				{
-					var tile = template[frame];
-					if (tile == null || !string.Equals(terrainInfo.TerrainTypes[tile.TerrainType].Type, "Clear", StringComparison.OrdinalIgnoreCase))
-						throw new InvalidDataException($"Configured template {id}, frame {frame} is not homogeneous Clear terrain.");
+					if (!templated.Templates.TryGetValue(id, out var template))
+						throw new InvalidDataException($"Configured {expectedTerrain} template {id} does not exist in {profile.Tileset}.");
+					if (template.Size.X != 2 || template.Size.Y != 2 || template.TilesCount != 4)
+						throw new InvalidDataException($"Configured template {id} is not a complete 2x2 macro template.");
+
+					for (var frame = 0; frame < template.TilesCount; frame++)
+					{
+						var tile = template[frame];
+						if (tile == null || !string.Equals(terrainInfo.TerrainTypes[tile.TerrainType].Type, expectedTerrain, StringComparison.OrdinalIgnoreCase))
+							throw new InvalidDataException($"Configured template {id}, frame {frame} is not homogeneous {expectedTerrain} terrain.");
+					}
 				}
 			}
 
@@ -168,7 +175,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			using var map = new Map(modData, terrainInfo, storedWidth, storedHeight)
 			{
 				RequiresMod = modData.Manifest.Id,
-				Title = $"OpenSA RMG {ArchetypeName(generation.Settings.Archetype)} {generation.Settings.Seed}",
+				Title = generation.Profile.GeneratorVersion == 1 ?
+					$"OpenSA RMG {ArchetypeName(generation.Settings.Archetype)} {generation.Settings.Seed}" :
+					$"OpenSA RMG {ArchetypeName(generation.Settings.Archetype)} mixed {generation.Settings.Seed}",
 				Author = $"OpenSA RMG v{generation.Settings.GeneratorVersion}",
 				Visibility = MapVisibility.Lobby,
 				Categories = new[] { "Conquest" }
@@ -217,7 +226,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			using var reloaded = new Map(modData, package);
 			var profile = generation.Profile;
 			if (reloaded.MapFormat != Map.CurrentMapFormat || reloaded.RequiresMod != modData.Manifest.Id || reloaded.Tileset != profile.Tileset)
-				throw new InvalidDataException("Reloaded map metadata does not match the Generator Version 1 contract.");
+				throw new InvalidDataException($"Reloaded map metadata does not match the Generator Version {profile.GeneratorVersion} contract.");
 			if (reloaded.MapSize.X != profile.PlayableWidth + 2 * profile.CordonWidth || reloaded.MapSize.Y != profile.PlayableHeight + 2 * profile.CordonWidth)
 				throw new InvalidDataException("Reloaded map storage dimensions do not match the generated dimensions.");
 			if (reloaded.Bounds.Left != profile.CordonWidth || reloaded.Bounds.Top != profile.CordonWidth || reloaded.Bounds.Width != profile.PlayableWidth || reloaded.Bounds.Height != profile.PlayableHeight)
@@ -234,10 +243,22 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (colonyCount != generation.Settings.NeutralColonyCount)
 				throw new InvalidDataException("Reloaded map neutral-colony count differs from the generation plan.");
 
-			for (var y = reloaded.Bounds.Top; y < reloaded.Bounds.Bottom; y++)
-				for (var x = reloaded.Bounds.Left; x < reloaded.Bounds.Right; x++)
-					if (!string.Equals(reloaded.GetTerrainInfo(new CPos(x, y)).Type, "Clear", StringComparison.OrdinalIgnoreCase))
-						throw new InvalidDataException($"Reloaded native cell {x},{y} is not Clear terrain.");
+			for (var logicalY = 0; logicalY < profile.LogicalHeight; logicalY++)
+				for (var logicalX = 0; logicalX < profile.LogicalWidth; logicalX++)
+				{
+					var logical = new RmgPoint(logicalX, logicalY);
+					var expectedTerrain = generation.Map.Obstacles[generation.Map.Index(logical)] ? "Water" : "Clear";
+					for (var dy = 0; dy < 2; dy++)
+						for (var dx = 0; dx < 2; dx++)
+						{
+							var cell = new CPos(profile.CordonWidth + 2 * logicalX + dx, profile.CordonWidth + 2 * logicalY + dy);
+							var actualTerrain = reloaded.GetTerrainInfo(cell).Type;
+							if (!string.Equals(actualTerrain, expectedTerrain, StringComparison.OrdinalIgnoreCase))
+								throw new InvalidDataException($"Reloaded native cell {cell} is {actualTerrain}; logical topology requires {expectedTerrain}.");
+							if (reloaded.Height[cell] != 0)
+								throw new InvalidDataException($"Reloaded native cell {cell} has height {reloaded.Height[cell]}; Version 2 requires height zero.");
+						}
+				}
 
 			var (lintErrors, lintWarnings) = RunMapLint(modData, reloaded);
 			var nativeMovement = movementValidationMode == RmgMovementValidationMode.Proxy ? null : NativeMovementValidator.Validate(reloaded, generation);
@@ -308,7 +329,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var settings = generation.Settings;
 			return new JObject
 			{
-				["schema_version"] = 2,
+				["schema_version"] = generation.Profile.GeneratorVersion >= 2 ? 3 : 2,
 				["generator_version"] = settings.GeneratorVersion,
 				["configuration_id"] = generation.Profile.ProfileId,
 				["configuration_version"] = generation.Profile.ConfigurationVersion,
@@ -316,6 +337,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				["players"] = settings.PlayerCount,
 				["symmetry"] = SymmetryName(settings.Symmetry),
 				["archetype"] = ArchetypeName(settings.Archetype),
+				["topology_preset"] = TopologyName(settings.TopologyPreset),
 				["neutral_colonies"] = settings.NeutralColonyCount,
 				["output"] = outputPath,
 				["logical_hash_sha256"] = generation.LogicalHash,
@@ -323,7 +345,25 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				["graph_hash_sha256"] = generation.GraphHash,
 				["canonical_map_yaml_bin_sha256"] = packageValidation.CanonicalMapHash,
 				["engine_uid_sha1"] = packageValidation.EngineUid,
-				["obstacle_stage"] = "validated-zero-density-no-op",
+				["obstacle_stage"] = generation.Profile.GeneratorVersion == 1 ? "validated-zero-density-no-op" : "normal-water-blocking-v2",
+				["blocking_topology"] = generation.Profile.GeneratorVersion == 1 ? null : new JObject
+				{
+					["enabled"] = true,
+					["obstacle_density_percent"] = generation.Validation.Metrics["obstacle_density_percent"],
+					["chokepoint_frequency"] = settings.Archetype == RmgArchetype.CentralContest ? "one-symmetry-orbit" : "none",
+					["route_openness"] = settings.Archetype == RmgArchetype.Open ? "major" : "normal-with-route-constriction",
+					["shoreline_mode"] = "homogeneous-hard-seam-v1",
+					["visual_shoreline_complete"] = false,
+					["repair_log"] = new JArray(generation.Map.Repairs.Select(repair => new JObject
+					{
+						["index"] = repair.Index,
+						["type"] = repair.Type,
+						["reason"] = repair.Reason,
+						["target_id"] = repair.TargetId,
+						["changed_cells"] = new JArray(repair.ChangedCells.Select(point => new JObject { ["x"] = point.X, ["y"] = point.Y }))
+					})),
+					["debug_layers"] = RmgGenerator.BlockingDebugLayers(generation.Map)
+				},
 				["validation"] = generation.Validation.ToJson(),
 				["movement_validation"] = new JObject
 				{
@@ -365,6 +405,13 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			RmgMovementValidationMode.Native => "native",
 			RmgMovementValidationMode.Both => "both",
 			_ => throw new ArgumentOutOfRangeException(nameof(mode))
+		};
+
+		public static string TopologyName(RmgTopologyPreset topology) => topology switch
+		{
+			RmgTopologyPreset.Off => "off",
+			RmgTopologyPreset.Mixed => "mixed",
+			_ => throw new ArgumentOutOfRangeException(nameof(topology))
 		};
 	}
 }

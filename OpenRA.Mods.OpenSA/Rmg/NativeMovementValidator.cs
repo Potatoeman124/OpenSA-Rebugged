@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json.Linq;
 using OpenRA.Mods.Common.Traits;
+using OpenRA.Mods.OpenSA.Traits.World;
 using OpenRA.Traits;
 
 namespace OpenRA.Mods.OpenSA.Rmg
@@ -27,7 +28,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 	public sealed class RmgNativeMovementValidationResult
 	{
-		public const string ValidatorName = "openra-static-ground-v1";
+		public string ValidatorName { get; init; } = "openra-static-ground-v1";
+		public string RouteScope { get; init; }
 
 		public string MoverClass { get; init; }
 		public string MoverImplementation { get; init; }
@@ -45,6 +47,13 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public int RequiredRoutes { get; init; }
 		public int TraversableRoutes { get; init; }
 		public int MinimumUsableRouteWidth { get; init; }
+		public int MinimumStartEscapeSectors { get; init; }
+		public int TerrainSemanticMismatchCells { get; init; }
+		public int ProductionExitFailures { get; init; }
+		public bool WaspSupportContractAccepted { get; init; }
+		public int MinimumChokepointStartDistance { get; init; }
+		public int MinimumChokepointColonyDistance { get; init; }
+		public int MinimumChokepointSeparation { get; init; }
 		public bool ProxyAccepted { get; init; }
 		public bool NativeStartConnectivityAccepted { get; init; }
 		public int ProxyFalseNegativeCells { get; init; }
@@ -81,10 +90,17 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					["reachable_neutral_colonies"] = ReachableNeutralColonies,
 					["required_routes"] = RequiredRoutes,
 					["traversable_routes"] = TraversableRoutes,
-					["minimum_usable_route_width_native"] = MinimumUsableRouteWidth
+					["minimum_usable_route_width_native"] = MinimumUsableRouteWidth,
+					["minimum_start_escape_sectors_r12"] = MinimumStartEscapeSectors,
+					["terrain_semantic_mismatch_cells"] = TerrainSemanticMismatchCells,
+					["production_exit_failures"] = ProductionExitFailures,
+					["wasp_support_contract_accepted"] = WaspSupportContractAccepted,
+					["minimum_chokepoint_start_distance_native"] = MinimumChokepointStartDistance,
+					["minimum_chokepoint_colony_distance_native"] = MinimumChokepointColonyDistance,
+					["minimum_chokepoint_separation_native"] = MinimumChokepointSeparation
 				},
 				["starting_colony_actors"] = new JArray(StartingColonyActors),
-				["route_scope"] = "abstract graph node-to-node reachability; Version 1 route reservations do not constrain terrain",
+				["route_scope"] = RouteScope,
 				["route_measurements"] = RouteMeasurements,
 				["proxy_comparison"] = new JObject
 				{
@@ -170,19 +186,56 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var routeMeasurements = new JArray();
 			var traversableRoutes = 0;
 			var minimumRouteWidth = int.MaxValue;
+			var routeWidthFailures = 0;
 			foreach (var edge in generation.Map.GraphEdges.OrderBy(e => e.RouteId))
 			{
 				var from = nodes[edge.From];
 				var to = nodes[edge.To];
-				var fromRadius = from.Role == "start" ? generation.Profile.StartRegionRadiusNative : 4;
-				var toRadius = to.Role == "start" ? generation.Profile.StartRegionRadiusNative : 4;
+				var strategicRadius = generation.Profile.GeneratorVersion >= 2 ? 12 : 4;
+				var fromRadius = from.Role == "start" ? generation.Profile.StartRegionRadiusNative : strategicRadius;
+				var toRadius = to.Role == "start" ? generation.Profile.StartRegionRadiusNative : strategicRadius;
 				var sources = RegionCells(withStarts, OpenRaRmgMapAdapter.ToNative(from.Location, generation.Profile), fromRadius);
 				var targets = RegionCells(withStarts, OpenRaRmgMapAdapter.ToNative(to.Location, generation.Profile), toRadius);
-				var traversable = CanConnect(withStarts, sources, targets, null, 1);
-				var usableWidth = WidestPathWidth(withStarts, clearance, sources, targets);
+				var routeGrid = generation.Profile.GeneratorVersion >= 2 ?
+					BuildNamedRouteGrid(withStarts, generation, edge.RouteId, from, to) : withStarts;
+				var routeClearance = generation.Profile.GeneratorVersion >= 2 ? Clearance(routeGrid) : clearance;
+				var traversable = CanConnect(routeGrid, sources, targets, null, 1);
+				var widthSources = generation.Profile.GeneratorVersion >= 2 ?
+					NamedRouteRingCells(routeGrid, generation, edge.RouteId,
+						OpenRaRmgMapAdapter.ToNative(from.Location, generation.Profile), fromRadius) : sources;
+				var widthTargets = generation.Profile.GeneratorVersion >= 2 ?
+					NamedRouteRingCells(routeGrid, generation, edge.RouteId,
+						OpenRaRmgMapAdapter.ToNative(to.Location, generation.Profile), toRadius) : targets;
+				var usableWidth = WidestPathWidth(routeGrid, routeClearance, widthSources, widthTargets);
+				var expectedWidth = generation.Profile.MinimumRouteWidthNative;
+				var choke = generation.Map.Chokepoints.FirstOrDefault(c => c.RouteId == edge.RouteId);
+				var measuredWidth = usableWidth;
+				var apertureWidth = 0;
+				var chokeIsSeparator = true;
+				if (choke != null)
+				{
+					expectedWidth = generation.Profile.ChokepointWidthNative;
+					var widthGrid = BuildNamedRouteGrid(withStarts, generation, edge.RouteId, from, to, false);
+					var chokeClearance = Clearance(widthGrid);
+					var aperture = ChokepointCells(widthGrid, generation, choke);
+					apertureWidth = aperture.Length == 0 ? 0 : aperture.Max(cell => 2 * chokeClearance[widthGrid.Index(cell)] - 1);
+					var shoulders = ChokepointShoulderCells(widthGrid, generation, choke);
+					measuredWidth = WidestPathWidth(widthGrid, chokeClearance, shoulders.Before, shoulders.After);
+					var withoutAperture = widthGrid.Clone();
+					foreach (var cell in aperture)
+						withoutAperture.Block(cell, $"chokepoint-separator:{choke.Id}");
+					chokeIsSeparator = !CanConnect(withoutAperture, shoulders.Before, shoulders.After, null, 1);
+				}
+				else if (generation.Profile.GeneratorVersion >= 2 && generation.Settings.Archetype == RmgArchetype.Open)
+					expectedWidth = generation.Profile.MajorRouteWidthNative;
+				var widthAccepted = choke != null ?
+					apertureWidth == expectedWidth && measuredWidth == expectedWidth && chokeIsSeparator :
+					measuredWidth >= expectedWidth;
+				if (!widthAccepted)
+					routeWidthFailures++;
 				if (traversable)
 					traversableRoutes++;
-				minimumRouteWidth = Math.Min(minimumRouteWidth, usableWidth);
+				minimumRouteWidth = Math.Min(minimumRouteWidth, measuredWidth);
 				routeMeasurements.Add(new JObject
 				{
 					["edge"] = edge.Id,
@@ -192,13 +245,26 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					["from_cell"] = Point(OpenRaRmgMapAdapter.ToNative(from.Location, generation.Profile)),
 					["to_cell"] = Point(OpenRaRmgMapAdapter.ToNative(to.Location, generation.Profile)),
 					["traversable"] = traversable,
-					["widest_path_native"] = usableWidth,
-					["meets_configured_width"] = usableWidth >= generation.Profile.MinimumRouteWidthNative
+					["widest_path_native"] = measuredWidth,
+					["unconstrained_widest_path_native"] = usableWidth,
+					["aperture_width_native"] = choke == null ? null : apertureWidth,
+					["expected_width_native"] = expectedWidth,
+					["contains_intentional_choke"] = choke != null,
+					["chokepoint_is_separator"] = choke == null ? null : chokeIsSeparator,
+					["meets_configured_width"] = widthAccepted
 				});
 			}
 
 			if (minimumRouteWidth == int.MaxValue)
 				minimumRouteWidth = 0;
+
+			var semanticMismatches = CountTerrainSemanticMismatches(baseGrid, generation, out var semanticMismatchSamples);
+			var escapeSectors = generation.Map.Starts.Select(start =>
+				EscapeSectorCount(withStarts, components, OpenRaRmgMapAdapter.ToNative(start, generation.Profile), 12)).ToArray();
+			var minimumEscapeSectors = escapeSectors.DefaultIfEmpty(0).Min();
+			var productionExitFailures = CountProductionExitFailures(map, withStarts, generation, startingUnits, colonies, out var productionExitDetails);
+			var waspContractAccepted = ValidateWaspContract(locomotors, out var waspContractMessage);
+			var chokeDistances = ChokepointDistances(generation, colonies);
 
 			var proxyMask = BuildProxyMask(generation);
 			var falseNegatives = 0;
@@ -247,6 +313,10 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var failureDetails = new JArray();
 			var result = new RmgNativeMovementValidationResult
 			{
+				ValidatorName = generation.Profile.GeneratorVersion >= 2 ? "openra-static-ground-v2" : "openra-static-ground-v1",
+				RouteScope = generation.Profile.GeneratorVersion >= 2 ?
+					"each named edge constrained to its own RESERVED_ROUTE cells plus endpoint strategic regions" :
+					"abstract graph node-to-node reachability; Version 1 route reservations do not constrain terrain",
 				MoverClass = groundLocomotor.Name,
 				MoverImplementation = groundLocomotor.GetType().FullName,
 				MoverClasses = new JArray(locomotors.Select(LocomotorJson)),
@@ -264,6 +334,13 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				RequiredRoutes = generation.Map.GraphEdges.Count,
 				TraversableRoutes = traversableRoutes,
 				MinimumUsableRouteWidth = minimumRouteWidth,
+				MinimumStartEscapeSectors = minimumEscapeSectors,
+				TerrainSemanticMismatchCells = semanticMismatches,
+				ProductionExitFailures = productionExitFailures,
+				WaspSupportContractAccepted = waspContractAccepted,
+				MinimumChokepointStartDistance = chokeDistances.Start,
+				MinimumChokepointColonyDistance = chokeDistances.Colony,
+				MinimumChokepointSeparation = chokeDistances.Separation,
 				ProxyAccepted = proxyAccepted,
 				NativeStartConnectivityAccepted = nativeStartsAccepted,
 				ProxyFalseNegativeCells = falseNegatives,
@@ -293,8 +370,35 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 			if (traversableRoutes != generation.Map.GraphEdges.Count)
 				Hard("NATIVE_ROUTE_CONNECTIVITY", $"Engine-grounded static validation reaches {traversableRoutes}/{generation.Map.GraphEdges.Count} strategic graph targets.");
-			if (minimumRouteWidth < generation.Profile.MinimumRouteWidthNative)
+			if (generation.Profile.GeneratorVersion == 1 && minimumRouteWidth < generation.Profile.MinimumRouteWidthNative)
 				Hard("NATIVE_ROUTE_WIDTH", $"Minimum widest-path clearance is {minimumRouteWidth} native cells; configured minimum is {generation.Profile.MinimumRouteWidthNative}.");
+			if (generation.Profile.GeneratorVersion >= 2 && routeWidthFailures > 0)
+				Hard("NATIVE_ROUTE_WIDTH", $"{routeWidthFailures} named routes violate their configured normal, major, or exact chokepoint width.");
+			if (generation.Profile.GeneratorVersion >= 2 && semanticMismatches > 0)
+			{
+				Hard("NATIVE_TERRAIN_SEMANTICS", $"{semanticMismatches} native cells disagree with the logical OPEN/BLOCKED map.");
+				foreach (var detail in semanticMismatchSamples)
+					failureDetails.Add(detail);
+			}
+			if (generation.Profile.GeneratorVersion >= 2 && minimumEscapeSectors < 6)
+				Hard("NATIVE_START_EXIT_SECTORS", $"Minimum start exit coverage is {minimumEscapeSectors}/8 sectors at radius 12; required minimum is 6/8.");
+			if (generation.Profile.GeneratorVersion >= 2 && productionExitFailures > 0)
+			{
+				Hard("NATIVE_PRODUCTION_EXITS", $"{productionExitFailures} starting or neutral colony production exits do not reach OPEN ground.");
+				foreach (var detail in productionExitDetails)
+					failureDetails.Add(detail);
+			}
+			if (generation.Profile.GeneratorVersion >= 2 && !waspContractAccepted)
+				Hard("WASP_SUPPORT_CONTRACT", waspContractMessage);
+			if (generation.Profile.GeneratorVersion >= 2 && generation.Map.Chokepoints.Count > 0)
+			{
+				if (chokeDistances.Start < 24)
+					Hard("NATIVE_CHOKEPOINT_START_DISTANCE", $"Minimum chokepoint/start-anchor distance is {chokeDistances.Start} native cells; required minimum is 24.");
+				if (chokeDistances.Colony < 10)
+					Hard("NATIVE_CHOKEPOINT_COLONY_DISTANCE", $"Minimum chokepoint/colony-coverage distance is {chokeDistances.Colony} native cells; required minimum is 10.");
+				if (chokeDistances.Separation < 16)
+					Hard("NATIVE_CHOKEPOINT_SEPARATION", $"Minimum chokepoint-segment separation is {chokeDistances.Separation} native cells; required minimum is 16.");
+			}
 			if (falsePositives > 0)
 				result.Warnings.Add(new RmgValidationIssue("PROXY_FALSE_POSITIVE_CELLS", $"The legacy proxy marks {falsePositives} engine-blocked cells passable. Native validation remains authoritative."));
 			if (falseNegatives > 0)
@@ -355,6 +459,270 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 			return failures;
 		}
+
+		static Grid BuildNamedRouteGrid(Grid source, RmgGenerationResult generation, int routeId, RmgGraphNode from, RmgGraphNode to,
+			bool includeEndpointRegions = true)
+		{
+			var route = source.Clone();
+			var bit = 1UL << routeId;
+			var fromCenter = OpenRaRmgMapAdapter.ToNative(from.Location, generation.Profile);
+			var toCenter = OpenRaRmgMapAdapter.ToNative(to.Location, generation.Profile);
+			var fromRadius = from.Role == "start" ? generation.Profile.StartRegionRadiusNative : 12;
+			var toRadius = to.Role == "start" ? generation.Profile.StartRegionRadiusNative : 12;
+			for (var i = 0; i < route.CellCount; i++)
+			{
+				var cell = route.Cell(i);
+				var logicalX = (cell.X - route.Left) / 2;
+				var logicalY = (cell.Y - route.Top) / 2;
+				var logical = new RmgPoint(logicalX, logicalY);
+				var inCorridor = generation.Map.Contains(logical) &&
+					(generation.Map.RouteMasks[generation.Map.Index(logical)] & bit) != 0;
+				var inFrom = includeEndpointRegions &&
+					Math.Max(Math.Abs(cell.X - fromCenter.X), Math.Abs(cell.Y - fromCenter.Y)) <= fromRadius;
+				var inTo = includeEndpointRegions &&
+					Math.Max(Math.Abs(cell.X - toCenter.X), Math.Abs(cell.Y - toCenter.Y)) <= toRadius;
+				if (!inCorridor && !inFrom && !inTo)
+					route.Block(cell, $"outside-route:{routeId}");
+			}
+
+			return route;
+		}
+
+		static CPos[] NamedRouteRingCells(Grid grid, RmgGenerationResult generation, int routeId, CPos center, int radius)
+		{
+			var bit = 1UL << routeId;
+			var result = new List<CPos>();
+			for (var i = 0; i < grid.CellCount; i++)
+			{
+				var cell = grid.Cell(i);
+				var distance = Math.Max(Math.Abs(cell.X - center.X), Math.Abs(cell.Y - center.Y));
+				if (distance < radius || distance > radius + 3 || !grid.IsPassable(cell))
+					continue;
+				var logical = new RmgPoint((cell.X - grid.Left) / 2, (cell.Y - grid.Top) / 2);
+				if (generation.Map.Contains(logical) &&
+					(generation.Map.RouteMasks[generation.Map.Index(logical)] & bit) != 0)
+					result.Add(cell);
+			}
+			return result.ToArray();
+		}
+
+		static CPos[] ChokepointCells(Grid grid, RmgGenerationResult generation, RmgChokepoint choke)
+		{
+			var chokeIndex = generation.Map.Chokepoints.IndexOf(choke);
+			var result = new List<CPos>();
+			for (var i = 0; i < grid.CellCount; i++)
+			{
+				var cell = grid.Cell(i);
+				var logical = new RmgPoint((cell.X - grid.Left) / 2, (cell.Y - grid.Top) / 2);
+				if (generation.Map.Contains(logical) &&
+					generation.Map.ChokepointIds[generation.Map.Index(logical)] == chokeIndex &&
+					grid.IsPassable(cell))
+					result.Add(cell);
+			}
+
+			return result.ToArray();
+		}
+
+		static (CPos[] Before, CPos[] After) ChokepointShoulderCells(Grid grid, RmgGenerationResult generation,
+			RmgChokepoint choke)
+		{
+			var horizontal = choke.From.Y == choke.To.Y;
+			var minimum = horizontal ? Math.Min(choke.From.X, choke.To.X) : Math.Min(choke.From.Y, choke.To.Y);
+			var maximum = horizontal ? Math.Max(choke.From.X, choke.To.X) : Math.Max(choke.From.Y, choke.To.Y);
+			var bit = 1UL << choke.RouteId;
+			var before = new List<CPos>();
+			var after = new List<CPos>();
+			for (var i = 0; i < grid.CellCount; i++)
+			{
+				var cell = grid.Cell(i);
+				if (!grid.IsPassable(cell))
+					continue;
+				var logical = new RmgPoint((cell.X - grid.Left) / 2, (cell.Y - grid.Top) / 2);
+				if (!generation.Map.Contains(logical) ||
+					(generation.Map.RouteMasks[generation.Map.Index(logical)] & bit) == 0)
+					continue;
+				var coordinate = horizontal ? logical.X : logical.Y;
+				if (coordinate == minimum - 1)
+					before.Add(cell);
+				else if (coordinate == maximum + 1)
+					after.Add(cell);
+			}
+
+			return (before.ToArray(), after.ToArray());
+		}
+
+		static int CountTerrainSemanticMismatches(Grid grid, RmgGenerationResult generation, out JArray samples)
+		{
+			samples = new JArray();
+			if (generation.Profile.GeneratorVersion < 2)
+				return 0;
+
+			var mismatches = 0;
+			for (var logicalY = 0; logicalY < generation.Map.Height; logicalY++)
+				for (var logicalX = 0; logicalX < generation.Map.Width; logicalX++)
+				{
+					var logical = new RmgPoint(logicalX, logicalY);
+					var blocked = generation.Map.Obstacles[generation.Map.Index(logical)];
+					var expected = blocked ? "Water" : "Clear";
+					for (var dy = 0; dy < 2; dy++)
+						for (var dx = 0; dx < 2; dx++)
+						{
+							var cell = new CPos(grid.Left + 2 * logicalX + dx, grid.Top + 2 * logicalY + dy);
+							var actual = grid.Terrain[grid.Index(cell)];
+							if (string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase))
+								continue;
+							mismatches++;
+							if (samples.Count < MaximumDisagreementSamples)
+								samples.Add(new JObject
+								{
+									["kind"] = "terrain-semantic-mismatch",
+									["cell"] = Point(cell),
+									["logical_cell"] = new JObject { ["x"] = logicalX, ["y"] = logicalY },
+									["expected"] = expected,
+									["actual"] = actual
+								});
+						}
+				}
+
+			return mismatches;
+		}
+
+		static int EscapeSectorCount(Grid grid, ComponentMap components, CPos center, int radius)
+		{
+			var centerLabel = components.Label(center);
+			if (centerLabel < 0)
+				return 0;
+
+			var sectors = new bool[8];
+			for (var dy = -radius; dy <= radius; dy++)
+				for (var dx = -radius; dx <= radius; dx++)
+				{
+					var distance = Math.Sqrt(dx * dx + dy * dy);
+					if (distance < radius - 1 || distance > radius + 0.5)
+						continue;
+					var cell = center + new CVec(dx, dy);
+					if (!grid.Contains(cell) || components.Label(cell) != centerLabel)
+						continue;
+					var angle = Math.Atan2(dy, dx) + Math.PI;
+					sectors[Math.Min(7, (int)(angle / (Math.PI / 4)))] = true;
+				}
+
+			return sectors.Count(x => x);
+		}
+
+		static int CountProductionExitFailures(Map map, Grid grid, RmgGenerationResult generation,
+			IReadOnlyCollection<StartingUnitsInfo> startingUnits, IReadOnlyCollection<ActorFootprint> neutralColonies,
+			out JArray details)
+		{
+			var localDetails = new JArray();
+			var failures = 0;
+			foreach (var start in generation.Map.Starts)
+			{
+				var nativeStart = OpenRaRmgMapAdapter.ToNative(start, generation.Profile);
+				foreach (var startingUnit in startingUnits)
+					Check(startingUnit.BaseActor, nativeStart + startingUnit.BaseActorOffset, "starting-colony");
+			}
+
+			foreach (var colony in neutralColonies)
+				Check(colony.Type, colony.Location, "neutral-colony");
+			details = localDetails;
+			return failures;
+
+			void Check(string actorType, CPos location, string role)
+			{
+				if (!map.Rules.Actors.TryGetValue(actorType, out var actorInfo))
+				return;
+				var exits = actorInfo.TraitInfos<ExitInfo>().ToArray();
+				if (exits.Length == 0)
+				return;
+				foreach (var exit in exits)
+				{
+					var exitCell = location + exit.ExitCell;
+					if (grid.IsPassable(exitCell))
+						continue;
+					failures++;
+					if (localDetails.Count < MaximumDisagreementSamples)
+						localDetails.Add(new JObject
+						{
+							["kind"] = "production-exit",
+							["role"] = role,
+							["actor"] = actorType,
+							["anchor"] = Point(location),
+							["exit_cell"] = Point(exitCell),
+							["reason"] = grid.Contains(exitCell) ? grid.Reasons[grid.Index(exitCell)] ?? "blocked" : "outside-playable-bounds"
+						});
+				}
+			}
+		}
+
+		static bool ValidateWaspContract(IEnumerable<LocomotorInfo> locomotors, out string message)
+		{
+			var wasps = locomotors.OfType<WaspLocomotorInfo>().ToArray();
+			if (wasps.Length != 1)
+			{
+				message = $"Expected one WaspLocomotorInfo but found {wasps.Length}.";
+				return false;
+			}
+
+			var wasp = wasps[0];
+			var required = new[] { "Clear", "Rock", "Vegetation", "Water", "Air" };
+			foreach (var terrain in required)
+				if (!wasp.TerrainSpeeds.TryGetValue(terrain, out var speed) || speed.Speed != 100)
+				{
+					message = $"Wasp locomotor does not define {terrain} at speed 100.";
+					return false;
+				}
+			if (!wasp.DisableDomainPassabilityCheck || wasp.TransitionCost != 0 || wasp.TransitionTerrainTypes.Count != 0)
+			{
+				message = "Wasp domain or transition semantics drifted from the frozen support-access contract.";
+				return false;
+			}
+
+			message = "passed";
+			return true;
+		}
+
+		static (int Start, int Colony, int Separation) ChokepointDistances(
+			RmgGenerationResult generation, IReadOnlyCollection<ActorFootprint> colonies)
+		{
+			if (generation.Map.Chokepoints.Count == 0)
+				return (0, 0, 0);
+
+			var nativeSegments = new List<HashSet<CPos>>();
+			for (var chokeIndex = 0; chokeIndex < generation.Map.Chokepoints.Count; chokeIndex++)
+			{
+				var cells = new HashSet<CPos>();
+				for (var i = 0; i < generation.Map.ChokepointIds.Length; i++)
+				{
+					if (generation.Map.ChokepointIds[i] != chokeIndex)
+						continue;
+					var logicalX = i % generation.Map.Width;
+					var logicalY = i / generation.Map.Width;
+					for (var dy = 0; dy < 2; dy++)
+						for (var dx = 0; dx < 2; dx++)
+							cells.Add(new CPos(
+								generation.Profile.CordonWidth + 2 * logicalX + dx,
+								generation.Profile.CordonWidth + 2 * logicalY + dy));
+				}
+				nativeSegments.Add(cells);
+			}
+
+			var starts = generation.Map.Starts.Select(start => OpenRaRmgMapAdapter.ToNative(start, generation.Profile)).ToArray();
+			var startDistance = nativeSegments.SelectMany(segment => segment.SelectMany(cell =>
+				starts.Select(start => ChebyshevDistance(cell, start)))).DefaultIfEmpty(int.MaxValue).Min();
+			var colonyDistance = nativeSegments.SelectMany(segment => segment.SelectMany(cell =>
+				colonies.SelectMany(colony => colony.Coverage.Select(coverage => ChebyshevDistance(cell, coverage)))))
+				.DefaultIfEmpty(int.MaxValue).Min();
+			var separation = int.MaxValue;
+			for (var first = 0; first < nativeSegments.Count; first++)
+				for (var second = first + 1; second < nativeSegments.Count; second++)
+					separation = Math.Min(separation, nativeSegments[first].SelectMany(a =>
+						nativeSegments[second].Select(b => ChebyshevDistance(a, b))).DefaultIfEmpty(int.MaxValue).Min());
+			return (startDistance, colonyDistance, separation);
+		}
+
+		static int ChebyshevDistance(CPos first, CPos second) =>
+			Math.Max(Math.Abs(first.X - second.X), Math.Abs(first.Y - second.Y));
 
 		static Grid BuildGrid(Map map, LocomotorInfo locomotor, out List<ActorFootprint> actors, out int transitOnlyCells)
 		{
@@ -433,6 +801,17 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var width = generation.Profile.PlayableWidth;
 			var height = generation.Profile.PlayableHeight;
 			var passable = Enumerable.Repeat(true, width * height).ToArray();
+			if (generation.Profile.GeneratorVersion >= 2)
+				for (var logicalY = 0; logicalY < generation.Map.Height; logicalY++)
+					for (var logicalX = 0; logicalX < generation.Map.Width; logicalX++)
+					{
+						var logical = new RmgPoint(logicalX, logicalY);
+						if (!generation.Map.Obstacles[generation.Map.Index(logical)])
+							continue;
+						for (var dy = 0; dy < 2; dy++)
+							for (var dx = 0; dx < 2; dx++)
+								passable[(2 * logicalY + dy) * width + 2 * logicalX + dx] = false;
+					}
 			foreach (var colony in generation.Map.Actors.Where(a => a.Owner == generation.Profile.ColonyOwner))
 			{
 				var anchorX = 2 * colony.LogicalLocation.X;

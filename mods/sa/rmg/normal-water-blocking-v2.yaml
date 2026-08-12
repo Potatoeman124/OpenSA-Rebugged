@@ -1,0 +1,34 @@
+ProfileId: normal-water-blocking-v2
+ConfigurationVersion: 2
+GeneratorVersion: 2
+Tileset: NORMAL
+PlayableWidth: 128
+PlayableHeight: 128
+CordonWidth: 2
+LogicalWidth: 64
+LogicalHeight: 64
+MinimumRouteWidthNative: 5
+MajorRouteWidthNative: 9
+ChokepointWidthNative: 3
+ChokepointLengthMinimumNative: 4
+ChokepointLengthMaximumNative: 12
+StartRegionRadiusNative: 12
+ClearTemplateIds: 32, 33, 34, 35, 36
+BlockedTemplateIds: 9, 12, 26, 28, 29
+NeutralColonyActors: ants_colony, beetles_colony, scorpions_colony, spiders_colony, wasps_colony
+SpawnActor: mpspawn
+SpawnOwner: Neutral
+ColonyOwner: Creeps
+ObstacleDensity: 12
+VegetationDensity: 0
+OpenObstacleDensityTarget: 12
+OpenObstacleDensityMinimum: 10
+OpenObstacleDensityMaximum: 14
+CentralObstacleDensityTarget: 16
+CentralObstacleDensityMinimum: 14
+CentralObstacleDensityMaximum: 18
+ObstacleRegionMinimumLogical: 8
+ObstacleRegionMaximumLogical: 64
+MaximumTopologyAttempts: 4
+MaximumRepairOperations: 8
+MaximumRepairCellsLogical: 64

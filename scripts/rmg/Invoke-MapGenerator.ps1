@@ -8,6 +8,8 @@ param(
     [string]$Symmetry = "horizontal",
     [ValidateSet("open", "central-contest")]
     [string]$Archetype = "open",
+    [ValidateSet("off", "mixed")]
+    [string]$Topology = "off",
     [ValidateSet("proxy", "native", "both")]
     [string]$MovementValidation = "both",
     [int]$NeutralColonies = 0,
@@ -46,7 +48,8 @@ if ([string]::IsNullOrWhiteSpace($OutputPath))
     }
     else
     {
-        $OutputPath = Join-Path $root "artifacts\rmg\phase-4a-native-movement-validation\examples\manual-$Seed.oramap"
+        $phase = if ($Topology -eq "mixed") { "phase-4c-blocking-topology" } else { "phase-4a-native-movement-validation" }
+        $OutputPath = Join-Path $root "artifacts\rmg\$phase\examples\manual-$Seed.oramap"
     }
 }
 elseif (![System.IO.Path]::IsPathRooted($OutputPath))
@@ -56,7 +59,8 @@ elseif (![System.IO.Path]::IsPathRooted($OutputPath))
 
 if ([string]::IsNullOrWhiteSpace($ReportPath))
 {
-    $ReportPath = Join-Path $root "artifacts\rmg\phase-4a-native-movement-validation\reports\manual-$Seed.json"
+    $phase = if ($Topology -eq "mixed") { "phase-4c-blocking-topology" } else { "phase-4a-native-movement-validation" }
+    $ReportPath = Join-Path $root "artifacts\rmg\$phase\reports\manual-$Seed.json"
 }
 elseif (![System.IO.Path]::IsPathRooted($ReportPath))
 {
@@ -74,9 +78,10 @@ $arguments = @(
     "--tileset", "NORMAL",
     "--symmetry", $Symmetry,
     "--archetype", $Archetype,
+    "--topology", $Topology,
     "--neutral-colonies", $NeutralColonies,
     "--movement-validation", $MovementValidation,
-    "--generator-version", "1"
+    "--generator-version", $(if ($Topology -eq "mixed") { "2" } else { "1" })
 )
 
 if ($Overwrite)

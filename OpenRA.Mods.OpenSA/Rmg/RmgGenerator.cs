@@ -17,7 +17,7 @@ using System.Text;
 
 namespace OpenRA.Mods.OpenSA.Rmg
 {
-	public static class RmgGenerator
+	public static partial class RmgGenerator
 	{
 		sealed record ColonyRequest(string Role, RmgPoint[] Targets, int TypeGroup);
 
@@ -37,11 +37,13 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 			var settings = new RmgGenerationSettings
 			{
-				Seed = 424242,
+				Seed = 45006,
 				PlayerCount = 2,
 				NeutralColonyCount = 10,
 				Symmetry = RmgSymmetry.Rotate180,
-				Archetype = RmgArchetype.CentralContest
+				Archetype = RmgArchetype.CentralContest,
+				GeneratorVersion = profile.GeneratorVersion,
+				TopologyPreset = profile.GeneratorVersion == 2 ? RmgTopologyPreset.Mixed : RmgTopologyPreset.Off
 			};
 			var first = Generate(profile, settings);
 			var second = Generate(profile, settings);
@@ -52,12 +54,52 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (Validate(first.Map, profile, settings).Accepted)
 				failures.Add("Hard validator accepted a deliberately invalid terrain template.");
 
+			if (profile.GeneratorVersion == 2)
+			{
+				var repairMap = Generate(profile, settings).Map;
+				var reserved = Array.FindIndex(repairMap.RouteMasks, route => route != 0);
+				repairMap.Obstacles[reserved] = true;
+				repairMap.ObstacleRegionIds[reserved] = 999;
+				ApplyBlockingRepairs(repairMap, profile);
+				if (repairMap.Obstacles[reserved] || repairMap.Repairs.Count == 0)
+					failures.Add("Bounded repair self-test did not clear a route obstruction and record the operation.");
+
+				var overBudgetMap = Generate(profile, settings).Map;
+				var overBudget = Enumerable.Range(0, overBudgetMap.RouteMasks.Length)
+					.Where(i => overBudgetMap.RouteMasks[i] != 0)
+					.Take(profile.MaximumRepairCellsLogical + 1)
+					.ToArray();
+				if (overBudget.Length <= profile.MaximumRepairCellsLogical)
+					failures.Add("Repair-budget rejection self-test could not construct an over-budget route obstruction.");
+				else
+				{
+					foreach (var index in overBudget)
+					{
+						overBudgetMap.Obstacles[index] = true;
+						overBudgetMap.ObstacleRegionIds[index] = 999;
+					}
+
+					try
+					{
+						ApplyBlockingRepairs(overBudgetMap, profile);
+						failures.Add("Bounded repair self-test accepted an obstruction larger than the frozen changed-cell budget.");
+					}
+					catch (InvalidOperationException)
+					{
+						// Expected: an over-budget repair rejects the topology instead of silently changing it.
+					}
+				}
+			}
+
 			return failures;
 		}
 
 		public static RmgGenerationResult Generate(RmgProfile profile, RmgGenerationSettings settings)
 		{
 			ValidateSettings(profile, settings);
+			if (profile.GeneratorVersion == 2)
+				return GenerateBlockingTopology(profile, settings);
+
 			var map = new RmgLogicalMap(profile.LogicalWidth, profile.LogicalHeight);
 
 			GenerateStartsAndTopology(map, profile, settings);
@@ -96,8 +138,12 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		{
 			if (settings.GeneratorVersion != profile.GeneratorVersion)
 				throw new ArgumentException($"Generator Version {settings.GeneratorVersion} is not supported by profile {profile.ProfileId}.");
+			if (profile.GeneratorVersion == 1 && settings.TopologyPreset != RmgTopologyPreset.Off)
+				throw new ArgumentException("Generator Version 1 requires TopologyPreset=off.");
+			if (profile.GeneratorVersion == 2 && settings.TopologyPreset != RmgTopologyPreset.Mixed)
+				throw new ArgumentException("Generator Version 2 requires TopologyPreset=mixed.");
 			if (settings.PlayerCount != 2 && settings.PlayerCount != 4)
-				throw new ArgumentException("Generator Version 1 supports exactly two or four players.");
+				throw new ArgumentException($"Generator Version {settings.GeneratorVersion} supports exactly two or four players.");
 			if (settings.PlayerCount == 2 && (settings.NeutralColonyCount < 8 || settings.NeutralColonyCount > 20 || settings.NeutralColonyCount % 2 != 0))
 				throw new ArgumentException("Two-player maps require an even neutral-colony count from 8 through 20.");
 			if (settings.PlayerCount == 4 && (settings.NeutralColonyCount < 12 || settings.NeutralColonyCount > 24 || settings.NeutralColonyCount % 4 != 0))
@@ -236,7 +282,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			map.RetryCount = 0;
 		}
 
-		static void PlaceColonies(RmgLogicalMap map, RmgProfile profile, RmgGenerationSettings settings)
+		static void PlaceColonies(RmgLogicalMap map, RmgProfile profile, RmgGenerationSettings settings,
+			bool allowCentralRouteOverlap = true, int routeClearanceRadius = 2, bool allowAnyRouteOverlap = false)
 		{
 			var random = DeterministicRandom.ForStream(settings, profile, "colonies");
 			var requests = BuildColonyRequests(map, settings);
@@ -249,7 +296,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					typeByGroup.Add(request.TypeGroup, actorType);
 				}
 
-				var orbit = SelectColonyOrbit(map, settings, request, random);
+				var orbit = SelectColonyOrbit(map, settings, request, random, allowCentralRouteOverlap,
+					routeClearanceRadius, allowAnyRouteOverlap);
 				foreach (var point in orbit)
 				{
 					map.Actors.Add(new RmgActorPlan(actorType, profile.ColonyOwner, request.Role, point, request.TypeGroup));
@@ -292,7 +340,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			return requests;
 		}
 
-		static RmgPoint[] SelectColonyOrbit(RmgLogicalMap map, RmgGenerationSettings settings, ColonyRequest request, DeterministicRandom random)
+		static RmgPoint[] SelectColonyOrbit(RmgLogicalMap map, RmgGenerationSettings settings, ColonyRequest request,
+			DeterministicRandom random, bool allowCentralRouteOverlap, int routeClearanceRadius, bool allowAnyRouteOverlap)
 		{
 			RmgPoint[] best = null;
 			var bestScore = long.MinValue;
@@ -323,17 +372,34 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					return;
 				if (request.Targets.Length > 0 && orbit.Any(p => !request.Targets.Contains(NearestStart(map, p))))
 					return;
-				var centralObjective = request.Role == "central-contest";
-				if (!orbit.All(p => ColonyLocationIsValid(map, p, centralObjective)) || orbit[0].ChebyshevDistance(orbit[1]) < 5)
+				var routeOverlap = allowAnyRouteOverlap || request.Role == "central-contest" && allowCentralRouteOverlap;
+				if (!orbit.All(p => ColonyLocationIsValid(map, p, routeOverlap, routeClearanceRadius)) ||
+					orbit[0].ChebyshevDistance(orbit[1]) < 5)
 					return;
 
 				var score = ColonyScore(map, orbit, request) + random.NextInt(100);
+				if (allowAnyRouteOverlap)
+					score -= 10000000L * orbit.Sum(p => RouteOverlapCells(map, p, routeClearanceRadius));
 				if (score > bestScore)
 				{
 					bestScore = score;
 					best = orbit;
 				}
 			}
+		}
+
+		static int RouteOverlapCells(RmgLogicalMap map, RmgPoint point, int routeClearanceRadius)
+		{
+			var minimumFootprintOffset = routeClearanceRadius == 3 ? -1 : -routeClearanceRadius;
+			var count = 0;
+			for (var dy = minimumFootprintOffset; dy <= routeClearanceRadius; dy++)
+				for (var dx = minimumFootprintOffset; dx <= routeClearanceRadius; dx++)
+				{
+					var footprint = new RmgPoint(point.X + dx, point.Y + dy);
+					if (map.Contains(footprint) && map.RouteMasks[map.Index(footprint)] != 0)
+						count++;
+				}
+			return count;
 		}
 
 		static RmgPoint NearestStart(RmgLogicalMap map, RmgPoint point)
@@ -349,23 +415,55 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			return point.Y * width + point.X < transformed.Y * width + transformed.X;
 		}
 
-		static bool ColonyLocationIsValid(RmgLogicalMap map, RmgPoint point, bool allowRouteOverlap)
+		static bool ColonyLocationIsValid(RmgLogicalMap map, RmgPoint point, bool allowRouteOverlap, int routeClearanceRadius)
 		{
 			if (!map.Contains(point) || map.Starts.Any(s => s.ChebyshevDistance(point) < 6))
 				return false;
+			if (map.Chokepoints.Count > 0 && CandidateChokepointDistance(map, point) < 10)
+				return false;
+			if (map.Obstacles.Any(x => x))
+				for (var dy = -4; dy <= 4; dy++)
+					for (var dx = -4; dx <= 4; dx++)
+					{
+						var clearance = new RmgPoint(point.X + dx, point.Y + dy);
+						if (!map.Contains(clearance) || map.Obstacles[map.Index(clearance)])
+							return false;
+					}
 
 			if (map.Actors.Where(a => a.Role != "start").Any(a => a.LogicalLocation.ChebyshevDistance(point) < 5))
 				return false;
 
-			for (var dy = -2; dy <= 2; dy++)
-				for (var dx = -2; dx <= 2; dx++)
+			var minimumFootprintOffset = routeClearanceRadius == 3 ? -1 : -routeClearanceRadius;
+			for (var dy = minimumFootprintOffset; dy <= routeClearanceRadius; dy++)
+				for (var dx = minimumFootprintOffset; dx <= routeClearanceRadius; dx++)
 				{
 					var footprint = new RmgPoint(point.X + dx, point.Y + dy);
-					if (!map.Contains(footprint) || (!allowRouteOverlap && map.RouteIds[map.Index(footprint)] >= 0))
+					if (!map.Contains(footprint) || map.Obstacles[map.Index(footprint)] ||
+						(!allowRouteOverlap && map.RouteIds[map.Index(footprint)] >= 0))
 						return false;
 				}
 
 			return true;
+		}
+
+		static int CandidateChokepointDistance(RmgLogicalMap map, RmgPoint colony)
+		{
+			var distance = int.MaxValue;
+			for (var i = 0; i < map.ChokepointIds.Length; i++)
+			{
+				if (map.ChokepointIds[i] < 0)
+					continue;
+				var chokeX = i % map.Width;
+				var chokeY = i / map.Width;
+				for (var chokeDy = 0; chokeDy < 2; chokeDy++)
+					for (var chokeDx = 0; chokeDx < 2; chokeDx++)
+						for (var colonyDy = 0; colonyDy < 6; colonyDy++)
+							for (var colonyDx = 0; colonyDx < 6; colonyDx++)
+								distance = Math.Min(distance, Math.Max(
+									Math.Abs(2 * chokeX + chokeDx - (2 * colony.X + colonyDx)),
+									Math.Abs(2 * chokeY + chokeDy - (2 * colony.Y + colonyDy))));
+			}
+			return distance;
 		}
 
 		static long ColonyScore(RmgLogicalMap map, RmgPoint[] orbit, ColonyRequest request)
@@ -448,6 +546,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 		static RmgValidationReport Validate(RmgLogicalMap map, RmgProfile profile, RmgGenerationSettings settings)
 		{
+			if (profile.GeneratorVersion == 2)
+				return ValidateBlockingTopology(map, profile, settings);
+
 			var report = new RmgValidationReport();
 			void Hard(string code, string message) => report.HardFailures.Add(new RmgValidationIssue(code, message));
 
@@ -560,6 +661,17 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var width = profile.PlayableWidth;
 			var height = profile.PlayableHeight;
 			var blocked = new bool[width * height];
+			if (profile.GeneratorVersion >= 2)
+				for (var logicalY = 0; logicalY < map.Height; logicalY++)
+					for (var logicalX = 0; logicalX < map.Width; logicalX++)
+					{
+						var logical = new RmgPoint(logicalX, logicalY);
+						if (!map.Obstacles[map.Index(logical)])
+							continue;
+						for (var dy = 0; dy < 2; dy++)
+							for (var dx = 0; dx < 2; dx++)
+								blocked[(2 * logicalY + dy) * width + 2 * logicalX + dx] = true;
+					}
 			foreach (var colony in map.Actors.Where(a => a.Owner == profile.ColonyOwner))
 			{
 				var anchorX = 2 * colony.LogicalLocation.X;

@@ -8,6 +8,8 @@ param(
     [int]$RuntimeSampleRate = 100,
     [ValidateSet("proxy", "native", "both")]
     [string]$MovementValidation = "both",
+    [ValidateSet("off", "mixed")]
+    [string]$Topology = "off",
     [switch]$PreserveFailures,
     [switch]$Overwrite
 )
@@ -20,7 +22,8 @@ $dotnetRoot = Join-Path $root ".tools\dotnet"
 
 if ([string]::IsNullOrWhiteSpace($ReportPath))
 {
-    $ReportPath = Join-Path $root "artifacts\rmg\phase-4a-native-movement-validation\campaign\phase-4a-fuzz.json"
+    $phase = if ($Topology -eq "mixed") { "phase-4c-blocking-topology" } else { "phase-4a-native-movement-validation" }
+    $ReportPath = Join-Path $root "artifacts\rmg\$phase\campaign\bounded-reference.json"
 }
 elseif (![System.IO.Path]::IsPathRooted($ReportPath))
 {
@@ -41,6 +44,7 @@ $arguments = @(
     "--mixed-count", $MixedCount,
     "--colony-count-campaign", $ColonyCountCampaign,
     "--movement-validation", $MovementValidation,
+    "--topology", $Topology,
     "--runtime-sample-rate", $RuntimeSampleRate
 )
 if ($PreserveFailures)

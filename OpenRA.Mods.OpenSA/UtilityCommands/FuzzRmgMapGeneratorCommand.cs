@@ -33,7 +33,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 
 		[Desc("REPORT.json", "[--seed-start N]", "[--gate-a-count N]", "[--mixed-count N]",
 			"[--colony-count-campaign N]", "[--movement-validation proxy|native|both]",
-			"[--runtime-sample-rate N]", "[--preserve-failures]", "[--overwrite]",
+			"[--topology off|mixed]", "[--runtime-sample-rate N]", "[--preserve-failures]", "[--overwrite]",
 			"Run deterministic RMG self-tests, legal colony-count campaigns, and bounded package/native samples.")]
 		void IUtilityCommand.Run(Utility utility, string[] args)
 		{
@@ -47,7 +47,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				var reportDirectory = Path.GetDirectoryName(reportPath);
 				var sampleDirectory = Path.Combine(reportDirectory, "runtime-samples");
 				var failureDirectory = Path.Combine(reportDirectory, "failures");
-				var profile = RmgProfile.Load(utility.ModData);
+				var profile = RmgProfile.Load(utility.ModData, options.TopologyPreset);
 				var selfTestFailures = RmgGenerator.RunSelfTests(profile)
 					.Concat(NativeMovementValidator.RunSelfTests())
 					.ToList();
@@ -128,6 +128,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 					["generator_version"] = profile.GeneratorVersion,
 					["configuration_id"] = profile.ProfileId,
 					["configuration_version"] = profile.ConfigurationVersion,
+					["topology_preset"] = OpenRaRmgMapAdapter.TopologyName(options.TopologyPreset),
 					["seed_start"] = options.SeedStart.ToString(),
 					["movement_validation"] = OpenRaRmgMapAdapter.MovementValidationName(options.MovementValidationMode),
 					["runtime_sample_rate"] = options.RuntimeSampleRate,
@@ -177,7 +178,9 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 						PlayerCount = players,
 						NeutralColonyCount = colonyCount,
 						Symmetry = symmetry,
-						Archetype = archetype
+						Archetype = archetype,
+						GeneratorVersion = profile.GeneratorVersion,
+						TopologyPreset = options.TopologyPreset
 					};
 					var caseTimer = Stopwatch.StartNew();
 					try
@@ -370,8 +373,9 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 						failure["neutral_colonies"] = settings.NeutralColonyCount;
 						failure["symmetry"] = OpenRaRmgMapAdapter.SymmetryName(settings.Symmetry);
 						failure["archetype"] = OpenRaRmgMapAdapter.ArchetypeName(settings.Archetype);
+						failure["topology_preset"] = OpenRaRmgMapAdapter.TopologyName(settings.TopologyPreset);
 						failure["reproduce"] =
-							$"powershell -ExecutionPolicy Bypass -File .\\scripts\\rmg\\Invoke-MapGenerator.ps1 -Seed {settings.Seed} -Players {settings.PlayerCount} -NeutralColonies {settings.NeutralColonyCount} -Symmetry {OpenRaRmgMapAdapter.SymmetryName(settings.Symmetry)} -Archetype {OpenRaRmgMapAdapter.ArchetypeName(settings.Archetype)} -MovementValidation both -Overwrite";
+							$"powershell -ExecutionPolicy Bypass -File .\\scripts\\rmg\\Invoke-MapGenerator.ps1 -Seed {settings.Seed} -Players {settings.PlayerCount} -NeutralColonies {settings.NeutralColonyCount} -Symmetry {OpenRaRmgMapAdapter.SymmetryName(settings.Symmetry)} -Archetype {OpenRaRmgMapAdapter.ArchetypeName(settings.Archetype)} -Topology {OpenRaRmgMapAdapter.TopologyName(settings.TopologyPreset)} -MovementValidation both -Overwrite";
 					}
 
 					if (generation != null)
@@ -456,6 +460,9 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 					case "--movement-validation":
 						options.MovementValidationMode = GenerateRmgMapCommand.ParseMovementValidation(value);
 						break;
+					case "--topology":
+						options.TopologyPreset = GenerateRmgMapCommand.ParseTopology(value);
+						break;
 					default:
 						throw new ArgumentException($"Unknown option: {name}");
 				}
@@ -487,6 +494,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			public int ColonyCountCampaign { get; set; } = 25;
 			public int RuntimeSampleRate { get; set; } = 100;
 			public RmgMovementValidationMode MovementValidationMode { get; set; } = RmgMovementValidationMode.Both;
+			public RmgTopologyPreset TopologyPreset { get; set; } = RmgTopologyPreset.Off;
 			public bool PreserveFailures { get; set; }
 			public bool Overwrite { get; set; }
 		}

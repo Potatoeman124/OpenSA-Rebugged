@@ -29,7 +29,7 @@ Mixed terrain boundaries require transition-aware tiling rather than independent
 
 The frozen Generator Version 1 contract is intentionally Clear-only. Because Rock and Vegetation are traversable and Water/shoreline transitions are deferred, obstacle and vegetation densities resolve to zero for the first vertical slice.
 
-The next version is governed by the [Phase 4B terrain, mover, and blocking-topology contract](PHASE_4B_TERRAIN_MOVER_TOPOLOGY_CONTRACT.md). It selects homogeneous Water templates as the first real ground blocker, freezes macro-aligned route/chokepoint geometry and mover-specific validation, and keeps mixed shoreline transitions out of the first implementation slice. Generator Version 1 remains unchanged until the separate Version 2 implementation passes its gate.
+Generator Version 2 is governed by the [Phase 4B terrain, mover, and blocking-topology contract](PHASE_4B_TERRAIN_MOVER_TOPOLOGY_CONTRACT.md) and its [Phase 4C implementation record](PHASE_4C_BLOCKING_TOPOLOGY_IMPLEMENTATION.md). It selects homogeneous Water templates as the first real ground blocker, implements macro-aligned route/chokepoint geometry and mover-specific validation, and keeps mixed shoreline transitions out of the first implementation slice. Generator Version 1 remains the default and is identity-stable.
 
 ## Movement validation architecture
 
@@ -113,8 +113,31 @@ The default Phase 4A gate checks:
 
 This is 3400 deterministic generator cases and 34 repeated package samples. Accepted sample maps are deleted; aggregate evidence remains under the ignored Phase 4A artifact directory. Use `-RuntimeSampleRate 0` to disable package samples for a quick core-only run, or `-PreserveFailures` to retain a reproducible package when a sampled case fails.
 
+## Generator Version 2 blocking-topology usage
+
+Select Version 2 explicitly with `-Topology mixed`. For example, install a central-contest map with Water blockers and one symmetry orbit of route constrictions:
+
+```powershell
+.\build-pipeline.cmd validate
+powershell -ExecutionPolicy Bypass -File .\scripts\rmg\Invoke-MapGenerator.ps1 `
+    -Seed 45004 -Players 2 -Symmetry horizontal `
+    -Archetype central-contest -Topology mixed `
+    -MovementValidation both -InstallForPlay -Overwrite
+```
+
+Start OpenSA with F5 or Ctrl+F5 and select `OpenSA RMG central-contest 45004` from the skirmish map list. Use `-Archetype open` for the low-blocker, major-route profile with no declared chokepoint. Omitting `-Topology mixed` continues to use Version 1.
+
+Run focused positive/negative tests and the bounded 12-case Version 2 reference gate with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\rmg\Invoke-RmgSelfTests.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\rmg\Invoke-BlockingTopologyReferenceMatrix.ps1
+```
+
+Phase 4C reference maps and reports belong under `artifacts/rmg/phase-4c-blocking-topology/` and stay untracked. The large multi-seed blocking-topology campaign is deferred to Phase 4D.
+
 ## Current implementation boundary
 
-Generator Version 1 now implements deterministic settings, independent random streams, symmetry-aware starts, a strategic graph with two start-to-hub routes, widened route reservations, role-scored neutral colonies, symmetric Clear-template materialization, proxy and engine-grounded static movement validation, map lint, quality metrics, repeatability hashes, and repeated save/reload package validation.
+Generator Version 1 implements deterministic settings, independent random streams, symmetry-aware starts, a strategic graph with two start-to-hub routes, widened route reservations, role-scored neutral colonies, symmetric Clear-template materialization, proxy and engine-grounded static movement validation, map lint, quality metrics, repeatability hashes, and repeated save/reload package validation. Its obstacle stage remains a validated zero-density no-op.
 
-Its obstacle stage is deliberately a validated zero-density no-op. Terrain variety, blocking obstacles, transition tiles, and gameplay tuning follow only after the current package, editor, and skirmish gates pass.
+Generator Version 2 adds deterministic symmetric Water regions, named route masks, route-local chokepoints for `central-contest`, subtractive bounded repair, exact logical/native passability agreement, mover-specific validation, and durable debug layers. Homogeneous Water creates a known hard visual seam, and wasps intentionally bypass ground blockers. Broad seed fuzzing, live swarm-throughput calibration, shoreline transitions, new archetypes, and UI work remain later phases.
