@@ -144,10 +144,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				return FieldLoader.GetValue<T>(key, value.Value);
 			}
 
-			T GetOptional<T>(string key, T fallback)
-			{
-				return nodes.TryGetValue(key, out var value) ? FieldLoader.GetValue<T>(key, value.Value) : fallback;
-			}
+			T GetOptional<T>(string key, T fallback) =>
+				nodes.TryGetValue(key, out var value) ? FieldLoader.GetValue<T>(key, value.Value) : fallback;
 
 			var profile = new RmgProfile
 			{
@@ -299,5 +297,16 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public string LogicalHash { get; init; }
 		public string ActorHash { get; init; }
 		public string GraphHash { get; init; }
+	}
+
+	public sealed class RmgGenerationRejectedException : InvalidOperationException
+	{
+		public string RejectionCode { get; }
+
+		public RmgGenerationRejectedException(string rejectionCode, string message, Exception innerException = null)
+			: base(message, innerException)
+		{
+			RejectionCode = rejectionCode;
+		}
 	}
 }

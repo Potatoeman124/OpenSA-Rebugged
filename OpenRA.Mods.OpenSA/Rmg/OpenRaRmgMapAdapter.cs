@@ -11,6 +11,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
@@ -28,7 +29,37 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public string EngineUid { get; init; }
 		public string CanonicalMapHash { get; init; }
 		public RmgNativeMovementValidationResult NativeMovementValidation { get; init; }
+		public RmgPackagePerformance Performance { get; init; }
 		public JObject Report { get; init; }
+	}
+
+	public sealed class RmgPackagePerformance
+	{
+		public double ProfileValidationMilliseconds { get; set; }
+		public double LogicalGenerationMilliseconds { get; set; }
+		public double MaterializationSaveMilliseconds { get; set; }
+		public double PackageReloadMetadataMilliseconds { get; set; }
+		public double YamlLintMilliseconds { get; set; }
+		public double NativeMovementValidationMilliseconds { get; set; }
+		public double IdentityHashMilliseconds { get; set; }
+		public double TotalMilliseconds { get; set; }
+
+		public JObject ToJson()
+		{
+			return new JObject
+			{
+				["profile_validation_ms"] = Rounded(ProfileValidationMilliseconds),
+				["logical_generation_and_repeat_ms"] = Rounded(LogicalGenerationMilliseconds),
+				["materialization_and_save_ms"] = Rounded(MaterializationSaveMilliseconds),
+				["package_reload_and_metadata_ms"] = Rounded(PackageReloadMetadataMilliseconds),
+				["yaml_lint_ms"] = Rounded(YamlLintMilliseconds),
+				["native_movement_validation_ms"] = Rounded(NativeMovementValidationMilliseconds),
+				["identity_hash_ms"] = Rounded(IdentityHashMilliseconds),
+				["total_ms"] = Rounded(TotalMilliseconds)
+			};
+		}
+
+		static double Rounded(double value) => Math.Round(value, 3, MidpointRounding.AwayFromZero);
 	}
 
 	public sealed class RmgPackageValidationResult
@@ -41,6 +72,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public int PlayablePlayers { get; init; }
 		public int SpawnActors { get; init; }
 		public int NeutralColonies { get; init; }
+		public RmgPackagePerformance Performance { get; init; }
 
 		public JObject ToJson()
 		{
@@ -54,6 +86,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				["playable_players"] = PlayablePlayers,
 				["spawn_actors"] = SpawnActors,
 				["neutral_colonies"] = NeutralColonies,
+				["performance"] = Performance?.ToJson(),
 				["world_initialization"] = "not-run: World constructor is internal to OpenRA.Game and requires live lobby/order/renderer state"
 			};
 		}
@@ -75,6 +108,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public static RmgPackageResult GenerateAndSave(ModData modData, RmgProfile profile, RmgGenerationSettings settings, string outputPath,
 			bool overwrite, RmgMovementValidationMode movementValidationMode = RmgMovementValidationMode.Both)
 		{
+			var totalTimer = Stopwatch.StartNew();
 			Game.ModData = modData;
 			outputPath = Path.GetFullPath(outputPath);
 			var outputDirectory = Path.GetDirectoryName(outputPath);
@@ -87,10 +121,14 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				throw new IOException($"Output already exists: {outputPath}. Pass --overwrite to replace it.");
 
 			Directory.CreateDirectory(outputDirectory);
+			var profileTimer = Stopwatch.StartNew();
 			ValidateProfileAgainstModData(modData, profile);
+			profileTimer.Stop();
 
+			var generationTimer = Stopwatch.StartNew();
 			var generation = RmgGenerator.Generate(profile, settings);
 			var repeat = RmgGenerator.Generate(profile, settings);
+			generationTimer.Stop();
 			if (generation.LogicalHash != repeat.LogicalHash || generation.ActorHash != repeat.ActorHash || generation.GraphHash != repeat.GraphHash)
 				throw new InvalidOperationException("Same-process repeatability validation failed for the selected seed and settings.");
 			if (!generation.Validation.Accepted)
@@ -99,8 +137,14 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var temporaryPath = Path.Combine(outputDirectory, $".{Path.GetFileName(outputPath)}.{Guid.NewGuid():N}.tmp");
 			try
 			{
+				var materializationTimer = Stopwatch.StartNew();
 				MaterializeAndSave(modData, generation, temporaryPath);
+				materializationTimer.Stop();
 				var packageValidation = ReloadAndValidate(modData, generation, temporaryPath, movementValidationMode);
+				packageValidation.Performance.ProfileValidationMilliseconds = profileTimer.Elapsed.TotalMilliseconds;
+				packageValidation.Performance.LogicalGenerationMilliseconds = generationTimer.Elapsed.TotalMilliseconds;
+				packageValidation.Performance.MaterializationSaveMilliseconds = materializationTimer.Elapsed.TotalMilliseconds;
+				packageValidation.Performance.TotalMilliseconds = totalTimer.Elapsed.TotalMilliseconds;
 				if (packageValidation.YamlLintErrors.Length > 0)
 					throw new RmgPackageValidationException(
 						"Generated map failed YAML lint: " + string.Join("; ", packageValidation.YamlLintErrors), packageValidation);
@@ -113,6 +157,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				if (File.Exists(outputPath))
 					File.Delete(outputPath);
 				File.Move(temporaryPath, outputPath);
+				totalTimer.Stop();
+				packageValidation.Performance.TotalMilliseconds = totalTimer.Elapsed.TotalMilliseconds;
 
 				var report = BuildReport(generation, outputPath, packageValidation, movementValidationMode);
 				return new RmgPackageResult
@@ -122,6 +168,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					EngineUid = packageValidation.EngineUid,
 					CanonicalMapHash = packageValidation.CanonicalMapHash,
 					NativeMovementValidation = packageValidation.NativeMovementValidation,
+					Performance = packageValidation.Performance,
 					Report = report
 				};
 			}
@@ -217,6 +264,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		static RmgPackageValidationResult ReloadAndValidate(ModData modData, RmgGenerationResult generation, string path,
 			RmgMovementValidationMode movementValidationMode)
 		{
+			var reloadTimer = Stopwatch.StartNew();
 			var directory = Path.GetDirectoryName(path);
 			using var folder = new Folder(directory);
 			using var package = folder.OpenPackage(Path.GetFileName(path), modData.ModFiles);
@@ -260,18 +308,35 @@ namespace OpenRA.Mods.OpenSA.Rmg
 						}
 				}
 
+			reloadTimer.Stop();
+
+			var lintTimer = Stopwatch.StartNew();
 			var (lintErrors, lintWarnings) = RunMapLint(modData, reloaded);
+			lintTimer.Stop();
+			var nativeTimer = Stopwatch.StartNew();
 			var nativeMovement = movementValidationMode == RmgMovementValidationMode.Proxy ? null : NativeMovementValidator.Validate(reloaded, generation);
+			nativeTimer.Stop();
+			var identityTimer = Stopwatch.StartNew();
+			var engineUid = Map.ComputeUID(package);
+			var canonicalMapHash = CanonicalMapHash(package);
+			identityTimer.Stop();
 			return new RmgPackageValidationResult
 			{
-				EngineUid = Map.ComputeUID(package),
-				CanonicalMapHash = CanonicalMapHash(package),
+				EngineUid = engineUid,
+				CanonicalMapHash = canonicalMapHash,
 				NativeMovementValidation = nativeMovement,
 				YamlLintErrors = lintErrors,
 				YamlLintWarnings = lintWarnings,
 				PlayablePlayers = players,
 				SpawnActors = spawnCount,
-				NeutralColonies = colonyCount
+				NeutralColonies = colonyCount,
+				Performance = new RmgPackagePerformance
+				{
+					PackageReloadMetadataMilliseconds = reloadTimer.Elapsed.TotalMilliseconds,
+					YamlLintMilliseconds = lintTimer.Elapsed.TotalMilliseconds,
+					NativeMovementValidationMilliseconds = nativeTimer.Elapsed.TotalMilliseconds,
+					IdentityHashMilliseconds = identityTimer.Elapsed.TotalMilliseconds
+				}
 			};
 		}
 
@@ -377,7 +442,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					},
 					["native"] = packageValidation.NativeMovementValidation?.ToJson()
 				},
-				["package_validation"] = packageValidation.ToJson()
+				["package_validation"] = packageValidation.ToJson(),
+				["performance"] = packageValidation.Performance.ToJson()
 			};
 		}
 

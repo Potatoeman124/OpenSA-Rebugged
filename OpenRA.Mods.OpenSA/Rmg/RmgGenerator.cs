@@ -357,7 +357,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 						Consider(new RmgPoint(x, y));
 
 			if (best == null)
-				throw new InvalidOperationException($"Unable to place a valid {request.Role} colony orbit.");
+				throw new RmgGenerationRejectedException("COLONY_PLACEMENT",
+					$"Unable to place a valid {request.Role} colony orbit.");
 
 			return best;
 
@@ -372,9 +373,10 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					return;
 				if (request.Targets.Length > 0 && orbit.Any(p => !request.Targets.Contains(NearestStart(map, p))))
 					return;
-				var routeOverlap = allowAnyRouteOverlap || request.Role == "central-contest" && allowCentralRouteOverlap;
-				if (!orbit.All(p => ColonyLocationIsValid(map, p, routeOverlap, routeClearanceRadius)) ||
-					orbit[0].ChebyshevDistance(orbit[1]) < 5)
+				var routeOverlap = allowAnyRouteOverlap || (request.Role == "central-contest" && allowCentralRouteOverlap);
+				var minimumColonySeparation = allowAnyRouteOverlap ? 6 : 5;
+				if (!orbit.All(p => ColonyLocationIsValid(map, p, routeOverlap, routeClearanceRadius, minimumColonySeparation)) ||
+					orbit[0].ChebyshevDistance(orbit[1]) < minimumColonySeparation)
 					return;
 
 				var score = ColonyScore(map, orbit, request) + random.NextInt(100);
@@ -399,6 +401,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					if (map.Contains(footprint) && map.RouteMasks[map.Index(footprint)] != 0)
 						count++;
 				}
+
 			return count;
 		}
 
@@ -415,7 +418,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			return point.Y * width + point.X < transformed.Y * width + transformed.X;
 		}
 
-		static bool ColonyLocationIsValid(RmgLogicalMap map, RmgPoint point, bool allowRouteOverlap, int routeClearanceRadius)
+		static bool ColonyLocationIsValid(RmgLogicalMap map, RmgPoint point, bool allowRouteOverlap,
+			int routeClearanceRadius, int minimumColonySeparation)
 		{
 			if (!map.Contains(point) || map.Starts.Any(s => s.ChebyshevDistance(point) < 6))
 				return false;
@@ -430,7 +434,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 							return false;
 					}
 
-			if (map.Actors.Where(a => a.Role != "start").Any(a => a.LogicalLocation.ChebyshevDistance(point) < 5))
+			if (map.Actors.Where(a => a.Role != "start")
+				.Any(a => a.LogicalLocation.ChebyshevDistance(point) < minimumColonySeparation))
 				return false;
 
 			var minimumFootprintOffset = routeClearanceRadius == 3 ? -1 : -routeClearanceRadius;
@@ -463,6 +468,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 									Math.Abs(2 * chokeX + chokeDx - (2 * colony.X + colonyDx)),
 									Math.Abs(2 * chokeY + chokeDy - (2 * colony.Y + colonyDy))));
 			}
+
 			return distance;
 		}
 
@@ -672,6 +678,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 							for (var dx = 0; dx < 2; dx++)
 								blocked[(2 * logicalY + dy) * width + 2 * logicalX + dx] = true;
 					}
+
 			foreach (var colony in map.Actors.Where(a => a.Owner == profile.ColonyOwner))
 			{
 				var anchorX = 2 * colony.LogicalLocation.X;

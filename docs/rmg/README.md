@@ -29,7 +29,7 @@ Mixed terrain boundaries require transition-aware tiling rather than independent
 
 The frozen Generator Version 1 contract is intentionally Clear-only. Because Rock and Vegetation are traversable and Water/shoreline transitions are deferred, obstacle and vegetation densities resolve to zero for the first vertical slice.
 
-Generator Version 2 is governed by the [Phase 4B terrain, mover, and blocking-topology contract](PHASE_4B_TERRAIN_MOVER_TOPOLOGY_CONTRACT.md) and its [Phase 4C implementation record](PHASE_4C_BLOCKING_TOPOLOGY_IMPLEMENTATION.md). It selects homogeneous Water templates as the first real ground blocker, implements macro-aligned route/chokepoint geometry and mover-specific validation, and keeps mixed shoreline transitions out of the first implementation slice. Generator Version 1 remains the default and is identity-stable.
+Generator Version 2 is governed by the [Phase 4B terrain, mover, and blocking-topology contract](PHASE_4B_TERRAIN_MOVER_TOPOLOGY_CONTRACT.md), its [Phase 4C implementation record](PHASE_4C_BLOCKING_TOPOLOGY_IMPLEMENTATION.md), and the [Phase 4D automated verification decision](PHASE_4D_BLOCKING_TOPOLOGY_VERIFICATION.md). It selects homogeneous Water templates as the first real ground blocker, implements macro-aligned route/chokepoint geometry and mover-specific validation, and keeps mixed shoreline transitions out of the first implementation slice. Generator Version 1 remains the default and is identity-stable.
 
 ## Movement validation architecture
 
@@ -134,10 +134,10 @@ powershell -ExecutionPolicy Bypass -File .\scripts\rmg\Invoke-RmgSelfTests.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\rmg\Invoke-BlockingTopologyReferenceMatrix.ps1
 ```
 
-Phase 4C reference maps and reports belong under `artifacts/rmg/phase-4c-blocking-topology/` and stay untracked. The large multi-seed blocking-topology campaign is deferred to Phase 4D.
+Phase 4D verified the complete supported matrix with no accepted invalid map or unresolved automated blocker. The [failure and regression seed register](PHASE_4D_FAILURE_SEEDS.md) records safe rejection classes, while the [manual playtest shortlist](PHASE_4D_MANUAL_PLAYTEST_SEEDS.md) defines the first live gameplay-calibration pass. Generated maps, reports, previews, and campaign corpora remain untracked under `artifacts/rmg/phase-4d-blocking-topology-verification/`.
 
 ## Current implementation boundary
 
 Generator Version 1 implements deterministic settings, independent random streams, symmetry-aware starts, a strategic graph with two start-to-hub routes, widened route reservations, role-scored neutral colonies, symmetric Clear-template materialization, proxy and engine-grounded static movement validation, map lint, quality metrics, repeatability hashes, and repeated save/reload package validation. Its obstacle stage remains a validated zero-density no-op.
 
-Generator Version 2 adds deterministic symmetric Water regions, named route masks, route-local chokepoints for `central-contest`, subtractive bounded repair, exact logical/native passability agreement, mover-specific validation, and durable debug layers. Homogeneous Water creates a known hard visual seam, and wasps intentionally bypass ground blockers. Broad seed fuzzing, live swarm-throughput calibration, shoreline transitions, new archetypes, and UI work remain later phases.
+Generator Version 2 adds deterministic symmetric Water regions, named route masks, route-local chokepoints for `central-contest`, subtractive bounded repair, exact logical/native passability agreement, mover-specific validation, and durable debug layers. Its Phase 4D gate includes broad seed fuzzing, separate-process determinism, package/native validation, and semantic visual previews. Homogeneous Water creates a known hard visual seam, and wasps intentionally bypass ground blockers. Live swarm-throughput calibration, acceptance-rate improvement for dense profiles, shoreline transitions, new archetypes, and UI work remain later phases.

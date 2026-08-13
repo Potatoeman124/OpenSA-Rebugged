@@ -22,11 +22,15 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 {
 	sealed class FuzzRmgMapGeneratorCommand : IUtilityCommand
 	{
+		const int MaximumGateAAttemptMultiplier = 10;
+
 		static readonly IReadOnlyDictionary<int, int[]> ColonyCounts = new Dictionary<int, int[]>
 		{
 			[2] = new[] { 8, 10, 14, 20 },
 			[4] = new[] { 12, 16, 20, 24 }
 		};
+
+		enum RuntimeSampleOutcome { Accepted, Rejected, Failed }
 
 		string IUtilityCommand.Name => "--fuzz-sa-map-generator";
 		bool IUtilityCommand.ValidateArguments(string[] args) => args.Length >= 1;
@@ -53,20 +57,33 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 					.ToList();
 				var failures = new JArray();
 				var failureReasons = new Dictionary<string, int>(StringComparer.Ordinal);
+				var rejections = new JArray();
+				var rejectionReasons = new Dictionary<string, int>(StringComparer.Ordinal);
 				var runtimeSamples = new JArray();
 				var stopwatch = Stopwatch.StartNew();
 				var total = 0;
 				var accepted = 0;
+				var logicalHardInvalidCases = 0;
+				var acceptedHardInvalidCases = 0;
+				var generationExceptionCases = 0;
+				var blockingFailureCases = 0;
 				var maximumMilliseconds = 0L;
 				var worstColonySpread = 0D;
 				var minimumColonySeparation = double.MaxValue;
 				var runtimeSampled = 0;
 				var runtimeAccepted = 0;
+				var runtimeRejected = 0;
 				var proxyFalseNegativeCells = 0L;
 				var proxyFalsePositiveCells = 0L;
 				var topologyResultDisagreements = 0;
 				var overallResultDisagreements = 0;
 				var minimumNativeRouteWidth = int.MaxValue;
+				var caseMilliseconds = new List<double>();
+				var generationMilliseconds = new List<double>();
+				var retryCounts = new List<double>();
+				var repairCounts = new List<double>();
+				var packagePerformance = new List<RmgPackagePerformance>();
+				var forcedBoundaryRuntimeSamples = 0;
 
 				foreach (var selfTestFailure in selfTestFailures)
 					RecordFailure("SELF_TEST", selfTestFailure, null, null);
@@ -77,12 +94,25 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 						foreach (var archetype in Enum.GetValues<RmgArchetype>())
 						{
 							var beforeFailures = failures.Count;
+							var beforeRejections = rejections.Count;
 							var beforeAccepted = accepted;
-							for (var i = 0; i < options.GateACount; i++)
-								RunCase(options.SeedStart + (ulong)i, players, players == 2 ? 10 : 16, symmetry, archetype, "gate-a");
+							var attempted = 0;
+							while (attempted < options.GateACount ||
+								(accepted - beforeAccepted < options.GateACount && attempted < options.GateACount * MaximumGateAAttemptMultiplier))
+							{
+								RunCase(options.SeedStart + (ulong)attempted, players, players == 2 ? 10 : 16,
+									symmetry, archetype, attempted < options.GateACount ? "gate-a" : "gate-a-continuation");
+								attempted++;
+							}
+
+							if (accepted - beforeAccepted < options.GateACount)
+								RecordFailure("GATE_A_ACCEPTANCE",
+									$"Only {accepted - beforeAccepted}/{options.GateACount} required accepted cases were found in {attempted} attempts.",
+									null, null, "gate-a");
 
 							campaignSummaries.Add(CampaignSummary("gate-a", players, players == 2 ? 10 : 16,
-								symmetry, archetype, options.GateACount, beforeAccepted, beforeFailures));
+								symmetry, archetype, attempted, beforeAccepted, beforeFailures, beforeRejections,
+								options.GateACount));
 						}
 
 				var colonyProfile = 0;
@@ -92,16 +122,21 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 							foreach (var archetype in Enum.GetValues<RmgArchetype>())
 							{
 								var beforeFailures = failures.Count;
+								var beforeRejections = rejections.Count;
 								var beforeAccepted = accepted;
 								var profileSeed = options.SeedStart + 1000000UL + (ulong)(colonyProfile++ * options.ColonyCountCampaign);
+								var needsBoundaryRuntimeSample = true;
 								for (var i = 0; i < options.ColonyCountCampaign; i++)
-									RunCase(profileSeed + (ulong)i, players, colonyCount, symmetry, archetype, "colony-count");
+									if (RunCase(profileSeed + (ulong)i, players, colonyCount, symmetry, archetype,
+										"colony-count", needsBoundaryRuntimeSample))
+										needsBoundaryRuntimeSample = false;
 
 								campaignSummaries.Add(CampaignSummary("colony-count", players, colonyCount,
-									symmetry, archetype, options.ColonyCountCampaign, beforeAccepted, beforeFailures));
+									symmetry, archetype, options.ColonyCountCampaign, beforeAccepted, beforeFailures, beforeRejections));
 							}
 
 				var mixedBeforeFailures = failures.Count;
+				var mixedBeforeRejections = rejections.Count;
 				var mixedBeforeAccepted = accepted;
 				var symmetries = Enum.GetValues<RmgSymmetry>();
 				var archetypes = Enum.GetValues<RmgArchetype>();
@@ -118,13 +153,14 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 					["campaign"] = "mixed",
 					["cases"] = options.MixedCount,
 					["accepted"] = accepted - mixedBeforeAccepted,
+					["rejections"] = rejections.Count - mixedBeforeRejections,
 					["failures"] = failures.Count - mixedBeforeFailures
 				});
 
 				stopwatch.Stop();
 				var report = new JObject
 				{
-					["schema_version"] = 2,
+					["schema_version"] = 4,
 					["generator_version"] = profile.GeneratorVersion,
 					["configuration_id"] = profile.ProfileId,
 					["configuration_version"] = profile.ConfigurationVersion,
@@ -139,16 +175,50 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 						ColonyCounts.Select(kv => new JProperty($"{kv.Key}p", new JArray(kv.Value)))),
 					["total_cases"] = total,
 					["accepted_cases"] = accepted,
-					["hard_invalid_cases"] = total - accepted,
+					["unaccepted_cases"] = total - accepted,
+					["expected_generation_rejections"] = rejections.Count,
+					["blocking_failure_cases"] = blockingFailureCases,
+					["logical_hard_invalid_cases"] = logicalHardInvalidCases,
+					["accepted_hard_invalid_cases"] = acceptedHardInvalidCases,
+					["generation_exception_cases"] = generationExceptionCases,
+					["acceptance_rate_percent"] = total == 0 ? 0 : Math.Round(100D * accepted / total, 6),
+					["rejection_rate_percent"] = total == 0 ? 0 : Math.Round(100D * rejections.Count / total, 6),
+					["blocking_failure_rate_percent"] = total == 0 ? 0 : Math.Round(100D * blockingFailureCases / total, 6),
 					["same_seed_hash_mismatches"] = FailureCount("DETERMINISM"),
 					["elapsed_milliseconds"] = stopwatch.ElapsedMilliseconds,
 					["maximum_case_milliseconds"] = maximumMilliseconds,
 					["worst_colony_assignment_spread"] = worstColonySpread,
 					["minimum_colony_separation_logical"] = minimumColonySeparation == double.MaxValue ? null : minimumColonySeparation,
+					["retry_statistics"] = new JObject
+					{
+						["distribution"] = Distribution(retryCounts),
+						["maps_requiring_retry"] = retryCounts.Count(value => value > 0),
+						["rejected_attempts_before_acceptance"] = retryCounts.Sum()
+					},
+					["repair_statistics"] = new JObject
+					{
+						["distribution"] = Distribution(repairCounts),
+						["maps_requiring_repair"] = repairCounts.Count(value => value > 0),
+						["total_repair_operations"] = repairCounts.Sum()
+					},
+					["performance"] = new JObject
+					{
+						["logical_generation_ms"] = Distribution(generationMilliseconds),
+						["complete_fuzz_case_ms"] = Distribution(caseMilliseconds),
+						["package_total_ms"] = Distribution(packagePerformance.Select(value => value.TotalMilliseconds)),
+						["materialization_and_save_ms"] = Distribution(packagePerformance.Select(value => value.MaterializationSaveMilliseconds)),
+						["package_reload_and_metadata_ms"] = Distribution(packagePerformance.Select(value => value.PackageReloadMetadataMilliseconds)),
+						["yaml_lint_ms"] = Distribution(packagePerformance.Select(value => value.YamlLintMilliseconds)),
+						["native_movement_validation_ms"] = Distribution(packagePerformance.Select(value => value.NativeMovementValidationMilliseconds)),
+						["identity_hash_ms"] = Distribution(packagePerformance.Select(value => value.IdentityHashMilliseconds)),
+						["note"] = "Logical generation samples count each deterministic invocation. Package totals include the adapter's internal logical repeatability generation."
+					},
 					["runtime_package_campaign"] = new JObject
 					{
 						["sampled_cases"] = runtimeSampled,
+						["forced_boundary_samples"] = forcedBoundaryRuntimeSamples,
 						["accepted_cases"] = runtimeAccepted,
+						["rejected_candidates"] = runtimeRejected,
 						["package_hash_mismatches"] = FailureCount("PACKAGE_DETERMINISM"),
 						["yaml_lint_failures"] = FailureCount("YAML_LINT"),
 						["proxy_false_negative_cells"] = proxyFalseNegativeCells,
@@ -159,6 +229,8 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 						["samples"] = runtimeSamples
 					},
 					["campaigns"] = campaignSummaries,
+					["rejection_reason_counts"] = new JObject(rejectionReasons.Select(kv => new JProperty(kv.Key, kv.Value))),
+					["rejected_seeds"] = rejections,
 					["failure_reason_counts"] = new JObject(failureReasons.Select(kv => new JProperty(kv.Key, kv.Value))),
 					["failing_seeds"] = failures
 				};
@@ -166,10 +238,12 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				Directory.CreateDirectory(reportDirectory);
 				File.WriteAllText(reportPath, report.ToString(Formatting.Indented) + Environment.NewLine);
 				Console.WriteLine($"RMG fuzz report: {reportPath}");
-				Console.WriteLine($"Accepted {accepted}/{total} generated cases; self-tests: {(selfTestFailures.Count == 0 ? "pass" : "fail")}; package/native samples: {runtimeAccepted}/{runtimeSampled}.");
+				Console.WriteLine($"Accepted {accepted}/{total} generated cases with {rejections.Count} bounded rejections and {blockingFailureCases} blocking case failures; " +
+					$"self-tests: {(selfTestFailures.Count == 0 ? "pass" : "fail")}; package/native samples: {runtimeAccepted}/{runtimeSampled}.");
 				Environment.ExitCode = failures.Count == 0 ? 0 : 4;
 
-				void RunCase(ulong seed, int players, int colonyCount, RmgSymmetry symmetry, RmgArchetype archetype, string campaign)
+				bool RunCase(ulong seed, int players, int colonyCount, RmgSymmetry symmetry, RmgArchetype archetype,
+					string campaign, bool forceRuntimeSample = false)
 				{
 					total++;
 					var settings = new RmgGenerationSettings
@@ -185,41 +259,72 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 					var caseTimer = Stopwatch.StartNew();
 					try
 					{
+						var generationTimer = Stopwatch.StartNew();
 						var first = RmgGenerator.Generate(profile, settings);
+						generationTimer.Stop();
+						generationMilliseconds.Add(generationTimer.Elapsed.TotalMilliseconds);
+						generationTimer.Restart();
 						var second = RmgGenerator.Generate(profile, settings);
+						generationTimer.Stop();
+						generationMilliseconds.Add(generationTimer.Elapsed.TotalMilliseconds);
 						if (first.LogicalHash != second.LogicalHash || first.ActorHash != second.ActorHash || first.GraphHash != second.GraphHash)
 						{
+							blockingFailureCases++;
 							RecordFailure("DETERMINISM", "Same-seed hashes differ.", settings, first, campaign);
-							return;
+							return false;
 						}
 
 						if (!first.Validation.Accepted)
 						{
+							blockingFailureCases++;
+							logicalHardInvalidCases++;
 							foreach (var failure in first.Validation.HardFailures)
 								RecordFailure(failure.Code, failure.Message, settings, first, campaign);
-							return;
+							return false;
 						}
 
-						if (options.RuntimeSampleRate > 0 && total % options.RuntimeSampleRate == 0 &&
-							!RunRuntimeSample(settings, first, campaign))
-							return;
+						retryCounts.Add(first.Map.RetryCount);
+						repairCounts.Add(first.Map.RepairCount);
+						var shouldRunRuntimeSample = options.RuntimeSampleRate > 0 &&
+							(forceRuntimeSample || total % options.RuntimeSampleRate == 0);
+						if (shouldRunRuntimeSample)
+						{
+							var runtimeOutcome = RunRuntimeSample(settings, first, campaign, forceRuntimeSample);
+							if (runtimeOutcome != RuntimeSampleOutcome.Accepted)
+							{
+								if (runtimeOutcome == RuntimeSampleOutcome.Failed)
+									blockingFailureCases++;
+								return false;
+							}
+						}
 
 						accepted++;
 						worstColonySpread = Math.Max(worstColonySpread, first.Validation.Metrics["colony_assignment_spread"]);
 						minimumColonySeparation = Math.Min(minimumColonySeparation, first.Validation.Metrics["minimum_colony_separation_logical"]);
+						return true;
+					}
+					catch (RmgGenerationRejectedException e)
+					{
+						RecordRejection(e.RejectionCode, e.Message, settings, campaign);
+						return false;
 					}
 					catch (Exception e)
 					{
+						blockingFailureCases++;
+						generationExceptionCases++;
 						RecordFailure("EXCEPTION", e.Message, settings, null, campaign);
+						return false;
 					}
 					finally
 					{
 						caseTimer.Stop();
+						caseMilliseconds.Add(caseTimer.Elapsed.TotalMilliseconds);
 						maximumMilliseconds = Math.Max(maximumMilliseconds, caseTimer.ElapsedMilliseconds);
 					}
 				}
 
-				bool RunRuntimeSample(RmgGenerationSettings settings, RmgGenerationResult generation, string campaign)
+				RuntimeSampleOutcome RunRuntimeSample(RmgGenerationSettings settings, RmgGenerationResult generation, string campaign,
+					bool forcedBoundary)
 				{
 					runtimeSampled++;
 					Directory.CreateDirectory(sampleDirectory);
@@ -231,11 +336,13 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 					{
 						var first = OpenRaRmgMapAdapter.GenerateAndSave(utility.ModData, profile, settings, firstPath, true, options.MovementValidationMode);
 						var repeat = OpenRaRmgMapAdapter.GenerateAndSave(utility.ModData, profile, settings, repeatPath, true, options.MovementValidationMode);
+						packagePerformance.Add(first.Performance);
+						packagePerformance.Add(repeat.Performance);
 						if (first.CanonicalMapHash != repeat.CanonicalMapHash || first.EngineUid != repeat.EngineUid)
 						{
 							RecordFailure("PACKAGE_DETERMINISM", "Repeated package UID or canonical map hash differs.", settings, generation, campaign,
 								firstPath, first.NativeMovementValidation);
-							return false;
+							return RuntimeSampleOutcome.Failed;
 						}
 
 						var native = first.NativeMovementValidation;
@@ -243,7 +350,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 						{
 							RecordFailure("NATIVE_VALIDATION_MISSING", "Native movement validation was requested but no result was returned.",
 								settings, generation, campaign, firstPath);
-							return false;
+							return RuntimeSampleOutcome.Failed;
 						}
 
 						if (native != null)
@@ -265,6 +372,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 							["neutral_colonies"] = settings.NeutralColonyCount,
 							["symmetry"] = OpenRaRmgMapAdapter.SymmetryName(settings.Symmetry),
 							["archetype"] = OpenRaRmgMapAdapter.ArchetypeName(settings.Archetype),
+							["forced_boundary_sample"] = forcedBoundary,
 							["logical_hash"] = generation.LogicalHash,
 							["actor_hash"] = generation.ActorHash,
 							["graph_hash"] = generation.GraphHash,
@@ -273,37 +381,42 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 							["yaml_lint"] = "passed",
 							["native_accepted"] = native?.Accepted,
 							["native_minimum_route_width"] = native?.MinimumUsableRouteWidth,
+							["retry_count"] = generation.Map.RetryCount,
+							["repair_count"] = generation.Map.RepairCount,
+							["obstacle_density_percent"] = generation.Validation.Metrics["obstacle_density_percent"],
 							["proxy_false_negative_cells"] = native?.ProxyFalseNegativeCells,
-							["proxy_false_positive_cells"] = native?.ProxyFalsePositiveCells
+							["proxy_false_positive_cells"] = native?.ProxyFalsePositiveCells,
+							["performance"] = first.Performance.ToJson()
 						});
 						runtimeAccepted++;
+						if (forcedBoundary)
+							forcedBoundaryRuntimeSamples++;
 						passed = true;
-						return true;
+						return RuntimeSampleOutcome.Accepted;
 					}
 					catch (RmgPackageValidationException e)
 					{
 						var native = e.Validation.NativeMovementValidation;
-						if (native != null)
+						packagePerformance.Add(e.Validation.Performance);
+						if (e.Validation.YamlLintErrors.Length == 0 && native != null && !native.Accepted)
 						{
-							proxyFalseNegativeCells += native.ProxyFalseNegativeCells;
-							proxyFalsePositiveCells += native.ProxyFalsePositiveCells;
-							if (native.ProxyAccepted != native.NativeStartConnectivityAccepted)
-								topologyResultDisagreements++;
-							if (native.ProxyAccepted != native.Accepted)
-								overallResultDisagreements++;
-							minimumNativeRouteWidth = Math.Min(minimumNativeRouteWidth, native.MinimumUsableRouteWidth);
+							runtimeRejected++;
+							var nativeDebugPath = PreserveFailureMap(settings, stem);
+							RecordNativeRejection("NATIVE_CONFORMANCE", e.Message, settings, generation,
+								campaign, nativeDebugPath, native, e.Validation);
+							return RuntimeSampleOutcome.Rejected;
 						}
 
 						var code = e.Validation.YamlLintErrors.Length > 0 ? "YAML_LINT" : "NATIVE_MOVEMENT";
 						var preservedPath = PreserveFailureMap(settings, stem);
 						RecordFailure(code, e.Message, settings, generation, campaign, preservedPath, native, e.Validation);
-						return false;
+						return RuntimeSampleOutcome.Failed;
 					}
 					catch (Exception e)
 					{
 						var preservedPath = PreserveFailureMap(settings, stem);
 						RecordFailure("RUNTIME_SAMPLE", e.Message, settings, generation, campaign, preservedPath);
-						return false;
+						return RuntimeSampleOutcome.Failed;
 					}
 					finally
 					{
@@ -336,7 +449,8 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				}
 
 				JObject CampaignSummary(string campaign, int players, int colonyCount, RmgSymmetry symmetry,
-					RmgArchetype archetype, int cases, int beforeAccepted, int beforeFailures)
+					RmgArchetype archetype, int cases, int beforeAccepted, int beforeFailures, int beforeRejections,
+					int? requiredAcceptances = null)
 				{
 					return new JObject
 					{
@@ -346,9 +460,50 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 						["symmetry"] = OpenRaRmgMapAdapter.SymmetryName(symmetry),
 						["archetype"] = OpenRaRmgMapAdapter.ArchetypeName(archetype),
 						["cases"] = cases,
+						["initial_consecutive_cases"] = requiredAcceptances,
+						["required_acceptances"] = requiredAcceptances,
 						["accepted"] = accepted - beforeAccepted,
+						["rejections"] = rejections.Count - beforeRejections,
 						["failures"] = failures.Count - beforeFailures
 					};
+				}
+
+				void RecordRejection(string code, string message, RmgGenerationSettings settings, string campaign)
+				{
+					rejectionReasons.TryGetValue(code, out var count);
+					rejectionReasons[code] = count + 1;
+					rejections.Add(new JObject
+					{
+						["campaign"] = campaign,
+						["code"] = code,
+						["message"] = message,
+						["seed"] = settings.Seed.ToString(),
+						["players"] = settings.PlayerCount,
+						["neutral_colonies"] = settings.NeutralColonyCount,
+						["symmetry"] = OpenRaRmgMapAdapter.SymmetryName(settings.Symmetry),
+						["archetype"] = OpenRaRmgMapAdapter.ArchetypeName(settings.Archetype),
+						["topology_preset"] = OpenRaRmgMapAdapter.TopologyName(settings.TopologyPreset),
+						["reproduce"] =
+							$"powershell -ExecutionPolicy Bypass -File .\\scripts\\rmg\\Invoke-MapGenerator.ps1 -Seed {settings.Seed} -Players {settings.PlayerCount} -NeutralColonies {settings.NeutralColonyCount} -Symmetry {OpenRaRmgMapAdapter.SymmetryName(settings.Symmetry)} -Archetype {OpenRaRmgMapAdapter.ArchetypeName(settings.Archetype)} -Topology {OpenRaRmgMapAdapter.TopologyName(settings.TopologyPreset)} -MovementValidation both -Overwrite"
+					});
+				}
+
+				void RecordNativeRejection(string code, string message, RmgGenerationSettings settings,
+					RmgGenerationResult generation, string campaign, string mapPath,
+					RmgNativeMovementValidationResult native, RmgPackageValidationResult package)
+				{
+					RecordRejection(code, message, settings, campaign);
+					var rejection = (JObject)rejections.Last;
+					rejection["logical_hash"] = generation.LogicalHash;
+					rejection["actor_hash"] = generation.ActorHash;
+					rejection["graph_hash"] = generation.GraphHash;
+					rejection["proxy"] = generation.Validation.ToJson();
+					rejection["native"] = native.ToJson();
+					rejection["engine_uid"] = package.EngineUid;
+					rejection["canonical_map_hash"] = package.CanonicalMapHash;
+					rejection["package_validation"] = package.ToJson();
+					if (!string.IsNullOrEmpty(mapPath))
+						rejection["debug_proxy_map_path"] = mapPath;
 				}
 
 				void RecordFailure(string code, string message, RmgGenerationSettings settings, RmgGenerationResult generation,
@@ -401,6 +556,28 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				}
 
 				int FailureCount(string code) => failureReasons.TryGetValue(code, out var count) ? count : 0;
+
+				JObject Distribution(IEnumerable<double> values)
+				{
+					var sorted = values.OrderBy(value => value).ToArray();
+					return new JObject
+					{
+						["samples"] = sorted.Length,
+						["mean"] = sorted.Length == 0 ? null : Math.Round(sorted.Average(), 3),
+						["p95"] = Percentile(sorted, 0.95),
+						["p99"] = Percentile(sorted, 0.99),
+						["maximum"] = sorted.Length == 0 ? null : Math.Round(sorted[^1], 3)
+					};
+				}
+
+				double? Percentile(double[] sorted, double percentile)
+				{
+					if (sorted.Length == 0)
+						return null;
+
+					var index = Math.Max(0, (int)Math.Ceiling(percentile * sorted.Length) - 1);
+					return Math.Round(sorted[index], 3);
+				}
 			}
 			catch (IOException e)
 			{

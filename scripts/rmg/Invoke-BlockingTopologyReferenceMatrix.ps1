@@ -21,18 +21,21 @@ $reportsDirectory = Join-Path $OutputDirectory "reports"
 New-Item -ItemType Directory -Force -Path $mapsDirectory, $reportsDirectory | Out-Null
 
 $cases = @(
-    [pscustomobject]@{ Id = "2p-open-horizontal"; Seed = [UInt64]45001; Players = 2; Archetype = "open"; Symmetry = "horizontal" },
-    [pscustomobject]@{ Id = "2p-open-vertical"; Seed = [UInt64]45002; Players = 2; Archetype = "open"; Symmetry = "vertical" },
-    [pscustomobject]@{ Id = "2p-open-rotational"; Seed = [UInt64]45003; Players = 2; Archetype = "open"; Symmetry = "rotational" },
-    [pscustomobject]@{ Id = "2p-central-horizontal"; Seed = [UInt64]45004; Players = 2; Archetype = "central-contest"; Symmetry = "horizontal" },
-    [pscustomobject]@{ Id = "2p-central-vertical"; Seed = [UInt64]45005; Players = 2; Archetype = "central-contest"; Symmetry = "vertical" },
-    [pscustomobject]@{ Id = "2p-central-rotational"; Seed = [UInt64]45006; Players = 2; Archetype = "central-contest"; Symmetry = "rotational" },
-    [pscustomobject]@{ Id = "4p-open-horizontal"; Seed = [UInt64]43001; Players = 4; Archetype = "open"; Symmetry = "horizontal" },
-    [pscustomobject]@{ Id = "4p-open-vertical"; Seed = [UInt64]43002; Players = 4; Archetype = "open"; Symmetry = "vertical" },
-    [pscustomobject]@{ Id = "4p-open-rotational"; Seed = [UInt64]43003; Players = 4; Archetype = "open"; Symmetry = "rotational" },
-    [pscustomobject]@{ Id = "4p-central-horizontal"; Seed = [UInt64]44001; Players = 4; Archetype = "central-contest"; Symmetry = "horizontal" },
-    [pscustomobject]@{ Id = "4p-central-vertical"; Seed = [UInt64]44002; Players = 4; Archetype = "central-contest"; Symmetry = "vertical" },
-    [pscustomobject]@{ Id = "4p-central-rotational"; Seed = [UInt64]44003; Players = 4; Archetype = "central-contest"; Symmetry = "rotational" }
+    [pscustomobject]@{ Id = "2p-open-horizontal"; Seed = [UInt64]1; Players = 2; Colonies = 10; Archetype = "open"; Symmetry = "horizontal" },
+    [pscustomobject]@{ Id = "2p-open-vertical"; Seed = [UInt64]1; Players = 2; Colonies = 10; Archetype = "open"; Symmetry = "vertical" },
+    [pscustomobject]@{ Id = "2p-open-rotational"; Seed = [UInt64]1; Players = 2; Colonies = 10; Archetype = "open"; Symmetry = "rotational" },
+    [pscustomobject]@{ Id = "2p-central-horizontal"; Seed = [UInt64]1; Players = 2; Colonies = 10; Archetype = "central-contest"; Symmetry = "horizontal" },
+    [pscustomobject]@{ Id = "2p-central-vertical"; Seed = [UInt64]1; Players = 2; Colonies = 10; Archetype = "central-contest"; Symmetry = "vertical" },
+    [pscustomobject]@{ Id = "2p-central-rotational"; Seed = [UInt64]1; Players = 2; Colonies = 10; Archetype = "central-contest"; Symmetry = "rotational" },
+    [pscustomobject]@{ Id = "4p-open-horizontal"; Seed = [UInt64]1; Players = 4; Colonies = 16; Archetype = "open"; Symmetry = "horizontal" },
+    [pscustomobject]@{ Id = "4p-open-vertical"; Seed = [UInt64]1; Players = 4; Colonies = 16; Archetype = "open"; Symmetry = "vertical" },
+    [pscustomobject]@{ Id = "4p-open-rotational"; Seed = [UInt64]1; Players = 4; Colonies = 16; Archetype = "open"; Symmetry = "rotational" },
+    [pscustomobject]@{ Id = "4p-central-horizontal"; Seed = [UInt64]1; Players = 4; Colonies = 16; Archetype = "central-contest"; Symmetry = "horizontal" },
+    [pscustomobject]@{ Id = "4p-central-vertical"; Seed = [UInt64]1; Players = 4; Colonies = 16; Archetype = "central-contest"; Symmetry = "vertical" },
+    [pscustomobject]@{ Id = "4p-central-rotational"; Seed = [UInt64]1; Players = 4; Colonies = 16; Archetype = "central-contest"; Symmetry = "rotational" },
+    [pscustomobject]@{ Id = "phase4d-fixed-vertical-1000046"; Seed = [UInt64]1000046; Players = 4; Colonies = 24; Archetype = "central-contest"; Symmetry = "vertical" },
+    [pscustomobject]@{ Id = "phase4d-fixed-rotational-100012"; Seed = [UInt64]100012; Players = 4; Colonies = 24; Archetype = "central-contest"; Symmetry = "rotational" },
+    [pscustomobject]@{ Id = "phase4d-fixed-rotational-100024"; Seed = [UInt64]100024; Players = 4; Colonies = 24; Archetype = "central-contest"; Symmetry = "rotational" }
 )
 
 $results = @()
@@ -48,6 +51,7 @@ foreach ($matrixCase in $cases)
     $common = @{
         Seed = $matrixCase.Seed
         Players = $matrixCase.Players
+        NeutralColonies = $matrixCase.Colonies
         Archetype = $matrixCase.Archetype
         Symmetry = $matrixCase.Symmetry
         Topology = "mixed"
@@ -110,6 +114,7 @@ foreach ($matrixCase in $cases)
         id = $matrixCase.Id
         seed = $matrixCase.Seed
         players = $matrixCase.Players
+        neutral_colonies = $matrixCase.Colonies
         archetype = $matrixCase.Archetype
         symmetry = $matrixCase.Symmetry
         accepted = $accepted
@@ -118,6 +123,8 @@ foreach ($matrixCase in $cases)
         chokepoint_segments = $actualChokeSegments
         minimum_route_width_native = [int]$primary.movement_validation.native.metrics.minimum_usable_route_width_native
         logical_hash_sha256 = $primary.logical_hash_sha256
+        actor_hash_sha256 = $primary.actor_hash_sha256
+        graph_hash_sha256 = $primary.graph_hash_sha256
         canonical_map_yaml_bin_sha256 = $primary.canonical_map_yaml_bin_sha256
         engine_uid_sha1 = $primary.engine_uid_sha1
         repeat_identity_matches = $identityMatches
@@ -125,7 +132,7 @@ foreach ($matrixCase in $cases)
 }
 
 $summary = [ordered]@{
-    schema_version = "1.0"
+    schema_version = "1.1"
     generator_version = 2
     configuration_id = "normal-water-blocking-v2"
     cases = $results

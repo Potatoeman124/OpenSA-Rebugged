@@ -37,7 +37,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			ExpandColonyJunctions(map, profile, settings);
 			EnforceChokepointRouteCuts(map);
 			foreach (var colony in map.Actors.Where(a => a.Owner == profile.ColonyOwner))
-				ReserveSquare(map.StructureReservations, map, colony.LogicalLocation, 4);
+				ReserveNeutralColonyBlockingClearance(map, colony.LogicalLocation);
 			MarkStrategicRegions(map);
 			GenerateBlockingObstacleStage(map, profile, settings, startingObstacleOrbit);
 			ApplyBlockingRepairs(map, profile);
@@ -55,6 +55,20 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				ActorHash = HashActors(map),
 				GraphHash = HashBlockingGraph(map)
 			};
+		}
+
+		static void ReserveNeutralColonyBlockingClearance(RmgLogicalMap map, RmgPoint anchor)
+		{
+			// All supported neutral colonies use a 6x6 native coverage box anchored at their
+			// serialized location. A 2x2 Water macro-cell first reaches the frozen distance-five
+			// boundary at logical offsets -3 and +5, so reserve the exact intervening envelope.
+			for (var dy = -2; dy <= 4; dy++)
+				for (var dx = -2; dx <= 4; dx++)
+				{
+					var point = new RmgPoint(anchor.X + dx, anchor.Y + dy);
+					if (map.Contains(point))
+						map.StructureReservations[map.Index(point)] = true;
+				}
 		}
 
 		static void EnforceChokepointRouteCuts(RmgLogicalMap map)
@@ -93,7 +107,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 				var from = nodes[edge.From].Location;
 				var to = nodes[edge.To].Location;
-				var path = BuildBlockingCenterline(from, to, edge.RouteId, settings.Symmetry, map).ToArray();
+				var path = BuildBlockingCenterline(from, to, edge.RouteId, settings, map).ToArray();
 				routes.Add(new BlockingRoutePlan(edge.RouteId, path));
 				var partnerEdge = FindSymmetryEdge(map, edge, settings.Symmetry);
 				if (partnerEdge.RouteId != edge.RouteId)
@@ -104,9 +118,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				}
 			}
 
-			// A seven-macro semantic reservation materializes as a major route with native
-			// effective width at least nine after static colony rooms are applied.
-			var logicalRadius = settings.Archetype == RmgArchetype.Open ? 3 : 1;
+			// A five-macro semantic reservation materializes as the contracted major route
+			// width nine. Turns, endpoint shoulders, and colony detours are padded separately.
+			var logicalRadius = settings.Archetype == RmgArchetype.Open ? 2 : 1;
 			foreach (var route in routes.OrderBy(r => r.RouteId))
 				foreach (var point in route.Centerline)
 					for (var dy = -logicalRadius; dy <= logicalRadius; dy++)
@@ -165,11 +179,51 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			return routes;
 		}
 
-		static IEnumerable<RmgPoint> BuildBlockingCenterline(RmgPoint from, RmgPoint to, int routeId, RmgSymmetry symmetry, RmgLogicalMap map)
+		static IEnumerable<RmgPoint> BuildBlockingCenterline(RmgPoint from, RmgPoint to, int routeId,
+			RmgGenerationSettings settings, RmgLogicalMap map)
 		{
 			var hubIndex = routeId % 2;
 			var waypoints = new List<RmgPoint> { from };
-			switch (symmetry)
+			if (settings.Archetype == RmgArchetype.CentralContest && (routeId == 0 || routeId == 4))
+			{
+				// Route zero owns a stable choke-ready shoulder outside every start, colony,
+				// and hub clearance. The second canonical start uses a separated parallel
+				// lane so its route cannot turn that shoulder into a strategic junction.
+				var rotational = settings.Symmetry == RmgSymmetry.Rotate180;
+				var lane = routeId == 0 ? rotational ? 30 : 29 : rotational ? 38 : 37;
+				switch (settings.Symmetry)
+				{
+					case RmgSymmetry.MirrorHorizontal:
+						waypoints.Add(new RmgPoint(lane, from.Y));
+						waypoints.Add(new RmgPoint(lane, to.Y));
+						break;
+					case RmgSymmetry.MirrorVertical:
+						waypoints.Add(new RmgPoint(from.X, lane));
+						waypoints.Add(new RmgPoint(to.X, lane));
+						break;
+					case RmgSymmetry.Rotate180:
+						if (routeId == 0)
+						{
+							// Approach the choke from the start side of its cut, then cross once
+							// between the start and hub. This prevents an alternate segment of the
+							// same named route from being removed by the authored cut.
+							waypoints.Add(new RmgPoint(lane, 18));
+							waypoints.Add(new RmgPoint(lane, to.Y));
+						}
+						else
+						{
+							waypoints.Add(new RmgPoint(lane, from.Y));
+							waypoints.Add(new RmgPoint(lane, to.Y));
+						}
+
+						break;
+				}
+
+				waypoints.Add(to);
+				return RasterizeWaypoints(waypoints);
+			}
+
+			switch (settings.Symmetry)
 			{
 				case RmgSymmetry.MirrorHorizontal:
 				{
@@ -204,6 +258,11 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			}
 
 			waypoints.Add(to);
+			return RasterizeWaypoints(waypoints);
+		}
+
+		static IEnumerable<RmgPoint> RasterizeWaypoints(IReadOnlyList<RmgPoint> waypoints)
+		{
 			var result = new List<RmgPoint>();
 			for (var i = 0; i < waypoints.Count - 1; i++)
 				foreach (var point in RasterizeLine(waypoints[i], waypoints[i + 1]))
@@ -233,21 +292,48 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 		static void ExpandColonyJunctions(RmgLogicalMap map, RmgProfile profile, RmgGenerationSettings settings)
 		{
+			var routesBeforeExpansion = (ulong[])map.RouteMasks.Clone();
+			var expandedJunctions = new HashSet<RmgPoint>();
+			foreach (var start in map.Starts)
+				ExpandOrbit(start);
 			foreach (var colony in map.Actors.Where(a => a.Owner == profile.ColonyOwner))
+				ExpandOrbit(colony.LogicalLocation);
+
+			void ExpandOrbit(RmgPoint center)
+			{
+				if (!expandedJunctions.Add(center))
+					return;
+
+				var partner = Transform(center, settings.Symmetry, map.Width, map.Height);
+				expandedJunctions.Add(partner);
+				var routeMask = RouteMaskNear(center);
+				if (!partner.Equals(center))
+					routeMask |= TransformRouteMask(RouteMaskNear(partner));
+				if (routeMask == 0)
+					return;
+
+				var partnerRouteMask = TransformRouteMask(routeMask);
+				if (partner.Equals(center))
+					Expand(center, routeMask | partnerRouteMask);
+				else
+				{
+					Expand(center, routeMask);
+					Expand(partner, partnerRouteMask);
+				}
+			}
+
+			ulong RouteMaskNear(RmgPoint center)
 			{
 				ulong routeMask = 0;
-				for (var dy = -1; dy <= 3; dy++)
-					for (var dx = -1; dx <= 3; dx++)
+				for (var dy = -2; dy <= 4; dy++)
+					for (var dx = -2; dx <= 4; dx++)
 					{
-						var point = new RmgPoint(colony.LogicalLocation.X + dx, colony.LogicalLocation.Y + dy);
+						var point = new RmgPoint(center.X + dx, center.Y + dy);
 						if (map.Contains(point))
-							routeMask |= map.RouteMasks[map.Index(point)];
+							routeMask |= routesBeforeExpansion[map.Index(point)];
 					}
-				if (routeMask == 0)
-					continue;
-				Expand(colony.LogicalLocation, routeMask);
-				var partner = Transform(colony.LogicalLocation, settings.Symmetry, map.Width, map.Height);
-				Expand(partner, TransformRouteMask(routeMask));
+
+				return routeMask;
 			}
 
 			ulong TransformRouteMask(ulong routeMask)
@@ -261,12 +347,15 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 			void Expand(RmgPoint center, ulong routeMask)
 			{
-				var roomRadius = settings.Archetype == RmgArchetype.Open ? 7 : 6;
-				for (var dy = -roomRadius; dy <= roomRadius; dy++)
-					for (var dx = -roomRadius; dx <= roomRadius; dx++)
+				const int WindowRadius = 9;
+				var routeDilation = settings.Archetype == RmgArchetype.Open ? 4 : 3;
+				for (var dy = -WindowRadius; dy <= WindowRadius; dy++)
+					for (var dx = -WindowRadius; dx <= WindowRadius; dx++)
 					{
 						var point = new RmgPoint(center.X + dx, center.Y + dy);
 						if (!map.Contains(point))
+							continue;
+						if (!RouteWithinDilation(point))
 							continue;
 						var index = map.Index(point);
 						if (map.Obstacles[index])
@@ -278,10 +367,22 @@ namespace OpenRA.Mods.OpenSA.Rmg
 						if (expansionMask == 0)
 							continue;
 						map.RouteMasks[index] |= expansionMask;
-						map.StrategicRegions[index] = true;
 						if (map.RouteIds[index] < 0)
 							map.RouteIds[index] = FirstRoute(expansionMask);
 					}
+
+				bool RouteWithinDilation(RmgPoint point)
+				{
+					for (var nearbyY = point.Y - routeDilation; nearbyY <= point.Y + routeDilation; nearbyY++)
+						for (var nearbyX = point.X - routeDilation; nearbyX <= point.X + routeDilation; nearbyX++)
+						{
+							var nearby = new RmgPoint(nearbyX, nearbyY);
+							if (map.Contains(nearby) && (routesBeforeExpansion[map.Index(nearby)] & routeMask) != 0)
+								return true;
+						}
+
+					return false;
+				}
 			}
 
 			static int DistanceToSegment(RmgPoint point, RmgPoint from, RmgPoint to)
@@ -324,7 +425,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				}
 			}
 
-			throw new InvalidOperationException(
+			throw new RmgGenerationRejectedException("TOPOLOGY_ATTEMPTS_EXHAUSTED",
 				$"Blocking topology exhausted {profile.MaximumTopologyAttempts} deterministic attempts. Last failure: {lastFailure?.Message}",
 				lastFailure);
 		}
@@ -351,8 +452,11 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var colonyRejected = 0;
 			var reservationRejected = 0;
 			var routeOverlapRejected = 0;
+			var routeDiagnostics = new Dictionary<int, int[]>();
 			foreach (var route in routes.OrderBy(r => r.RouteId))
 			{
+				var routeCounts = new int[6];
+				routeDiagnostics.Add(route.RouteId, routeCounts);
 				var edge = map.GraphEdges.Single(e => e.RouteId == route.RouteId);
 				var partnerEdge = FindSymmetryEdge(map, edge, settings.Symmetry);
 				if (route.RouteId > partnerEdge.RouteId)
@@ -370,6 +474,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					if (!horizontal && !vertical)
 						continue;
 					straightCandidates++;
+					routeCounts[0]++;
 					var wallA = new HashSet<RmgPoint>();
 					var wallB = new HashSet<RmgPoint>();
 					var aperture = new HashSet<RmgPoint>();
@@ -416,22 +521,26 @@ namespace OpenRA.Mods.OpenSA.Rmg
 						MinimumDistance(wallB, partnerWallB) < 3)
 					{
 						symmetryRejected++;
+						routeCounts[1]++;
 						continue;
 					}
 					if (GenericStartAnchorDistance(aperture.Concat(partnerAperture), map) < 24)
 					{
 						startRejected++;
+						routeCounts[2]++;
 						continue;
 					}
 					if (GenericColonyCoverageDistance(aperture.Concat(partnerAperture), map, profile) < 10)
 					{
 						colonyRejected++;
+						routeCounts[3]++;
 						continue;
 					}
 					if (walls.Any(p => !map.Contains(p) || map.StartReservations[map.Index(p)] ||
 						map.StructureReservations[map.Index(p)] || map.StrategicRegions[map.Index(p)]))
 					{
 						reservationRejected++;
+						routeCounts[4]++;
 						continue;
 					}
 					var allowedBits = (1UL << route.RouteId) | (1UL << partnerEdge.RouteId);
@@ -439,6 +548,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 						.Any(p => (map.RouteMasks[map.Index(p)] & ~allowedBits) != 0))
 					{
 						routeOverlapRejected++;
+						routeCounts[5]++;
 						continue;
 					}
 
@@ -465,10 +575,15 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				}
 			}
 
-			throw new InvalidOperationException(
+			var routeRejections = string.Join(',', routeDiagnostics.OrderBy(p => p.Key).Select(p =>
+				$"{p.Key}:straight={p.Value[0]}/symmetry={p.Value[1]}/start={p.Value[2]}/colony={p.Value[3]}/reservation={p.Value[4]}/overlap={p.Value[5]}"));
+			throw new RmgGenerationRejectedException("CHOKEPOINT_PLACEMENT",
 				$"No route segment satisfies the frozen chokepoint placement envelope. " +
 				$"straight={straightCandidates}, symmetry={symmetryRejected}, start={startRejected}, colony={colonyRejected}, " +
-				$"reservation={reservationRejected}, route-overlap={routeOverlapRejected}.");
+				$"reservation={reservationRejected}, route-overlap={routeOverlapRejected}. " +
+				$"nodes={string.Join(',', map.GraphNodes.OrderBy(n => n.Id, StringComparer.Ordinal).Select(n => $"{n.Id}:{n.Location}"))}; " +
+				$"routes={string.Join(',', routes.OrderBy(r => r.RouteId).Select(r => $"{r.RouteId}:{r.Centerline.Length}"))}; " +
+				$"route-rejections={routeRejections}.");
 		}
 
 		static void GenerateSymmetricObstacleRegions(RmgLogicalMap map, RmgProfile profile, RmgGenerationSettings settings,
@@ -477,7 +592,10 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var random = DeterministicRandom.ForStream(settings, profile, $"topology-attempt-{attempt}");
 			var target = map.Obstacles.Length * profile.ObstacleDensityTarget(settings.Archetype) / 100;
 			var orbit = startingOrbit;
-			for (var placementAttempt = 0; placementAttempt < 4096 && map.Obstacles.Count(x => x) < target; placementAttempt++)
+			var initiallyEligibleCells = Enumerable.Range(0, map.Obstacles.Length)
+				.Count(index => ObstacleCellEligible(map, new RmgPoint(index % map.Width, index / map.Width)));
+			var compactFallback = attempt == profile.MaximumTopologyAttempts - 1;
+			for (var placementAttempt = 0; !compactFallback && placementAttempt < 4096 && map.Obstacles.Count(x => x) < target; placementAttempt++)
 			{
 				var remaining = target - map.Obstacles.Count(x => x);
 				if (remaining < 2 * profile.ObstacleRegionMinimumLogical)
@@ -502,10 +620,67 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				}
 			}
 
-			var density = 100D * map.Obstacles.Count(x => x) / map.Obstacles.Length;
 			var range = profile.ObstacleDensityRange(settings.Archetype);
+			var minimumTarget = (int)Math.Ceiling(map.Obstacles.Length * range.Minimum / 100D);
+			var fillRandom = DeterministicRandom.ForStream(settings, profile, $"topology-fill-{attempt}");
+			for (var pass = 0; pass < 4 && map.Obstacles.Count(x => x) < minimumTarget; pass++)
+				for (var y = 2; y < map.Height - 2 && map.Obstacles.Count(x => x) < minimumTarget; y++)
+					for (var x = 2; x < map.Width - 2 && map.Obstacles.Count(x => x) < minimumTarget; x++)
+					{
+						var seed = new RmgPoint(x, y);
+						var partner = Transform(seed, settings.Symmetry, map.Width, map.Height);
+						if (!IsCanonical(seed, partner, map.Width) || !ObstacleCellEligible(map, seed) ||
+							!ObstacleCellEligible(map, partner))
+							continue;
+
+						var remaining = minimumTarget - map.Obstacles.Count(x => x);
+						var desired = Math.Max(profile.ObstacleRegionMinimumLogical,
+							Math.Min(compactFallback ? profile.ObstacleRegionMaximumLogical : 16, (remaining + 1) / 2));
+						var region = compactFallback ?
+							GrowCompactRegion(map, settings, seed, desired) :
+							GrowRegion(map, settings, fillRandom, seed, desired);
+						if (region.Count < profile.ObstacleRegionMinimumLogical)
+							continue;
+
+						try
+						{
+							orbit = AddSymmetricRegion(map, settings, region, orbit);
+						}
+						catch (InvalidOperationException)
+						{
+							// Continue the stable scan; all frozen eligibility and connectivity
+							// checks still apply to every deterministic fill candidate.
+						}
+					}
+
+			var density = 100D * map.Obstacles.Count(x => x) / map.Obstacles.Length;
 			if (density < range.Minimum || density > range.Maximum)
-				throw new InvalidOperationException($"Attempt {attempt} produced obstacle density {density:F3}%, outside {range.Minimum}-{range.Maximum}%.");
+				throw new InvalidOperationException($"Attempt {attempt} produced obstacle density {density:F3}%, outside {range.Minimum}-{range.Maximum}%; " +
+					$"initially-eligible={initiallyEligibleCells}, minimum-target={minimumTarget}.");
+		}
+
+		static HashSet<RmgPoint> GrowCompactRegion(RmgLogicalMap map, RmgGenerationSettings settings,
+			RmgPoint seed, int desired)
+		{
+			var region = new HashSet<RmgPoint>();
+			var queued = new HashSet<RmgPoint> { seed };
+			var frontier = new Queue<RmgPoint>();
+			frontier.Enqueue(seed);
+			while (frontier.Count > 0 && region.Count < desired)
+			{
+				var point = frontier.Dequeue();
+				if (!ObstacleCellEligible(map, point))
+					continue;
+				var partner = Transform(point, settings.Symmetry, map.Width, map.Height);
+				if (point == partner || !ObstacleCellEligible(map, partner))
+					continue;
+				region.Add(point);
+				foreach (var neighbor in FourNeighbors(point).OrderBy(p => p.Y).ThenBy(p => p.X))
+					if (map.Contains(neighbor) && queued.Add(neighbor))
+						frontier.Enqueue(neighbor);
+			}
+
+			return region;
 		}
 
 		static HashSet<RmgPoint> GrowRegion(RmgLogicalMap map, RmgGenerationSettings settings, DeterministicRandom random,
@@ -717,10 +892,10 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					Hard("CHOKEPOINT_DIMENSIONS", $"{choke.Id} violates the frozen width/length envelope.");
 				if (map.Starts.Any(s => choke.From.ChebyshevDistance(s) < 12 || choke.To.ChebyshevDistance(s) < 12))
 					Hard("CHOKEPOINT_START_DISTANCE", $"{choke.Id} is less than 24 native cells from a start anchor.");
-				if (map.Actors.Where(a => a.Owner == profile.ColonyOwner).Any(a =>
-					choke.From.ChebyshevDistance(a.LogicalLocation) < 7 || choke.To.ChebyshevDistance(a.LogicalLocation) < 7))
-					Hard("CHOKEPOINT_COLONY_DISTANCE", $"{choke.Id} is too close to a colony anchor for the exact native coverage check.");
 			}
+			foreach (var colony in map.Actors.Where(a => a.Owner == profile.ColonyOwner))
+				if (CandidateChokepointDistance(map, colony.LogicalLocation) < 10)
+					Hard("CHOKEPOINT_COLONY_DISTANCE", $"A chokepoint is less than 10 native cells from colony coverage at {colony.LogicalLocation}.");
 
 			var density = 100D * map.Obstacles.Count(x => x) / map.Obstacles.Length;
 			var densityRange = profile.ObstacleDensityRange(settings.Archetype);

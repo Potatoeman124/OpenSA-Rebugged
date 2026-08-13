@@ -54,6 +54,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public int MinimumChokepointStartDistance { get; init; }
 		public int MinimumChokepointColonyDistance { get; init; }
 		public int MinimumChokepointSeparation { get; init; }
+		public int MinimumBlockedStartCoverageDistance { get; init; }
+		public int MinimumBlockedNeutralColonyCoverageDistance { get; init; }
 		public bool ProxyAccepted { get; init; }
 		public bool NativeStartConnectivityAccepted { get; init; }
 		public int ProxyFalseNegativeCells { get; init; }
@@ -97,7 +99,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					["wasp_support_contract_accepted"] = WaspSupportContractAccepted,
 					["minimum_chokepoint_start_distance_native"] = MinimumChokepointStartDistance,
 					["minimum_chokepoint_colony_distance_native"] = MinimumChokepointColonyDistance,
-					["minimum_chokepoint_separation_native"] = MinimumChokepointSeparation
+					["minimum_chokepoint_separation_native"] = MinimumChokepointSeparation,
+					["minimum_blocked_start_coverage_distance_native"] = MinimumBlockedStartCoverageDistance,
+					["minimum_blocked_neutral_colony_coverage_distance_native"] = MinimumBlockedNeutralColonyCoverageDistance
 				},
 				["starting_colony_actors"] = new JArray(StartingColonyActors),
 				["route_scope"] = RouteScope,
@@ -149,12 +153,14 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 			var withStarts = baseGrid.Clone();
 			var startingBlocked = new HashSet<CPos>();
+			var startingCoverage = new HashSet<CPos>();
 			foreach (var start in generation.Map.Starts)
 			{
 				var nativeStart = OpenRaRmgMapAdapter.ToNative(start, generation.Profile);
 				foreach (var startingUnit in startingUnits)
 				{
 					var footprint = Footprint(map, startingUnit.BaseActor, nativeStart + startingUnit.BaseActorOffset);
+					startingCoverage.UnionWith(footprint.Coverage);
 					startingBlocked.UnionWith(footprint.Blocked);
 				}
 			}
@@ -178,6 +184,12 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 			var colonyTypes = generation.Profile.NeutralColonyActors.ToHashSet(StringComparer.OrdinalIgnoreCase);
 			var colonies = actors.Where(a => colonyTypes.Contains(a.Type)).ToArray();
+			var blockedCells = Enumerable.Range(0, baseGrid.CellCount)
+				.Where(i => string.Equals(baseGrid.Terrain[i], "Water", StringComparison.OrdinalIgnoreCase))
+				.Select(baseGrid.Cell)
+				.ToArray();
+			var blockedStartDistance = MinimumCellSetDistance(blockedCells, startingCoverage);
+			var blockedNeutralColonyDistance = MinimumCellSetDistance(blockedCells, colonies.SelectMany(c => c.Coverage));
 			var reachableColonies = commonComponent < 0 ? 0 : colonies.Count(c =>
 				AccessCells(withStarts, c.Coverage).Any(cell => components.Label(cell) == commonComponent));
 
@@ -206,7 +218,12 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				var widthTargets = generation.Profile.GeneratorVersion >= 2 ?
 					NamedRouteRingCells(routeGrid, generation, edge.RouteId,
 						OpenRaRmgMapAdapter.ToNative(to.Location, generation.Profile), toRadius) : targets;
-				var usableWidth = WidestPathWidth(routeGrid, routeClearance, widthSources, widthTargets);
+				var widthSourceArray = widthSources.Where(routeGrid.IsPassable).Distinct().ToArray();
+				var widthTargetArray = widthTargets.Where(routeGrid.IsPassable).Distinct().ToArray();
+				var sourceMaximumClearance = widthSourceArray.Select(cell => routeClearance[routeGrid.Index(cell)]).DefaultIfEmpty(0).Max();
+				var targetMaximumClearance = widthTargetArray.Select(cell => routeClearance[routeGrid.Index(cell)]).DefaultIfEmpty(0).Max();
+				var usableWidth = WidestPathWidth(routeGrid, routeClearance, widthSourceArray, widthTargetArray);
+				var bottleneckCells = WidestPathBottleneckCells(routeGrid, routeClearance, widthSourceArray, widthTargetArray, usableWidth);
 				var expectedWidth = generation.Profile.MinimumRouteWidthNative;
 				var choke = generation.Map.Chokepoints.FirstOrDefault(c => c.RouteId == edge.RouteId);
 				var measuredWidth = usableWidth;
@@ -247,6 +264,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					["traversable"] = traversable,
 					["widest_path_native"] = measuredWidth,
 					["unconstrained_widest_path_native"] = usableWidth,
+					["source_maximum_width_native"] = sourceMaximumClearance == 0 ? 0 : 2 * sourceMaximumClearance - 1,
+					["target_maximum_width_native"] = targetMaximumClearance == 0 ? 0 : 2 * targetMaximumClearance - 1,
+					["widest_path_bottleneck_cells"] = bottleneckCells,
 					["aperture_width_native"] = choke == null ? null : apertureWidth,
 					["expected_width_native"] = expectedWidth,
 					["contains_intentional_choke"] = choke != null,
@@ -341,6 +361,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				MinimumChokepointStartDistance = chokeDistances.Start,
 				MinimumChokepointColonyDistance = chokeDistances.Colony,
 				MinimumChokepointSeparation = chokeDistances.Separation,
+				MinimumBlockedStartCoverageDistance = blockedStartDistance,
+				MinimumBlockedNeutralColonyCoverageDistance = blockedNeutralColonyDistance,
 				ProxyAccepted = proxyAccepted,
 				NativeStartConnectivityAccepted = nativeStartsAccepted,
 				ProxyFalseNegativeCells = falseNegatives,
@@ -380,6 +402,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				foreach (var detail in semanticMismatchSamples)
 					failureDetails.Add(detail);
 			}
+
 			if (generation.Profile.GeneratorVersion >= 2 && minimumEscapeSectors < 6)
 				Hard("NATIVE_START_EXIT_SECTORS", $"Minimum start exit coverage is {minimumEscapeSectors}/8 sectors at radius 12; required minimum is 6/8.");
 			if (generation.Profile.GeneratorVersion >= 2 && productionExitFailures > 0)
@@ -388,6 +411,11 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				foreach (var detail in productionExitDetails)
 					failureDetails.Add(detail);
 			}
+
+			if (generation.Profile.GeneratorVersion >= 2 && blockedStartDistance < 7)
+				Hard("NATIVE_START_BLOCKER_DISTANCE", $"Minimum Water/start-colony coverage distance is {blockedStartDistance} native cells; required minimum is 7.");
+			if (generation.Profile.GeneratorVersion >= 2 && blockedNeutralColonyDistance < 5)
+				Hard("NATIVE_NEUTRAL_COLONY_BLOCKER_DISTANCE", $"Minimum Water/neutral-colony coverage distance is {blockedNeutralColonyDistance} native cells; required minimum is 5.");
 			if (generation.Profile.GeneratorVersion >= 2 && !waspContractAccepted)
 				Hard("WASP_SUPPORT_CONTRACT", waspContractMessage);
 			if (generation.Profile.GeneratorVersion >= 2 && generation.Map.Chokepoints.Count > 0)
@@ -399,6 +427,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				if (chokeDistances.Separation < 16)
 					Hard("NATIVE_CHOKEPOINT_SEPARATION", $"Minimum chokepoint-segment separation is {chokeDistances.Separation} native cells; required minimum is 16.");
 			}
+
 			if (falsePositives > 0)
 				result.Warnings.Add(new RmgValidationIssue("PROXY_FALSE_POSITIVE_CELLS", $"The legacy proxy marks {falsePositives} engine-blocked cells passable. Native validation remains authoritative."));
 			if (falseNegatives > 0)
@@ -503,6 +532,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					(generation.Map.RouteMasks[generation.Map.Index(logical)] & bit) != 0)
 					result.Add(cell);
 			}
+
 			return result.ToArray();
 		}
 
@@ -672,6 +702,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					message = $"Wasp locomotor does not define {terrain} at speed 100.";
 					return false;
 				}
+
 			if (!wasp.DisableDomainPassabilityCheck || wasp.TransitionCost != 0 || wasp.TransitionTerrainTypes.Count != 0)
 			{
 				message = "Wasp domain or transition semantics drifted from the frozen support-access contract.";
@@ -704,6 +735,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 								generation.Profile.CordonWidth + 2 * logicalX + dx,
 								generation.Profile.CordonWidth + 2 * logicalY + dy));
 				}
+
 				nativeSegments.Add(cells);
 			}
 
@@ -723,6 +755,15 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 		static int ChebyshevDistance(CPos first, CPos second) =>
 			Math.Max(Math.Abs(first.X - second.X), Math.Abs(first.Y - second.Y));
+
+		static int MinimumCellSetDistance(IEnumerable<CPos> first, IEnumerable<CPos> second)
+		{
+			var firstCells = first.ToArray();
+			var secondCells = second.ToArray();
+			if (firstCells.Length == 0 || secondCells.Length == 0)
+				return 0;
+			return firstCells.Min(a => secondCells.Min(b => ChebyshevDistance(a, b)));
+		}
 
 		static Grid BuildGrid(Map map, LocomotorInfo locomotor, out List<ActorFootprint> actors, out int transitOnlyCells)
 		{
@@ -812,6 +853,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 							for (var dx = 0; dx < 2; dx++)
 								passable[(2 * logicalY + dy) * width + 2 * logicalX + dx] = false;
 					}
+
 			foreach (var colony in generation.Map.Actors.Where(a => a.Owner == generation.Profile.ColonyOwner))
 			{
 				var anchorX = 2 * colony.LogicalLocation.X;
@@ -972,6 +1014,84 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				if (CanConnect(grid, sourceArray, targetArray, clearance, minimumClearance))
 					return 2 * minimumClearance - 1;
 			return 0;
+		}
+
+		static JArray WidestPathBottleneckCells(Grid grid, int[] clearance, IEnumerable<CPos> sources,
+			IEnumerable<CPos> targets, int width)
+		{
+			if (width <= 0)
+				return new JArray();
+
+			var minimumClearance = (width + 1) / 2;
+			var targetIndexes = targets.Where(grid.Contains).Select(grid.Index).ToHashSet();
+			var previous = Enumerable.Repeat(-2, grid.CellCount).ToArray();
+			var capacity = new int[grid.CellCount];
+			var queue = new PriorityQueue<int, int>();
+			foreach (var source in sources.Where(grid.Contains).Distinct())
+			{
+				var index = grid.Index(source);
+				if (!grid.Passable[index] || clearance[index] < minimumClearance || clearance[index] <= capacity[index])
+					continue;
+				capacity[index] = clearance[index];
+				previous[index] = -1;
+				queue.Enqueue(index, -capacity[index]);
+			}
+
+			var reached = -1;
+			while (queue.Count > 0 && reached < 0)
+			{
+				queue.TryDequeue(out var currentIndex, out var priority);
+				if (-priority != capacity[currentIndex])
+					continue;
+				if (targetIndexes.Contains(currentIndex))
+				{
+					reached = currentIndex;
+					break;
+				}
+
+				foreach (var neighbor in grid.Neighbors(grid.Cell(currentIndex)))
+				{
+					var index = grid.Index(neighbor);
+					if (!grid.Passable[index] || clearance[index] < minimumClearance)
+						continue;
+					var candidate = Math.Min(capacity[currentIndex], clearance[index]);
+					if (candidate <= capacity[index])
+						continue;
+					capacity[index] = candidate;
+					previous[index] = currentIndex;
+					queue.Enqueue(index, -candidate);
+				}
+			}
+
+			var bottlenecks = new List<CPos>();
+			while (reached >= 0)
+			{
+				if (clearance[reached] == minimumClearance)
+					bottlenecks.Add(grid.Cell(reached));
+				reached = previous[reached];
+			}
+
+			return new JArray(bottlenecks.AsEnumerable().Reverse().Take(16).Select(cell =>
+			{
+				var reasons = new HashSet<string>(StringComparer.Ordinal);
+				for (var dy = -minimumClearance; dy <= minimumClearance; dy++)
+					for (var dx = -minimumClearance; dx <= minimumClearance; dx++)
+					{
+						if (Math.Abs(dx) + Math.Abs(dy) != minimumClearance)
+							continue;
+						var nearby = cell + new CVec(dx, dy);
+						if (!grid.Contains(nearby))
+							reasons.Add("outside-grid");
+						else if (!grid.IsPassable(nearby))
+							reasons.Add(grid.Reasons[grid.Index(nearby)] ?? "blocked");
+					}
+
+				return new JObject
+				{
+					["cell"] = Point(cell),
+					["nearest_blockers"] = new JArray(reasons.OrderBy(reason => reason, StringComparer.Ordinal))
+				};
+			}));
 		}
 
 		static bool CanConnect(Grid grid, IEnumerable<CPos> sources, IEnumerable<CPos> targets, int[] clearance, int minimumClearance)
