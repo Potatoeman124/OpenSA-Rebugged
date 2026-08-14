@@ -121,6 +121,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public int MaximumTopologyAttempts { get; private set; }
 		public int MaximumRepairOperations { get; private set; }
 		public int MaximumRepairCellsLogical { get; private set; }
+		public int ColonyCombatSafetyBufferNative { get; private set; }
+		public RmgColonyCombatRules ColonyCombatRules { get; private set; }
 
 		public int ObstacleDensityTarget(RmgArchetype archetype) =>
 			archetype == RmgArchetype.Open ? OpenObstacleDensityTarget : CentralObstacleDensityTarget;
@@ -182,17 +184,21 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				ObstacleRegionMaximumLogical = GetOptional(nameof(ObstacleRegionMaximumLogical), 0),
 				MaximumTopologyAttempts = GetOptional(nameof(MaximumTopologyAttempts), 0),
 				MaximumRepairOperations = GetOptional(nameof(MaximumRepairOperations), 0),
-				MaximumRepairCellsLogical = GetOptional(nameof(MaximumRepairCellsLogical), 0)
+				MaximumRepairCellsLogical = GetOptional(nameof(MaximumRepairCellsLogical), 0),
+				ColonyCombatSafetyBufferNative = GetOptional(nameof(ColonyCombatSafetyBufferNative), 0)
 			};
 
 			profile.Validate();
+			if (profile.GeneratorVersion >= 2)
+				profile.ColonyCombatRules = RmgColonyCombatRules.Load(modData, profile.NeutralColonyActors,
+					profile.ColonyCombatSafetyBufferNative);
 			return profile;
 		}
 
 		void Validate()
 		{
 			var version1 = ProfileId == "normal-clear-v1" && ConfigurationVersion == 1 && GeneratorVersion == 1;
-			var version2 = ProfileId == "normal-water-blocking-v2" && ConfigurationVersion == 2 && GeneratorVersion == 2;
+			var version2 = ProfileId == "normal-water-blocking-v2" && ConfigurationVersion == 3 && GeneratorVersion == 2;
 			if (!version1 && !version2)
 				throw new InvalidOperationException("Only the frozen normal-clear-v1 and normal-water-blocking-v2 profiles are supported.");
 			if (Tileset != "NORMAL" || PlayableWidth != 128 || PlayableHeight != 128 || CordonWidth != 2 || LogicalWidth != 64 || LogicalHeight != 64)
@@ -206,8 +212,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				OpenObstacleDensityTarget != 12 || OpenObstacleDensityMinimum != 10 || OpenObstacleDensityMaximum != 14 ||
 				CentralObstacleDensityTarget != 16 || CentralObstacleDensityMinimum != 14 || CentralObstacleDensityMaximum != 18 ||
 				ObstacleRegionMinimumLogical != 8 || ObstacleRegionMaximumLogical != 64 || MaximumTopologyAttempts != 4 ||
-				MaximumRepairOperations != 8 || MaximumRepairCellsLogical != 64))
-				throw new InvalidOperationException("The Version 2 blocking-topology constants do not match the frozen Phase 4B contract.");
+				MaximumRepairOperations != 8 || MaximumRepairCellsLogical != 64 || ColonyCombatSafetyBufferNative != 1))
+				throw new InvalidOperationException("The Version 2 blocking-topology or combat-space constants do not match the configuration version 3 contract.");
 		}
 	}
 

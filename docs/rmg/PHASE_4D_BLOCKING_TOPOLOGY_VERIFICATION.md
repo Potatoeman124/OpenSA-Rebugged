@@ -1,12 +1,16 @@
 # Phase 4D blocking-topology verification
 
+> **Post-gate correction:** This document records configuration `normal-water-blocking-v2` version 2. Live testing later found that version 2 could place neutral and player colonies inside turret range and could expose a player's initial production path to neutral fire. Its automated topology result remains valid historical evidence, but its gameplay-readiness verdict is superseded by configuration version 3 and the [combat-space safety contract](COMBAT_SPACE_SAFETY.md). Version 3 passed its five-map manual spawn-safety regression on 2026-08-15 and is the accepted baseline for further development.
+
 ## Decision
 
-Generator Version 2 passes the Phase 4D automated blocking-topology gate for the supported matrix below. The gate found no accepted invalid map, unhandled generation exception, determinism mismatch, package/hash mismatch, lint failure, or unresolved automated blocker.
+Generator Version 2 configuration version 2 passed the Phase 4D automated blocking-topology gate for the supported matrix below. Within that gate's documented scope, it found no accepted invalid map, unhandled generation exception, determinism mismatch, package/hash mismatch, lint failure, or unresolved automated topology blocker.
 
-This decision establishes technical readiness for manual gameplay calibration. It does not claim that route spacing, blocker density, chokepoint feel, or swarm throughput are balanced. In particular, some dense four-player profiles have high bounded-rejection rates and should receive focused gameplay and later acceptance-rate calibration.
+At the time this established technical readiness for manual gameplay calibration. Live gameplay invalidated that readiness conclusion by exposing combat-space behavior that the version 2 gate did not model. Configuration version 3 subsequently added rule-derived combat-space validation, and manual testing confirmed no match-start colony fire across the five regression maps. That result closes the corrective spawn-safety gate.
 
 **CLI BLOCKING TOPOLOGY VERIFIED — READY FOR GAMEPLAY CALIBRATION**
+
+> **The readiness marker above is historical and superseded by configuration version 3.**
 
 ## Supported matrix
 
@@ -153,4 +157,4 @@ powershell -ExecutionPolicy Bypass -File .\scripts\rmg\Invoke-RmgV1Regression.ps
 
 ## Remaining boundary
 
-No automated blocker remains for manual gameplay calibration. Manual testing must still establish live world load, unit throughput, path-choice quality, chokepoint feel, practical colony accessibility, and acceptable visual/gameplay density. Those observations may justify later tuning, but the Phase 4D gate forbids silently weakening technical validity rules to improve subjective acceptance.
+Historical verdict for configuration version 2: no automated topology blocker remained, but live testing found a critical combat-space blocker and superseded its readiness claim. Current verdict: configuration version 3 corrects the automated model, and the five-map manual regression completed on 2026-08-15 confirmed no match-start colony fire. Version 3 is the combat-safe baseline for later RMG development. Technical validity rules must not be weakened merely to improve generation acceptance.

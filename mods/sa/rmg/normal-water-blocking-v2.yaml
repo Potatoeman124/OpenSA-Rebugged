@@ -1,5 +1,5 @@
 ProfileId: normal-water-blocking-v2
-ConfigurationVersion: 2
+ConfigurationVersion: 3
 GeneratorVersion: 2
 Tileset: NORMAL
 PlayableWidth: 128
@@ -32,3 +32,4 @@ ObstacleRegionMaximumLogical: 64
 MaximumTopologyAttempts: 4
 MaximumRepairOperations: 8
 MaximumRepairCellsLogical: 64
+ColonyCombatSafetyBufferNative: 1

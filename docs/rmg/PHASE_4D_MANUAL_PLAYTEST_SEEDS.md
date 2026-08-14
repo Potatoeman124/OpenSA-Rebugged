@@ -1,5 +1,33 @@
 # Phase 4D manual gameplay-calibration seeds
 
+> **Result:** The configuration version 3 corpus passed manual live validation on 2026-08-15. All five maps loaded and played without match-start colony fire. The original configuration version 2 shortlist below is retained as superseded historical evidence.
+
+## Configuration version 3 combat-space corpus
+
+| Seed | Settings | Purpose |
+| ---: | --- | --- |
+| 1000001 | 2P, 8 colonies, horizontal, open | Low-density baseline and original live-failure identity |
+| 1001134 | 4P, 16 colonies, vertical, central-contest | Standard-density central topology and original colony-fire identity |
+| 101368 | 4P, 16 colonies, rotational, central-contest | Rotational central topology and original production-death identity |
+| 1001054 | 4P, 24 colonies, horizontal, open | Maximum-density combat-space stress and original production-death identity |
+| 1001106 | 4P, 16 colonies, vertical, open | Vertical open topology and original colony-fire identity |
+
+All five maps must report `validation.accepted=true`, proxy and native movement acceptance, `maximum_colony_attack_range_native=18`, `colony_combat_safety_buffer_native=1`, and `minimum_colony_combat_margin_native>=0` before installation.
+
+All five installed maps met those automated conditions. Manual testing then confirmed that no player or neutral colony automatically attacked another colony at spawn, closing the critical combat-space validation round.
+
+For each installed map:
+
+1. Start the match and observe for at least 60 seconds without issuing attack orders. No player or neutral colony may automatically fire at another colony.
+2. Test every selectable player faction where practical. Train the cheapest ground unit immediately and watch it travel from the colony to its exit cell. Neutral fire must not hit it on the production path.
+3. Move the trained unit around the starting colony. Nearby neutral turrets must not acquire it before it deliberately approaches their defended area.
+4. Confirm all requested neutral colonies exist and no colony overlaps Water, a chokepoint, or another structure.
+5. Continue normal play long enough to capture or destroy at least one neutral colony and verify the larger spacing has not broken access or route flow.
+
+The old 4P/24 central-contest versions of seeds `1001134` and `101368` are no longer publication targets. They may reject when the complete topology, chokepoint, and combat-space constraints cannot all be satisfied. A bounded rejection is correct; an unsafe installed map is not.
+
+## Historical configuration version 2 shortlist
+
 The Phase 4D automated gate is complete. This shortlist is the first live gameplay pass for Generator Version 2. It emphasizes distinct route shapes, boundary colony counts, central chokepoints, dense four-player construction, and retry-heavy accepted maps.
 
 Generated packages are installed from repository code plus the developer's external original-game assets. No copyrighted assets or generated packages belong in Git.

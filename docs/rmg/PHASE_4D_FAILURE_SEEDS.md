@@ -2,6 +2,24 @@
 
 This register records technically relevant Generator Version 2 seeds discovered during Phase 4D. Generated maps, JSON reports, screenshots, and campaign corpora remain under `artifacts/rmg/phase-4d-blocking-topology-verification/` and are not tracked.
 
+## Post-gate live combat-space failures
+
+Configuration version 2 produced five live gameplay failures that the automated topology gate did not model:
+
+| Seed | Version 2 settings | Live failure |
+| ---: | --- | --- |
+| 1000001 | 2P, 8, horizontal, open | Colonies visibly too close |
+| 1001134 | 4P, 24, vertical, central-contest | Neutral and player colonies attacked at match start |
+| 101368 | 4P, 24, rotational, central-contest | A newly trained player unit died on exit |
+| 1001054 | 4P, 24, horizontal, open | A newly trained player unit died on exit |
+| 1001106 | 4P, 24, vertical, open | Neutral and player colonies attacked at match start |
+
+These findings supersede the version 2 claim that no gameplay-readiness blocker remained. Configuration version 3 derives turret ranges, possible starting colonies, building centers, and production paths from the active ruleset and hard-rejects negative combat margins. See [the combat-space safety contract](COMBAT_SPACE_SAFETY.md).
+
+The version 3 manual corpus reused all five seeds, but used 16 neutral colonies for the two central-contest cases and for seed `1001106`. Seed `1001054` remained a 24-neutral maximum-density open stress case. On 2026-08-15, all five regenerated maps passed live validation with no match-start colony fire. Version 3's 24-neutral central identities may still safely reject instead of publishing an invalid layout.
+
+The water textures in these screenshots also expose the known homogeneous hard shoreline seam. That is deferred aesthetic work and must not be combined with the critical combat-space correction.
+
 All commands assume the repository root and a completed `build-pipeline.cmd validate` run.
 
 ## Safe expected rejections in the final campaign

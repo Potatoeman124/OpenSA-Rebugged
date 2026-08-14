@@ -20,6 +20,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 	public static partial class RmgGenerator
 	{
 		sealed record ColonyRequest(string Role, RmgPoint[] Targets, int TypeGroup);
+		sealed record ColonyOrbitCandidate(RmgPoint[] Orbit, long Score);
 
 		public static IReadOnlyList<string> RunSelfTests(RmgProfile profile)
 		{
@@ -56,6 +57,22 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 			if (profile.GeneratorVersion == 2)
 			{
+				var combatRules = profile.ColonyCombatRules;
+				if (combatRules.MaximumAttackRangeNative != 18 || combatRules.SafetyBufferNative != 1)
+					failures.Add("Combat-space rules did not derive the expected 18-cell maximum turret range and one-cell buffer.");
+
+				var origin = new RmgPoint(10, 10);
+				if (combatRules.CombatSpaceIsSafe("scorpions_colony", origin, "ants_colony", new RmgPoint(19, 10)))
+					failures.Add("Combat-space rules accepted colonies inside the Scorpions turret range plus safety buffer.");
+				if (!combatRules.CombatSpaceIsSafe("scorpions_colony", origin, "ants_colony", new RmgPoint(20, 10)))
+					failures.Add("Combat-space rules rejected colony centers outside both turret envelopes.");
+
+				var start = new RmgPoint(20, 10);
+				if (combatRules.CombatSpaceIsSafeFromAnyStartingActor("scorpions_colony", new RmgPoint(30, 10), start))
+					failures.Add("Combat-space rules accepted a neutral turret covering a possible player's production path.");
+				if (!combatRules.CombatSpaceIsSafeFromAnyStartingActor("scorpions_colony", new RmgPoint(32, 10), start))
+					failures.Add("Combat-space rules rejected a neutral colony beyond every possible player's production envelope.");
+
 				var repairMap = Generate(profile, settings).Map;
 				var reserved = Array.FindIndex(repairMap.RouteMasks, route => route != 0);
 				repairMap.Obstacles[reserved] = true;
@@ -285,24 +302,65 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		static void PlaceColonies(RmgLogicalMap map, RmgProfile profile, RmgGenerationSettings settings,
 			bool allowCentralRouteOverlap = true, int routeClearanceRadius = 2, bool allowAnyRouteOverlap = false)
 		{
-			var random = DeterministicRandom.ForStream(settings, profile, "colonies");
+			const int MaximumSearchNodes = 10000;
+			const int CandidateLimitPerRequest = 64;
+			var initialActorCount = map.Actors.Count;
+			var searchNodes = 0;
+			var exhaustedBudget = false;
 			var requests = BuildColonyRequests(map, settings);
+			var actorTypes = new string[requests.Count];
 			var typeByGroup = new Dictionary<int, string>();
-			foreach (var request in requests)
+			var random = DeterministicRandom.ForStream(settings, profile, "colonies");
+			for (var i = 0; i < requests.Count; i++)
 			{
+				var request = requests[i];
 				if (!typeByGroup.TryGetValue(request.TypeGroup, out var actorType))
 				{
 					actorType = profile.NeutralColonyActors[random.NextInt(profile.NeutralColonyActors.Length)];
 					typeByGroup.Add(request.TypeGroup, actorType);
 				}
 
-				var orbit = SelectColonyOrbit(map, settings, request, random, allowCentralRouteOverlap,
-					routeClearanceRadius, allowAnyRouteOverlap);
-				foreach (var point in orbit)
+				actorTypes[i] = actorType;
+			}
+
+			if (!TryPlaceRequest(0))
+			{
+				map.Actors.RemoveRange(initialActorCount, map.Actors.Count - initialActorCount);
+				throw new RmgGenerationRejectedException("COLONY_PLACEMENT",
+					exhaustedBudget ? $"Unable to place the colony layout within the bounded {MaximumSearchNodes}-node search." :
+					"No combat-safe colony layout satisfies the requested roles and symmetry.");
+			}
+
+			foreach (var actor in map.Actors.Skip(initialActorCount))
+				ReserveSquare(map.StructureReservations, map, actor.LogicalLocation, 2);
+
+			bool TryPlaceRequest(int requestIndex)
+			{
+				if (requestIndex == requests.Count)
+					return true;
+
+				var request = requests[requestIndex];
+				var actorType = actorTypes[requestIndex];
+				var candidates = SelectColonyOrbits(map, profile, settings, request, actorType,
+					allowCentralRouteOverlap, routeClearanceRadius, allowAnyRouteOverlap, CandidateLimitPerRequest);
+				foreach (var orbit in candidates)
 				{
-					map.Actors.Add(new RmgActorPlan(actorType, profile.ColonyOwner, request.Role, point, request.TypeGroup));
-					ReserveSquare(map.StructureReservations, map, point, 2);
+					if (++searchNodes > MaximumSearchNodes)
+					{
+						exhaustedBudget = true;
+						return false;
+					}
+
+					var actorCount = map.Actors.Count;
+					foreach (var point in orbit)
+						map.Actors.Add(new RmgActorPlan(actorType, profile.ColonyOwner, request.Role, point, request.TypeGroup));
+					if (TryPlaceRequest(requestIndex + 1))
+						return true;
+
+					map.Actors.RemoveRange(actorCount, map.Actors.Count - actorCount);
 				}
+
+				return false;
 			}
 		}
 
@@ -321,13 +379,6 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 			var requiredOrbits = settings.NeutralColonyCount / 2;
 			var groupSize = settings.PlayerCount / 2;
-			if (settings.Archetype == RmgArchetype.CentralContest && requests.Count + groupSize <= requiredOrbits)
-			{
-				for (var i = 0; i < groupSize; i++)
-					requests.Add(new ColonyRequest("central-contest", startPairs[i % startPairs.Length], typeGroup));
-				typeGroup++;
-			}
-
 			var roleIndex = 0;
 			while (requests.Count < requiredOrbits)
 			{
@@ -340,27 +391,22 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			return requests;
 		}
 
-		static RmgPoint[] SelectColonyOrbit(RmgLogicalMap map, RmgGenerationSettings settings, ColonyRequest request,
-			DeterministicRandom random, bool allowCentralRouteOverlap, int routeClearanceRadius, bool allowAnyRouteOverlap)
+		static IReadOnlyList<RmgPoint[]> SelectColonyOrbits(RmgLogicalMap map, RmgProfile profile, RmgGenerationSettings settings,
+			ColonyRequest request, string actorType, bool allowCentralRouteOverlap, int routeClearanceRadius,
+			bool allowAnyRouteOverlap, int candidateLimit)
 		{
-			RmgPoint[] best = null;
-			var bestScore = long.MinValue;
-			for (var attempt = 0; attempt < 768; attempt++)
-			{
-				var candidate = new RmgPoint(random.NextInt(7, map.Width - 7), random.NextInt(7, map.Height - 7));
-				Consider(candidate);
-			}
+			var candidates = new List<ColonyOrbitCandidate>();
+			for (var y = 7; y < map.Height - 7; y++)
+				for (var x = 7; x < map.Width - 7; x++)
+					Consider(new RmgPoint(x, y));
 
-			if (best == null)
-				for (var y = 7; y < map.Height - 7; y++)
-					for (var x = 7; x < map.Width - 7; x++)
-						Consider(new RmgPoint(x, y));
-
-			if (best == null)
-				throw new RmgGenerationRejectedException("COLONY_PLACEMENT",
-					$"Unable to place a valid {request.Role} colony orbit.");
-
-			return best;
+			return candidates
+				.OrderByDescending(candidate => candidate.Score)
+				.ThenBy(candidate => candidate.Orbit[0].Y)
+				.ThenBy(candidate => candidate.Orbit[0].X)
+				.Take(candidateLimit)
+				.Select(candidate => candidate.Orbit)
+				.ToArray();
 
 			void Consider(RmgPoint candidate)
 			{
@@ -369,24 +415,21 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					return;
 
 				var orbit = new[] { candidate, transformed };
-				if (request.Role == "central-contest" && orbit.Any(p => p.X < 24 || p.X >= 40 || p.Y < 24 || p.Y >= 40))
-					return;
-				if (request.Targets.Length > 0 && orbit.Any(p => !request.Targets.Contains(NearestStart(map, p))))
+				if (request.Role == "near-start" && request.Targets.Length > 0 && orbit.Any(p => !request.Targets.Contains(NearestStart(map, p))))
 					return;
 				var routeOverlap = allowAnyRouteOverlap || (request.Role == "central-contest" && allowCentralRouteOverlap);
 				var minimumColonySeparation = allowAnyRouteOverlap ? 6 : 5;
-				if (!orbit.All(p => ColonyLocationIsValid(map, p, routeOverlap, routeClearanceRadius, minimumColonySeparation)) ||
-					orbit[0].ChebyshevDistance(orbit[1]) < minimumColonySeparation)
+				var orbitCombatSpaceIsValid = profile.GeneratorVersion >= 2 ?
+					profile.ColonyCombatRules.CombatSpaceIsSafe(actorType, orbit[0], actorType, orbit[1]) :
+					orbit[0].ChebyshevDistance(orbit[1]) >= minimumColonySeparation;
+				if (!orbit.All(p => ColonyLocationIsValid(map, profile, actorType, p, routeOverlap,
+					routeClearanceRadius, minimumColonySeparation)) || !orbitCombatSpaceIsValid)
 					return;
 
-				var score = ColonyScore(map, orbit, request) + random.NextInt(100);
+				var score = ColonyScore(map, orbit, request);
 				if (allowAnyRouteOverlap)
 					score -= 10000000L * orbit.Sum(p => RouteOverlapCells(map, p, routeClearanceRadius));
-				if (score > bestScore)
-				{
-					bestScore = score;
-					best = orbit;
-				}
+				candidates.Add(new ColonyOrbitCandidate(orbit, score));
 			}
 		}
 
@@ -418,10 +461,17 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			return point.Y * width + point.X < transformed.Y * width + transformed.X;
 		}
 
-		static bool ColonyLocationIsValid(RmgLogicalMap map, RmgPoint point, bool allowRouteOverlap,
-			int routeClearanceRadius, int minimumColonySeparation)
+		static bool ColonyLocationIsValid(RmgLogicalMap map, RmgProfile profile, string actorType, RmgPoint point,
+			bool allowRouteOverlap, int routeClearanceRadius, int minimumColonySeparation)
 		{
-			if (!map.Contains(point) || map.Starts.Any(s => s.ChebyshevDistance(point) < 6))
+			if (!map.Contains(point))
+				return false;
+			if (profile.GeneratorVersion >= 2)
+			{
+				if (!ColonyCombatSpaceIsValid(map, profile, actorType, point))
+					return false;
+			}
+			else if (map.Starts.Any(start => start.ChebyshevDistance(point) < 6))
 				return false;
 			if (map.Chokepoints.Count > 0 && CandidateChokepointDistance(map, point) < 10)
 				return false;
@@ -434,7 +484,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 							return false;
 					}
 
-			if (map.Actors.Where(a => a.Role != "start")
+			if (profile.GeneratorVersion < 2 && map.Actors.Where(a => a.Role != "start")
 				.Any(a => a.LogicalLocation.ChebyshevDistance(point) < minimumColonySeparation))
 				return false;
 
@@ -482,10 +532,10 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 			return request.Role switch
 			{
-				"near-start" => -Math.Abs(nearestStart - 16) * 1000L - TargetDistance(orbit, request.Targets) * 50L + nearestExisting * 10L,
-				"central-contest" => -centerDistance * 1000L - TargetDistance(orbit, request.Targets) * 1200L + nearestExisting * 10L,
-				"side-route" => -Math.Abs(centerDistance - 38) * 500L - TargetDistance(orbit, request.Targets) * 400L + nearestExisting * 20L,
-				"peripheral" => -Math.Abs(orbit.Sum(EdgeDistance) - 16) * 500L - TargetDistance(orbit, request.Targets) * 400L + nearestExisting * 20L,
+				"near-start" => -Math.Abs(nearestStart - 16) * 1000L - TargetDistance(orbit, request.Targets) * 50L + nearestExisting * 1000L,
+				"central-contest" => -centerDistance * 1000L - TargetDistance(orbit, request.Targets) * 1200L + nearestExisting * 1000L,
+				"side-route" => -Math.Abs(centerDistance - 38) * 500L - TargetDistance(orbit, request.Targets) * 400L + nearestExisting * 1000L,
+				"peripheral" => -Math.Abs(orbit.Sum(EdgeDistance) - 16) * 500L - TargetDistance(orbit, request.Targets) * 400L + nearestExisting * 1000L,
 				_ => nearestExisting
 			};
 

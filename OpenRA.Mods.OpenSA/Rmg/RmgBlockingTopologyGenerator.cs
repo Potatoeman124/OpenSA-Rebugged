@@ -905,6 +905,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				Hard("REPAIR_BUDGET", "Bounded repairs exceeded the frozen operation or changed-cell budget.");
 
 			var colonies = map.Actors.Where(a => a.Owner == profile.ColonyOwner).ToArray();
+			ValidateColonyCombatSpace(map, profile, report);
 			var assignments = new int[settings.PlayerCount];
 			foreach (var colony in colonies)
 			{
