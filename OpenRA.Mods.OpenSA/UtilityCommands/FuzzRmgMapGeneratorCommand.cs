@@ -37,7 +37,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 
 		[Desc("REPORT.json", "[--seed-start N]", "[--gate-a-count N]", "[--mixed-count N]",
 			"[--colony-count-campaign N]", "[--movement-validation proxy|native|both]",
-			"[--topology off|mixed]", "[--runtime-sample-rate N]", "[--preserve-failures]", "[--overwrite]",
+			"[--topology off|mixed|shoreline]", "[--runtime-sample-rate N]", "[--preserve-failures]", "[--overwrite]",
 			"Run deterministic RMG self-tests, legal colony-count campaigns, and bounded package/native samples.")]
 		void IUtilityCommand.Run(Utility utility, string[] args)
 		{

@@ -32,7 +32,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 	public enum RmgTopologyPreset
 	{
 		Off,
-		Mixed
+		Mixed,
+		Shoreline
 	}
 
 	public readonly struct RmgPoint : IEquatable<RmgPoint>
@@ -123,6 +124,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public int MaximumRepairCellsLogical { get; private set; }
 		public int ColonyCombatSafetyBufferNative { get; private set; }
 		public RmgColonyCombatRules ColonyCombatRules { get; private set; }
+		public bool UsesShorelineMaterialization => GeneratorVersion == 3;
 
 		public int ObstacleDensityTarget(RmgArchetype archetype) =>
 			archetype == RmgArchetype.Open ? OpenObstacleDensityTarget : CentralObstacleDensityTarget;
@@ -131,7 +133,12 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			(CentralObstacleDensityMinimum, CentralObstacleDensityMaximum);
 
 		public static RmgProfile Load(ModData modData, RmgTopologyPreset topologyPreset) =>
-			Load(modData, topologyPreset == RmgTopologyPreset.Mixed ? "sa|rmg/normal-water-blocking-v2.yaml" : "sa|rmg/normal-clear-v1.yaml");
+			Load(modData, topologyPreset switch
+			{
+				RmgTopologyPreset.Mixed => "sa|rmg/normal-water-blocking-v2.yaml",
+				RmgTopologyPreset.Shoreline => "sa|rmg/normal-water-shoreline-v3.yaml",
+				_ => "sa|rmg/normal-clear-v1.yaml"
+			});
 
 		public static RmgProfile Load(ModData modData, string path = "sa|rmg/normal-clear-v1.yaml")
 		{
@@ -199,21 +206,22 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		{
 			var version1 = ProfileId == "normal-clear-v1" && ConfigurationVersion == 1 && GeneratorVersion == 1;
 			var version2 = ProfileId == "normal-water-blocking-v2" && ConfigurationVersion == 3 && GeneratorVersion == 2;
-			if (!version1 && !version2)
-				throw new InvalidOperationException("Only the frozen normal-clear-v1 and normal-water-blocking-v2 profiles are supported.");
+			var version3 = ProfileId == "normal-water-shoreline-v3" && ConfigurationVersion == 1 && GeneratorVersion == 3;
+			if (!version1 && !version2 && !version3)
+				throw new InvalidOperationException("Only the frozen normal-clear-v1, normal-water-blocking-v2, and opt-in normal-water-shoreline-v3 profiles are supported.");
 			if (Tileset != "NORMAL" || PlayableWidth != 128 || PlayableHeight != 128 || CordonWidth != 2 || LogicalWidth != 64 || LogicalHeight != 64)
 				throw new InvalidOperationException("The Version 1 geometry or tileset was changed without a contract revision.");
 			if (version1 && (ObstacleDensity != 0 || VegetationDensity != 0))
 				throw new InvalidOperationException("Version 1 is Clear-only: obstacle and vegetation density must be zero.");
 			if (ClearTemplateIds.Length == 0 || NeutralColonyActors.Length == 0)
 				throw new InvalidOperationException("The RMG profile must declare clear templates and neutral colony actors.");
-			if (version2 && (BlockedTemplateIds.Length == 0 || VegetationDensity != 0 ||
+			if ((version2 || version3) && (BlockedTemplateIds.Length == 0 || VegetationDensity != 0 ||
 				MinimumRouteWidthNative != 5 || MajorRouteWidthNative != 9 || ChokepointWidthNative != 3 ||
 				OpenObstacleDensityTarget != 12 || OpenObstacleDensityMinimum != 10 || OpenObstacleDensityMaximum != 14 ||
 				CentralObstacleDensityTarget != 16 || CentralObstacleDensityMinimum != 14 || CentralObstacleDensityMaximum != 18 ||
 				ObstacleRegionMinimumLogical != 8 || ObstacleRegionMaximumLogical != 64 || MaximumTopologyAttempts != 4 ||
 				MaximumRepairOperations != 8 || MaximumRepairCellsLogical != 64 || ColonyCombatSafetyBufferNative != 1))
-				throw new InvalidOperationException("The Version 2 blocking-topology or combat-space constants do not match the configuration version 3 contract.");
+				throw new InvalidOperationException("The blocking-topology or combat-space constants do not match the accepted contract.");
 		}
 	}
 
@@ -229,6 +237,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public int Width { get; }
 		public int Height { get; }
 		public ushort[] TemplateIds { get; }
+		public RmgNativeTerrainIntent[] NativeTerrainIntents { get; }
+		public RmgShorelineRole[] ShorelineRoles { get; }
+		public int ShorelineUnsupportedNeighborhoodCount { get; set; }
 		public int[] RegionIds { get; }
 		public int[] RouteIds { get; }
 		public bool[] StartReservations { get; }
@@ -254,6 +265,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			Width = width;
 			Height = height;
 			TemplateIds = new ushort[width * height];
+			NativeTerrainIntents = new RmgNativeTerrainIntent[width * height * 4];
+			ShorelineRoles = new RmgShorelineRole[width * height];
 			RegionIds = Enumerable.Repeat(-1, width * height).ToArray();
 			RouteIds = Enumerable.Repeat(-1, width * height).ToArray();
 			StartReservations = new bool[width * height];

@@ -592,12 +592,15 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				for (var logicalX = 0; logicalX < generation.Map.Width; logicalX++)
 				{
 					var logical = new RmgPoint(logicalX, logicalY);
-					var blocked = generation.Map.Obstacles[generation.Map.Index(logical)];
-					var expected = blocked ? "Water" : "Clear";
+					var logicalIndex = generation.Map.Index(logical);
 					for (var dy = 0; dy < 2; dy++)
 						for (var dx = 0; dx < 2; dx++)
 						{
 							var cell = new CPos(grid.Left + 2 * logicalX + dx, grid.Top + 2 * logicalY + dy);
+							var frame = 2 * dy + dx;
+							var expected = generation.Profile.UsesShorelineMaterialization ?
+								generation.Map.NativeTerrainIntents[4 * logicalIndex + frame].ToString() :
+								generation.Map.Obstacles[logicalIndex] ? "Water" : "Clear";
 							var actual = grid.Terrain[grid.Index(cell)];
 							if (string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase))
 								continue;
@@ -847,11 +850,15 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					for (var logicalX = 0; logicalX < generation.Map.Width; logicalX++)
 					{
 						var logical = new RmgPoint(logicalX, logicalY);
-						if (!generation.Map.Obstacles[generation.Map.Index(logical)])
-							continue;
-						for (var dy = 0; dy < 2; dy++)
-							for (var dx = 0; dx < 2; dx++)
-								passable[(2 * logicalY + dy) * width + 2 * logicalX + dx] = false;
+						var logicalIndex = generation.Map.Index(logical);
+						for (var frame = 0; frame < 4; frame++)
+						{
+							var water = generation.Profile.UsesShorelineMaterialization ?
+								generation.Map.NativeTerrainIntents[4 * logicalIndex + frame] == RmgNativeTerrainIntent.Water :
+								generation.Map.Obstacles[logicalIndex];
+							if (water)
+								passable[(2 * logicalY + frame / 2) * width + 2 * logicalX + frame % 2] = false;
+						}
 					}
 
 			foreach (var colony in generation.Map.Actors.Where(a => a.Owner == generation.Profile.ColonyOwner))

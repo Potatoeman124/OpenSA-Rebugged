@@ -29,7 +29,7 @@ Mixed terrain boundaries require transition-aware tiling rather than independent
 
 The frozen Generator Version 1 contract is intentionally Clear-only. Because Rock and Vegetation are traversable and Water/shoreline transitions are deferred, obstacle and vegetation densities resolve to zero for the first vertical slice.
 
-Generator Version 2 is governed by the [Phase 4B terrain, mover, and blocking-topology contract](PHASE_4B_TERRAIN_MOVER_TOPOLOGY_CONTRACT.md), its [Phase 4C implementation record](PHASE_4C_BLOCKING_TOPOLOGY_IMPLEMENTATION.md), the historical [Phase 4D automated verification decision](PHASE_4D_BLOCKING_TOPOLOGY_VERIFICATION.md), and the current [combat-space safety contract](COMBAT_SPACE_SAFETY.md). Configuration version 3 selects homogeneous Water templates as the first real ground blocker, implements macro-aligned route/chokepoint geometry and mover-specific validation, and derives bidirectional colony turret and player production-path clearances from the active ruleset. The [Phase 5A NORMAL terrain-materialization contract](PHASE_5A_NORMAL_TERRAIN_MATERIALIZATION_CONTRACT.md) audits the deferred transition layer and freezes the requirements for an opt-in shoreline implementation. Generator Version 1 remains the default and is identity-stable.
+Generator Version 2 is governed by the [Phase 4B terrain, mover, and blocking-topology contract](PHASE_4B_TERRAIN_MOVER_TOPOLOGY_CONTRACT.md), its [Phase 4C implementation record](PHASE_4C_BLOCKING_TOPOLOGY_IMPLEMENTATION.md), the historical [Phase 4D automated verification decision](PHASE_4D_BLOCKING_TOPOLOGY_VERIFICATION.md), and the current [combat-space safety contract](COMBAT_SPACE_SAFETY.md). Configuration version 3 selects homogeneous Water templates as the first real ground blocker, implements macro-aligned route/chokepoint geometry and mover-specific validation, and derives bidirectional colony turret and player production-path clearances from the active ruleset. The [Phase 5A NORMAL terrain-materialization contract](PHASE_5A_NORMAL_TERRAIN_MATERIALIZATION_CONTRACT.md) audits the deferred transition layer and freezes the requirements for an opt-in shoreline implementation. [Phase 5B](PHASE_5B_NORMAL_SHORELINE_MATERIALIZATION.md) implements that transition catalogue and native-intent-aware materializer as the separate opt-in Generator Version 3 path. Generator Version 1 remains the default and is identity-stable.
 
 ## Movement validation architecture
 
@@ -135,6 +135,16 @@ powershell -ExecutionPolicy Bypass -File .\scripts\rmg\Invoke-BlockingTopologyRe
 ```
 
 Phase 4D verified configuration version 2's topology and native-movement matrix, but subsequent live play found an unmodeled combat-space blocker. Configuration version 3 adds the [combat-space safety contract](COMBAT_SPACE_SAFETY.md); its automated evidence and completed [manual playtest corpus](PHASE_4D_MANUAL_PLAYTEST_SEEDS.md) supersede the earlier gameplay-readiness claim. On 2026-08-15, all five version 3 regression maps passed live spawn-safety validation with no match-start colony fire. The [failure and regression seed register](PHASE_4D_FAILURE_SEEDS.md) preserves the version 2 failures as regression history. Generated maps, reports, previews, and campaign corpora remain untracked.
+
+## Generator Version 3 shoreline usage
+
+Select Version 3 explicitly with `-Topology shoreline`. It retains Version 2 gameplay contracts while materializing audited NORMAL Water edges and corners:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\rmg\Invoke-MapGenerator.ps1 -Seed 51001 -Players 2 -Symmetry horizontal -Archetype open -Topology shoreline -MovementValidation both -InstallForPlay -Overwrite
+```
+
+The map title includes `shoreline`, and reports are written beneath the ignored `artifacts/rmg/phase-5b-shoreline-materialization/` directory. Use `-Topology mixed` for the identity-stable homogeneous-Water Version 2 baseline. See the [Phase 5B implementation record](PHASE_5B_NORMAL_SHORELINE_MATERIALIZATION.md) for the transition catalogue, native-intent contract, automated evidence, and remaining manual gate.
 
 ## Current implementation boundary
 

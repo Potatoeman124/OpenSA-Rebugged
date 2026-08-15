@@ -51,7 +51,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				Profile = profile,
 				Map = map,
 				Validation = validation,
-				LogicalHash = HashBlockingLogicalMap(map),
+				LogicalHash = HashBlockingLogicalMap(map, profile),
 				ActorHash = HashActors(map),
 				GraphHash = HashBlockingGraph(map)
 			};
@@ -607,7 +607,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				if (!IsCanonical(seed, partner, map.Width))
 					continue;
 
-				var region = GrowRegion(map, settings, random, seed, desired);
+				var region = profile.UsesShorelineMaterialization ?
+					GrowShorelineRegion(map, settings, random, seed, desired) :
+					GrowRegion(map, settings, random, seed, desired);
 				if (region.Count < profile.ObstacleRegionMinimumLogical)
 					continue;
 				try
@@ -636,9 +638,11 @@ namespace OpenRA.Mods.OpenSA.Rmg
 						var remaining = minimumTarget - map.Obstacles.Count(x => x);
 						var desired = Math.Max(profile.ObstacleRegionMinimumLogical,
 							Math.Min(compactFallback ? profile.ObstacleRegionMaximumLogical : 16, (remaining + 1) / 2));
-						var region = compactFallback ?
-							GrowCompactRegion(map, settings, seed, desired) :
-							GrowRegion(map, settings, fillRandom, seed, desired);
+						var region = profile.UsesShorelineMaterialization ?
+							GrowShorelineRegion(map, settings, fillRandom, seed, desired) :
+							compactFallback ?
+								GrowCompactRegion(map, settings, seed, desired) :
+								GrowRegion(map, settings, fillRandom, seed, desired);
 						if (region.Count < profile.ObstacleRegionMinimumLogical)
 							continue;
 
@@ -657,6 +661,86 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (density < range.Minimum || density > range.Maximum)
 				throw new InvalidOperationException($"Attempt {attempt} produced obstacle density {density:F3}%, outside {range.Minimum}-{range.Maximum}%; " +
 					$"initially-eligible={initiallyEligibleCells}, minimum-target={minimumTarget}.");
+		}
+
+		static HashSet<RmgPoint> GrowShorelineRegion(RmgLogicalMap map, RmgGenerationSettings settings,
+			DeterministicRandom random, RmgPoint seed, int desired)
+		{
+			// Grow one connected region as overlapping 2x2 blocks, then admit only shapes covered
+			// by the audited NORMAL neighborhood grammar. The frozen v2 grower remains untouched.
+			var desiredArea = desired;
+			var region = new HashSet<RmgPoint>();
+			var queuedBlocks = new HashSet<RmgPoint>();
+			var frontier = new List<RmgPoint>();
+
+			void Queue(RmgPoint topLeft)
+			{
+				if (queuedBlocks.Add(topLeft))
+					frontier.Add(topLeft);
+			}
+
+			Queue(seed);
+			while (frontier.Count > 0 && region.Count < desiredArea)
+			{
+				var selected = random.NextInt(frontier.Count);
+				var topLeft = frontier[selected];
+				frontier.RemoveAt(selected);
+				var block = new[]
+				{
+					new RmgPoint(topLeft.X, topLeft.Y),
+					new RmgPoint(topLeft.X + 1, topLeft.Y),
+					new RmgPoint(topLeft.X, topLeft.Y + 1),
+					new RmgPoint(topLeft.X + 1, topLeft.Y + 1)
+				};
+				var candidate = region.Concat(block).ToHashSet();
+				if (candidate.Count > desired)
+					continue;
+				var transformed = candidate.Select(point => Transform(point, settings.Symmetry, map.Width, map.Height)).ToHashSet();
+				if (candidate.Overlaps(transformed))
+					continue;
+				if (candidate.Any(point =>
+					!ObstacleCellEligible(map, point) ||
+					!ObstacleCellEligible(map, Transform(point, settings.Symmetry, map.Width, map.Height))))
+					continue;
+				if (!ShorelineShapeIsSupported(candidate))
+					continue;
+				region = candidate;
+				Queue(new RmgPoint(topLeft.X - 1, topLeft.Y));
+				Queue(new RmgPoint(topLeft.X + 1, topLeft.Y));
+				Queue(new RmgPoint(topLeft.X, topLeft.Y - 1));
+				Queue(new RmgPoint(topLeft.X, topLeft.Y + 1));
+			}
+
+			return region;
+		}
+
+		static bool ShorelineShapeIsSupported(HashSet<RmgPoint> cells)
+		{
+			foreach (var point in cells)
+			{
+				var cardinalMask = 0;
+				if (!cells.Contains(new RmgPoint(point.X, point.Y - 1)))
+					cardinalMask |= 1;
+				if (!cells.Contains(new RmgPoint(point.X + 1, point.Y)))
+					cardinalMask |= 2;
+				if (!cells.Contains(new RmgPoint(point.X, point.Y + 1)))
+					cardinalMask |= 4;
+				if (!cells.Contains(new RmgPoint(point.X - 1, point.Y)))
+					cardinalMask |= 8;
+				var diagonalClearCount = new[]
+				{
+					new RmgPoint(point.X - 1, point.Y - 1),
+					new RmgPoint(point.X + 1, point.Y - 1),
+					new RmgPoint(point.X + 1, point.Y + 1),
+					new RmgPoint(point.X - 1, point.Y + 1)
+				}.Count(diagonal => !cells.Contains(diagonal));
+				var supported = cardinalMask == 0 ? diagonalClearCount <= 1 :
+					cardinalMask is 1 or 2 or 3 or 4 or 6 or 8 or 9 or 12;
+				if (!supported)
+					return false;
+			}
+
+			return true;
 		}
 
 		static HashSet<RmgPoint> GrowCompactRegion(RmgLogicalMap map, RmgGenerationSettings settings,
@@ -815,6 +899,12 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 		static void MaterializeBlockingTerrain(RmgLogicalMap map, RmgProfile profile, RmgGenerationSettings settings)
 		{
+			if (profile.UsesShorelineMaterialization)
+			{
+				RmgShorelineMaterializer.Materialize(map, profile, settings);
+				return;
+			}
+
 			var random = DeterministicRandom.ForStream(settings, profile, "terrain-variants");
 			for (var y = 0; y < map.Height; y++)
 				for (var x = 0; x < map.Width; x++)
@@ -827,6 +917,10 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					var template = templates[random.NextInt(templates.Length)];
 					map.TemplateIds[map.Index(point)] = template;
 					map.TemplateIds[map.Index(partner)] = template;
+					foreach (var logical in new[] { map.Index(point), map.Index(partner) })
+						for (var frame = 0; frame < 4; frame++)
+							map.NativeTerrainIntents[4 * logical + frame] = map.Obstacles[logical] ?
+								RmgNativeTerrainIntent.Water : RmgNativeTerrainIntent.Clear;
 				}
 		}
 
@@ -836,6 +930,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			void Hard(string code, string message) => report.HardFailures.Add(new RmgValidationIssue(code, message));
 			var openTemplates = profile.ClearTemplateIds.ToHashSet();
 			var blockedTemplates = profile.BlockedTemplateIds.ToHashSet();
+			if (profile.UsesShorelineMaterialization)
+				blockedTemplates.UnionWith(NormalWaterTransitionCatalogue.PermittedTemplateIds);
 			for (var i = 0; i < map.TemplateIds.Length; i++)
 			{
 				if (map.Obstacles[i] != blockedTemplates.Contains(map.TemplateIds[i]))
@@ -846,6 +942,11 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					Hard("RESERVATION_OVERLAP", $"BLOCKED logical cell {i} overlaps a protected semantic layer.");
 				if (map.Obstacles[i] && map.ObstacleRegionIds[i] < 0)
 					Hard("OBSTACLE_REGION_ID", $"BLOCKED logical cell {i} has no canonical region ID.");
+				if (profile.UsesShorelineMaterialization && map.Obstacles[i] &&
+					(map.ShorelineRoles[i] == RmgShorelineRole.None || map.ShorelineRoles[i] == RmgShorelineRole.Unsupported))
+					Hard("TERRAIN_MATERIALIZATION_ROLE", $"BLOCKED logical cell {i} has invalid shoreline role {map.ShorelineRoles[i]}.");
+				if (profile.UsesShorelineMaterialization && !map.Obstacles[i] && map.ShorelineRoles[i] != RmgShorelineRole.None)
+					Hard("TERRAIN_MATERIALIZATION_OPEN_ROLE", $"OPEN logical cell {i} has shoreline role {map.ShorelineRoles[i]}.");
 			}
 
 			for (var y = 0; y < map.Height; y++)
@@ -853,9 +954,13 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				{
 					var point = new RmgPoint(x, y);
 					var partner = Transform(point, settings.Symmetry, map.Width, map.Height);
-					if (map.Obstacles[map.Index(point)] != map.Obstacles[map.Index(partner)] ||
-						map.TemplateIds[map.Index(point)] != map.TemplateIds[map.Index(partner)] ||
-						(map.RouteMasks[map.Index(point)] != 0) != (map.RouteMasks[map.Index(partner)] != 0))
+					var pointIndex = map.Index(point);
+					var partnerIndex = map.Index(partner);
+					var templateSymmetry = map.TemplateIds[pointIndex] == map.TemplateIds[partnerIndex];
+					if (profile.UsesShorelineMaterialization && NormalWaterTransitionCatalogue.TryGet(map.TemplateIds[pointIndex], out var transition))
+						templateSymmetry = map.TemplateIds[partnerIndex] == NormalWaterTransitionCatalogue.Transform(transition.TemplateId, settings.Symmetry);
+					if (map.Obstacles[pointIndex] != map.Obstacles[partnerIndex] || !templateSymmetry ||
+						(map.RouteMasks[pointIndex] != 0) != (map.RouteMasks[partnerIndex] != 0))
 						Hard("TOPOLOGY_SYMMETRY", $"Semantic topology at {point} differs from symmetry partner {partner}.");
 				}
 
@@ -933,6 +1038,15 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			report.Metrics["repair_count"] = map.Repairs.Count;
 			report.Metrics["repair_changed_cells"] = map.RepairChanges.Count(x => x);
 			report.Metrics["retry_count"] = map.RetryCount;
+			if (profile.UsesShorelineMaterialization)
+			{
+				report.Metrics["unsupported_shoreline_neighborhoods"] = map.ShorelineUnsupportedNeighborhoodCount;
+				report.Metrics["shoreline_cell_count"] = map.ShorelineRoles.Count(role => role != RmgShorelineRole.None);
+				report.Metrics["shoreline_transition_cell_count"] = map.ShorelineRoles.Count(role => role != RmgShorelineRole.None && role != RmgShorelineRole.Interior);
+				report.Metrics["native_water_cell_count"] = map.NativeTerrainIntents.Count(intent => intent == RmgNativeTerrainIntent.Water);
+				report.Metrics["native_clear_cell_count"] = map.NativeTerrainIntents.Count(intent => intent == RmgNativeTerrainIntent.Clear);
+			}
+
 			return report;
 
 			RmgPoint IndexPoint(int index) => new(index % map.Width, index / map.Width);
@@ -1045,15 +1159,23 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			return count;
 		}
 
-		static string HashBlockingLogicalMap(RmgLogicalMap map)
+		static string HashBlockingLogicalMap(RmgLogicalMap map, RmgProfile profile)
 		{
 			var text = new StringBuilder();
 			for (var i = 0; i < map.TemplateIds.Length; i++)
+			{
 				text.Append(map.TemplateIds[i]).Append(',').Append(map.RegionIds[i]).Append(',').Append(map.RouteIds[i]).Append(',')
 					.Append(map.RouteMasks[i]).Append(',').Append(map.ObstacleRegionIds[i]).Append(',').Append(map.ChokepointIds[i]).Append(',')
 					.Append(map.StartReservations[i] ? '1' : '0').Append(map.StructureReservations[i] ? '1' : '0')
 					.Append(map.StrategicRegions[i] ? '1' : '0').Append(map.Obstacles[i] ? '1' : '0')
-					.Append(map.RepairChanges[i] ? '1' : '0').Append('\n');
+					.Append(map.RepairChanges[i] ? '1' : '0');
+				if (profile.UsesShorelineMaterialization)
+					text.Append(',').Append(map.ShorelineRoles[i]).Append(',').Append(map.NativeTerrainIntents[4 * i]).Append(',')
+						.Append(map.NativeTerrainIntents[4 * i + 1]).Append(',').Append(map.NativeTerrainIntents[4 * i + 2]).Append(',')
+						.Append(map.NativeTerrainIntents[4 * i + 3]);
+				text.Append('\n');
+			}
+
 			foreach (var repair in map.Repairs)
 				text.Append("R|").Append(repair.Index).Append('|').Append(repair.Type).Append('|').Append(repair.Reason).Append('|')
 					.Append(repair.TargetId).Append('|').Append(string.Join(';', repair.ChangedCells.Select(p => p.ToString()))).Append('\n');
@@ -1073,6 +1195,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		{
 			JArray Layer(Func<int, char> value) => new(Enumerable.Range(0, map.Height)
 				.Select(y => new string(Enumerable.Range(0, map.Width).Select(x => value(y * map.Width + x)).ToArray())));
+			JArray Values(Func<int, JToken> value) => new(Enumerable.Range(0, map.Height)
+				.Select(y => new JArray(Enumerable.Range(0, map.Width).Select(x => value(y * map.Width + x)))));
 			return new JObject
 			{
 				["legend"] = new JObject
@@ -1080,14 +1204,19 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					["topology"] = ". OPEN, # BLOCKED",
 					["routes"] = ". none, R reserved, J strategic junction",
 					["clearances"] = ". none, S start, C colony, B both",
-					["chokes_repairs"] = ". none, K choke aperture, X repaired cell"
+					["chokes_repairs"] = ". none, K choke aperture, X repaired cell",
+					["native_terrain_intent"] = "Per logical cell, four native frames in NW, NE, SW, SE order: C Clear, W Water"
 				},
 				["topology"] = Layer(i => map.Obstacles[i] ? '#' : '.'),
 				["routes"] = Layer(i => map.StrategicRegions[i] ? 'J' : map.RouteMasks[i] != 0 ? 'R' : '.'),
 				["named_routes"] = new JObject(map.GraphEdges.OrderBy(edge => edge.RouteId).Select(edge =>
 					new JProperty(edge.Id, Layer(i => (map.RouteMasks[i] & (1UL << edge.RouteId)) != 0 ? 'R' : '.')))),
 				["clearances"] = Layer(i => map.StartReservations[i] && map.StructureReservations[i] ? 'B' : map.StartReservations[i] ? 'S' : map.StructureReservations[i] ? 'C' : '.'),
-				["chokes_repairs"] = Layer(i => map.RepairChanges[i] ? 'X' : map.ChokepointIds[i] >= 0 ? 'K' : '.')
+				["chokes_repairs"] = Layer(i => map.RepairChanges[i] ? 'X' : map.ChokepointIds[i] >= 0 ? 'K' : '.'),
+				["template_ids"] = Values(i => new JValue(map.TemplateIds[i])),
+				["shoreline_roles"] = Values(i => new JValue(map.ShorelineRoles[i].ToString())),
+				["native_terrain_intent"] = Values(i => new JValue(string.Concat(Enumerable.Range(0, 4)
+					.Select(frame => map.NativeTerrainIntents[4 * i + frame] == RmgNativeTerrainIntent.Water ? 'W' : 'C'))))
 			};
 		}
 	}

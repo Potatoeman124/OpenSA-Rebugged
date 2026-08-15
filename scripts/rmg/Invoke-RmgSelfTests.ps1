@@ -39,4 +39,4 @@ finally
     Pop-Location
 }
 
-Write-Host "Focused V1, V2, and native-validator RMG self-tests passed." -ForegroundColor Green
+Write-Host "Focused V1, V2, V3 shoreline, and native-validator RMG self-tests passed." -ForegroundColor Green

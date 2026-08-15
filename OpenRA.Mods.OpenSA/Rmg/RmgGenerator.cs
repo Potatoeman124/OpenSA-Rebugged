@@ -44,7 +44,12 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				Symmetry = RmgSymmetry.Rotate180,
 				Archetype = RmgArchetype.CentralContest,
 				GeneratorVersion = profile.GeneratorVersion,
-				TopologyPreset = profile.GeneratorVersion == 2 ? RmgTopologyPreset.Mixed : RmgTopologyPreset.Off
+				TopologyPreset = profile.GeneratorVersion switch
+				{
+					2 => RmgTopologyPreset.Mixed,
+					3 => RmgTopologyPreset.Shoreline,
+					_ => RmgTopologyPreset.Off
+				}
 			};
 			var first = Generate(profile, settings);
 			var second = Generate(profile, settings);
@@ -55,8 +60,14 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (Validate(first.Map, profile, settings).Accepted)
 				failures.Add("Hard validator accepted a deliberately invalid terrain template.");
 
-			if (profile.GeneratorVersion == 2)
+			if (profile.GeneratorVersion >= 2)
 			{
+				if (profile.UsesShorelineMaterialization)
+				{
+					failures.AddRange(NormalWaterTransitionCatalogue.RunSelfTests());
+					failures.AddRange(RmgShorelineMaterializer.RunSelfTests());
+				}
+
 				var combatRules = profile.ColonyCombatRules;
 				if (combatRules.MaximumAttackRangeNative != 18 || combatRules.SafetyBufferNative != 1)
 					failures.Add("Combat-space rules did not derive the expected 18-cell maximum turret range and one-cell buffer.");
@@ -114,7 +125,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public static RmgGenerationResult Generate(RmgProfile profile, RmgGenerationSettings settings)
 		{
 			ValidateSettings(profile, settings);
-			if (profile.GeneratorVersion == 2)
+			if (profile.GeneratorVersion >= 2)
 				return GenerateBlockingTopology(profile, settings);
 
 			var map = new RmgLogicalMap(profile.LogicalWidth, profile.LogicalHeight);
@@ -159,6 +170,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				throw new ArgumentException("Generator Version 1 requires TopologyPreset=off.");
 			if (profile.GeneratorVersion == 2 && settings.TopologyPreset != RmgTopologyPreset.Mixed)
 				throw new ArgumentException("Generator Version 2 requires TopologyPreset=mixed.");
+			if (profile.GeneratorVersion == 3 && settings.TopologyPreset != RmgTopologyPreset.Shoreline)
+				throw new ArgumentException("Generator Version 3 requires TopologyPreset=shoreline.");
 			if (settings.PlayerCount != 2 && settings.PlayerCount != 4)
 				throw new ArgumentException($"Generator Version {settings.GeneratorVersion} supports exactly two or four players.");
 			if (settings.PlayerCount == 2 && (settings.NeutralColonyCount < 8 || settings.NeutralColonyCount > 20 || settings.NeutralColonyCount % 2 != 0))
@@ -602,7 +615,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 		static RmgValidationReport Validate(RmgLogicalMap map, RmgProfile profile, RmgGenerationSettings settings)
 		{
-			if (profile.GeneratorVersion == 2)
+			if (profile.GeneratorVersion >= 2)
 				return ValidateBlockingTopology(map, profile, settings);
 
 			var report = new RmgValidationReport();
@@ -722,11 +735,14 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					for (var logicalX = 0; logicalX < map.Width; logicalX++)
 					{
 						var logical = new RmgPoint(logicalX, logicalY);
-						if (!map.Obstacles[map.Index(logical)])
-							continue;
-						for (var dy = 0; dy < 2; dy++)
-							for (var dx = 0; dx < 2; dx++)
-								blocked[(2 * logicalY + dy) * width + 2 * logicalX + dx] = true;
+						var logicalIndex = map.Index(logical);
+						for (var frame = 0; frame < 4; frame++)
+						{
+							var water = profile.UsesShorelineMaterialization ? map.NativeTerrainIntents[4 * logicalIndex + frame] == RmgNativeTerrainIntent.Water :
+								map.Obstacles[logicalIndex];
+							if (water)
+								blocked[(2 * logicalY + frame / 2) * width + 2 * logicalX + frame % 2] = true;
+						}
 					}
 
 			foreach (var colony in map.Actors.Where(a => a.Owner == profile.ColonyOwner))

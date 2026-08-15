@@ -8,7 +8,7 @@ param(
     [int]$RuntimeSampleRate = 100,
     [ValidateSet("proxy", "native", "both")]
     [string]$MovementValidation = "both",
-    [ValidateSet("off", "mixed")]
+    [ValidateSet("off", "mixed", "shoreline")]
     [string]$Topology = "off",
     [switch]$PreserveFailures,
     [switch]$Overwrite
@@ -22,7 +22,7 @@ $dotnetRoot = Join-Path $root ".tools\dotnet"
 
 if ([string]::IsNullOrWhiteSpace($ReportPath))
 {
-    $phase = if ($Topology -eq "mixed") { "phase-4c-blocking-topology" } else { "phase-4a-native-movement-validation" }
+    $phase = if ($Topology -eq "shoreline") { "phase-5b-shoreline-materialization" } elseif ($Topology -eq "mixed") { "phase-4c-blocking-topology" } else { "phase-4a-native-movement-validation" }
     $ReportPath = Join-Path $root "artifacts\rmg\$phase\campaign\bounded-reference.json"
 }
 elseif (![System.IO.Path]::IsPathRooted($ReportPath))

@@ -22,7 +22,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 		string IUtilityCommand.Name => "--generate-sa-map";
 		bool IUtilityCommand.ValidateArguments(string[] args) => args.Length >= 1;
 
-		[Desc("OUTPUT.oramap", "--seed N", "[--players 2|4]", "[--symmetry horizontal|vertical|rotational]", "[--archetype open|central-contest]", "[--topology off|mixed]", "[--neutral-colonies N]", "[--movement-validation proxy|native|both]", "[--report FILE]", "[--overwrite]", "Generate a deterministic OpenSA skirmish map. Topology defaults to the frozen Clear-only V1 path.")]
+		[Desc("OUTPUT.oramap", "--seed N", "[--players 2|4]", "[--symmetry horizontal|vertical|rotational]", "[--archetype open|central-contest]", "[--topology off|mixed|shoreline]", "[--neutral-colonies N]", "[--movement-validation proxy|native|both]", "[--report FILE]", "[--overwrite]", "Generate a deterministic OpenSA skirmish map. Topology defaults to the frozen Clear-only V1 path.")]
 		void IUtilityCommand.Run(Utility utility, string[] args)
 		{
 			try
@@ -114,7 +114,12 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			var players = ParseInt(values, "--players", 2);
 			var colonies = ParseInt(values, "--neutral-colonies", players == 2 ? 10 : 16);
 			var topology = ParseTopology(values.TryGetValue("--topology", out var topologyValue) ? topologyValue : "off");
-			var generatorVersion = topology == RmgTopologyPreset.Mixed ? 2 : 1;
+			var generatorVersion = topology switch
+			{
+				RmgTopologyPreset.Mixed => 2,
+				RmgTopologyPreset.Shoreline => 3,
+				_ => 1
+			};
 			if (values.TryGetValue("--generator-version", out var versionText) &&
 				(!int.TryParse(versionText, out var requestedVersion) || requestedVersion != generatorVersion))
 				throw new ArgumentException($"--generator-version must be {generatorVersion} when --topology is {TopologyName(topology)}.");
@@ -170,13 +175,15 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 		{
 			"off" => RmgTopologyPreset.Off,
 			"mixed" => RmgTopologyPreset.Mixed,
-			_ => throw new ArgumentException("Topology must be off or mixed.")
+			"shoreline" => RmgTopologyPreset.Shoreline,
+			_ => throw new ArgumentException("Topology must be off, mixed, or shoreline.")
 		};
 
 		public static string TopologyName(RmgTopologyPreset value) => value switch
 		{
 			RmgTopologyPreset.Off => "off",
 			RmgTopologyPreset.Mixed => "mixed",
+			RmgTopologyPreset.Shoreline => "shoreline",
 			_ => throw new ArgumentOutOfRangeException(nameof(value))
 		};
 

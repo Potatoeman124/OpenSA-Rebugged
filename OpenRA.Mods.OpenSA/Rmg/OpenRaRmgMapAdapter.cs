@@ -189,6 +189,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			ValidateTemplates(profile.ClearTemplateIds, "Clear");
 			if (profile.GeneratorVersion >= 2)
 				ValidateTemplates(profile.BlockedTemplateIds, "Water");
+			if (profile.UsesShorelineMaterialization)
+				foreach (var transition in NormalWaterTransitionCatalogue.Entries)
+					ValidateTransition(transition);
 
 			void ValidateTemplates(IEnumerable<ushort> templateIds, string expectedTerrain)
 			{
@@ -208,6 +211,23 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				}
 			}
 
+			void ValidateTransition(NormalWaterTransition transition)
+			{
+				if (!templated.Templates.TryGetValue(transition.TemplateId, out var template))
+					throw new InvalidDataException($"Audited NORMAL transition {transition.TemplateId} does not exist in the active tileset.");
+				if (template.Size.X != 2 || template.Size.Y != 2 || template.TilesCount != 4)
+					throw new InvalidDataException($"Audited NORMAL transition {transition.TemplateId} is not a complete 2x2 macro template.");
+
+				for (var frame = 0; frame < 4; frame++)
+				{
+					var tile = template[frame];
+					var expected = transition.NativeTerrain[frame].ToString();
+					var actual = tile == null ? "missing" : terrainInfo.TerrainTypes[tile.TerrainType].Type;
+					if (!string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase))
+						throw new InvalidDataException($"Audited NORMAL transition {transition.TemplateId}, frame {frame} is {actual}; expected {expected}.");
+				}
+			}
+
 			foreach (var actor in profile.NeutralColonyActors.Append(profile.SpawnActor))
 				if (!modData.DefaultRules.Actors.ContainsKey(actor))
 					throw new InvalidDataException($"Configured RMG actor '{actor}' is not defined by the mod rules.");
@@ -224,7 +244,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				RequiresMod = modData.Manifest.Id,
 				Title = generation.Profile.GeneratorVersion == 1 ?
 					$"OpenSA RMG {ArchetypeName(generation.Settings.Archetype)} {generation.Settings.Seed}" :
-					$"OpenSA RMG {ArchetypeName(generation.Settings.Archetype)} mixed {generation.Settings.Seed}",
+					$"OpenSA RMG {ArchetypeName(generation.Settings.Archetype)} {TopologyName(generation.Settings.TopologyPreset)} {generation.Settings.Seed}",
 				Author = $"OpenSA RMG v{generation.Settings.GeneratorVersion}",
 				Visibility = MapVisibility.Lobby,
 				Categories = new[] { "Conquest" }
@@ -295,16 +315,20 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				for (var logicalX = 0; logicalX < profile.LogicalWidth; logicalX++)
 				{
 					var logical = new RmgPoint(logicalX, logicalY);
-					var expectedTerrain = generation.Map.Obstacles[generation.Map.Index(logical)] ? "Water" : "Clear";
+					var logicalIndex = generation.Map.Index(logical);
 					for (var dy = 0; dy < 2; dy++)
 						for (var dx = 0; dx < 2; dx++)
 						{
 							var cell = new CPos(profile.CordonWidth + 2 * logicalX + dx, profile.CordonWidth + 2 * logicalY + dy);
+							var frame = 2 * dy + dx;
+							var expectedTerrain = profile.UsesShorelineMaterialization ?
+								generation.Map.NativeTerrainIntents[4 * logicalIndex + frame].ToString() :
+								generation.Map.Obstacles[logicalIndex] ? "Water" : "Clear";
 							var actualTerrain = reloaded.GetTerrainInfo(cell).Type;
 							if (!string.Equals(actualTerrain, expectedTerrain, StringComparison.OrdinalIgnoreCase))
-								throw new InvalidDataException($"Reloaded native cell {cell} is {actualTerrain}; logical topology requires {expectedTerrain}.");
+								throw new InvalidDataException($"Reloaded native cell {cell} is {actualTerrain}; native terrain intent requires {expectedTerrain}.");
 							if (reloaded.Height[cell] != 0)
-								throw new InvalidDataException($"Reloaded native cell {cell} has height {reloaded.Height[cell]}; Version 2 requires height zero.");
+								throw new InvalidDataException($"Reloaded native cell {cell} has height {reloaded.Height[cell]}; the RMG contract requires height zero.");
 						}
 				}
 
@@ -394,7 +418,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var settings = generation.Settings;
 			return new JObject
 			{
-				["schema_version"] = generation.Profile.GeneratorVersion >= 2 ? 3 : 2,
+				["schema_version"] = generation.Profile.GeneratorVersion >= 3 ? 4 : generation.Profile.GeneratorVersion >= 2 ? 3 : 2,
 				["generator_version"] = settings.GeneratorVersion,
 				["configuration_id"] = generation.Profile.ProfileId,
 				["configuration_version"] = generation.Profile.ConfigurationVersion,
@@ -410,15 +434,29 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				["graph_hash_sha256"] = generation.GraphHash,
 				["canonical_map_yaml_bin_sha256"] = packageValidation.CanonicalMapHash,
 				["engine_uid_sha1"] = packageValidation.EngineUid,
-				["obstacle_stage"] = generation.Profile.GeneratorVersion == 1 ? "validated-zero-density-no-op" : "normal-water-blocking-v2",
+				["obstacle_stage"] = generation.Profile.GeneratorVersion switch
+				{
+					1 => "validated-zero-density-no-op",
+					2 => "normal-water-blocking-v2",
+					_ => "normal-water-shoreline-v3"
+				},
 				["blocking_topology"] = generation.Profile.GeneratorVersion == 1 ? null : new JObject
 				{
 					["enabled"] = true,
 					["obstacle_density_percent"] = generation.Validation.Metrics["obstacle_density_percent"],
 					["chokepoint_frequency"] = settings.Archetype == RmgArchetype.CentralContest ? "one-symmetry-orbit" : "none",
 					["route_openness"] = settings.Archetype == RmgArchetype.Open ? "major" : "normal-with-route-constriction",
-					["shoreline_mode"] = "homogeneous-hard-seam-v1",
-					["visual_shoreline_complete"] = false,
+					["shoreline_mode"] = generation.Profile.UsesShorelineMaterialization ? "normal-transition-catalogue-v1" : "homogeneous-hard-seam-v1",
+					["visual_shoreline_complete"] = generation.Profile.UsesShorelineMaterialization,
+					["unsupported_shoreline_neighborhoods"] = generation.Profile.UsesShorelineMaterialization ? generation.Map.ShorelineUnsupportedNeighborhoodCount : null,
+					["shoreline_role_counts"] = generation.Profile.UsesShorelineMaterialization ? new JObject(generation.Map.ShorelineRoles
+						.Where(role => role != RmgShorelineRole.None).GroupBy(role => role).OrderBy(group => group.Key)
+						.Select(group => new JProperty(group.Key.ToString(), group.Count()))) : null,
+					["water_template_usage"] = generation.Profile.UsesShorelineMaterialization ? new JObject(generation.Map.TemplateIds
+						.Where((template, index) => generation.Map.Obstacles[index]).GroupBy(template => template).OrderBy(group => group.Key)
+						.Select(group => new JProperty(group.Key.ToString(), group.Count()))) : null,
+					["native_water_cells"] = generation.Profile.UsesShorelineMaterialization ? generation.Map.NativeTerrainIntents.Count(intent => intent == RmgNativeTerrainIntent.Water) : null,
+					["native_clear_cells"] = generation.Profile.UsesShorelineMaterialization ? generation.Map.NativeTerrainIntents.Count(intent => intent == RmgNativeTerrainIntent.Clear) : null,
 					["repair_log"] = new JArray(generation.Map.Repairs.Select(repair => new JObject
 					{
 						["index"] = repair.Index,
@@ -477,6 +515,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		{
 			RmgTopologyPreset.Off => "off",
 			RmgTopologyPreset.Mixed => "mixed",
+			RmgTopologyPreset.Shoreline => "shoreline",
 			_ => throw new ArgumentOutOfRangeException(nameof(topology))
 		};
 	}
