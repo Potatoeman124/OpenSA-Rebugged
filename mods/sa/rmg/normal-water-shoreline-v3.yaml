@@ -15,6 +15,9 @@ ChokepointLengthMaximumNative: 12
 StartRegionRadiusNative: 12
 ClearTemplateIds: 32, 33, 34, 35, 36
 BlockedTemplateIds: 9, 12, 26, 28, 29
+OpenWaterDetailTemplateIds: 24, 25, 27
+ShorelineDecorationPercent: 16
+OpenWaterDetailPercent: 8
 NeutralColonyActors: ants_colony, beetles_colony, scorpions_colony, spiders_colony, wasps_colony
 SpawnActor: mpspawn
 SpawnOwner: Neutral

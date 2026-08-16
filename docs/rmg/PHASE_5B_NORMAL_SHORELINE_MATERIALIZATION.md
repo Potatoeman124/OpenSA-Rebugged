@@ -1,6 +1,6 @@
 # Phase 5B: NORMAL Shoreline Materialization
 
-Status: implemented as an opt-in Generator Version 3 path; automated gates pass; manual visual/play validation remains the release gate.
+Status: implemented as an opt-in Generator Version 3 path; automated gates pass; manual validation of the post-review visual-density refinement remains the release gate.
 
 ## Purpose and compatibility boundary
 
@@ -37,7 +37,9 @@ Permitted fixed templates are:
 | Inner corner southeast | 6 | 22 |
 | Inner corner southwest | 7 | 23 |
 
-Water interior variation remains restricted to the profile's homogeneous `PickAny` templates `9`, `12`, `26`, `28`, and `29`. Fixed detail templates `24`, `25`, and `27` are audited but deliberately excluded from procedural placement because they have no structural shoreline role.
+Water interior base variation uses the profile's homogeneous `PickAny` templates `9`, `12`, `26`, `28`, and `29`.
+
+Fixed detail templates `24`, `25`, and `27` depict a small island, scattered rocks, and a dead tree. They remain all-Water in native terrain semantics and are selected only for eight percent of interior Water cells, so they add authored-style open-Water texture without changing ground movement.
 
 At startup, the adapter verifies that every catalogue entry exists in the active NORMAL tileset, is a complete 2x2 template, and has the audited per-frame terrain semantics. A mismatch is a hard failure.
 
@@ -56,7 +58,9 @@ After topology and bounded repair, `RmgShorelineMaterializer` classifies every W
 
 Opposite-edge, three-sided, four-sided, and multiple-inner-corner neighborhoods are unsupported. Their presence rejects generation with `TERRAIN_MATERIALIZATION_UNSUPPORTED_NEIGHBORHOOD`; no fallback hard seam is emitted.
 
-Clear, Water-interior, and shoreline variants use separate deterministic streams. A symmetry partner receives the catalogue's transformed template rather than an identical unrotated template. Adjacent logical cells must expose matching visual edge signatures after assignment.
+Clear, Water-interior, and shoreline variants use separate deterministic streams. The five vegetation-bearing shoreline templates are explicitly tagged and selected at a 16-percent target; other shoreline variants remain plain. The target comes from 614 decorated versus 3,241 plain straight-shore stamps in the authored NORMAL corpus.
+
+Symmetry partners retain transformed shoreline roles, native terrain masks, and compatible edge signatures, but sample cosmetic variants independently. This preserves topology and passability symmetry while avoiding repeated decoration bands. Adjacent logical cells must still expose matching visual edge signatures after assignment.
 
 ## Native movement authority
 
@@ -72,7 +76,7 @@ The following gates consume native intent:
 
 Reload validation additionally uses the engine's active terrain data, and the native movement validator remains authoritative for ground reachability, route width, starting-colony exits, and static actor footprints.
 
-Reports use schema version 4 and include role counts, Water template usage, Clear/Water native-cell counts, unsupported-neighborhood count, template ID grids, shoreline role grids, and four-frame native-intent grids.
+Reports use schema version 4 and include role counts, Water template usage, configured visual-density targets, actual shoreline-decoration and open-Water-detail counts, Clear/Water native-cell counts, unsupported-neighborhood count, template ID grids, shoreline role grids, and four-frame native-intent grids.
 
 ## Automated evidence
 
@@ -86,9 +90,17 @@ The bounded Phase 5B cross-product campaign passed with:
 - zero package-hash mismatches, YAML lint failures, topology-result disagreements, or overall proxy/native result disagreements; and
 - minimum native route width 3, matching the intentional central chokepoint contract.
 
-The passing campaign report is generated under `artifacts/rmg/phase-5b-shoreline-materialization/` and remains untracked.
+After manual review identified excessive systematic shoreline vegetation and empty Water interiors, the final visual-refinement campaign passed with:
+
+- 69 generated candidates, 52 accepted and 17 typed bounded rejections;
+- zero blocking case failures; and
+- 36/36 package, reload, lint, and native-movement samples accepted.
+
+Passing campaign reports are generated under `artifacts/rmg/phase-5b-shoreline-materialization/` and remain untracked.
 
 Five accepted Version 2 combat-regression identities were regenerated after the Version 3 implementation. Seeds `1000001`, `1001134`, `101368`, `1001054`, and `1001106` matched their pre-Phase-5B logical, actor, graph, canonical-package, and OpenRA UID hashes exactly.
+
+After the visual-density refinement, seed `1000001` was regenerated again and retained all five frozen Version 2 identities exactly. The Version 3 configuration identity remained unchanged so the cosmetic refinement did not reseed topology, colony placement, or combat-space streams.
 
 ## Usage
 
@@ -119,4 +131,6 @@ Omitting `-Topology shoreline` continues to select the frozen Clear-only Version
 
 ## Remaining gate
 
-Manual validation must confirm that transition tiles render as coherent coastlines at gameplay zoom, preserve the expected ground blocking in live matches, and do not introduce visual orientation errors under any supported symmetry. Texture decoration, land-detail variation, vegetation, Rock transitions, irregular authored-style coastlines, and broader layout redesign remain outside Phase 5B.
+Manual validation must confirm that transition tiles remain coherent, shoreline vegetation now appears sparse and irregular, open-Water details are visible without becoming dense, and the visual changes preserve ground blocking and orientation under every supported symmetry.
+
+Land decoration, land-cover fields, Rock/Vegetation terrain transitions, more irregular authored-style coastlines, new topology archetypes, and broader layout redesign remain outside Phase 5B.

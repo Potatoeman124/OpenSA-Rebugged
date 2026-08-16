@@ -62,6 +62,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public ushort TemplateId { get; }
 		public RmgShorelineRole Role { get; }
 		public int Variant { get; }
+		public bool ShoreDecoration { get; }
 		public bool Permitted { get; }
 		public RmgTerrainEdgeSignature North { get; }
 		public RmgTerrainEdgeSignature East { get; }
@@ -72,7 +73,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public ushort Rotate180 { get; }
 		public IReadOnlyList<RmgNativeTerrainIntent> NativeTerrain => nativeTerrain;
 
-		public NormalWaterTransition(ushort templateId, RmgShorelineRole role, int variant, bool permitted,
+		public NormalWaterTransition(ushort templateId, RmgShorelineRole role, int variant, bool permitted, bool shoreDecoration,
 			RmgNativeTerrainIntent[] nativeTerrain, RmgTerrainEdgeSignature north, RmgTerrainEdgeSignature east,
 			RmgTerrainEdgeSignature south, RmgTerrainEdgeSignature west, ushort mirrorHorizontal,
 			ushort mirrorVertical, ushort rotate180)
@@ -83,6 +84,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			TemplateId = templateId;
 			Role = role;
 			Variant = variant;
+			ShoreDecoration = shoreDecoration;
 			Permitted = permitted;
 			this.nativeTerrain = nativeTerrain;
 			North = north;
@@ -123,18 +125,18 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			T(19, RmgShorelineRole.OuterCornerSouthWest, 1, new[] { W, W, C, W }, A, A, L, L, 3, 21, 5),
 
 			T(1, RmgShorelineRole.EdgeNorth, 0, Water(), L, A, A, A, 17, 1, 17),
-			T(4, RmgShorelineRole.EdgeNorth, 1, Water(), L, A, A, A, 20, 4, 20),
-			T(10, RmgShorelineRole.EdgeEast, 0, Water(), A, L, A, A, 10, 8, 8),
+			T(4, RmgShorelineRole.EdgeNorth, 1, Water(), L, A, A, A, 20, 4, 20, shoreDecoration: true),
+			T(10, RmgShorelineRole.EdgeEast, 0, Water(), A, L, A, A, 10, 8, 8, shoreDecoration: true),
 			T(13, RmgShorelineRole.EdgeEast, 1, Water(), A, L, A, A, 13, 11, 11),
-			T(17, RmgShorelineRole.EdgeSouth, 0, Water(), A, A, L, A, 1, 17, 1),
+			T(17, RmgShorelineRole.EdgeSouth, 0, Water(), A, A, L, A, 1, 17, 1, shoreDecoration: true),
 			T(20, RmgShorelineRole.EdgeSouth, 1, Water(), A, A, L, A, 4, 20, 4),
-			T(8, RmgShorelineRole.EdgeWest, 0, Water(), A, A, A, L, 8, 10, 10),
+			T(8, RmgShorelineRole.EdgeWest, 0, Water(), A, A, A, L, 8, 10, 10, shoreDecoration: true),
 			T(11, RmgShorelineRole.EdgeWest, 1, Water(), A, A, A, L, 11, 13, 13),
 
 			T(15, RmgShorelineRole.InnerCornerNorthWest, 0, Water(), A, A, A, A, 7, 14, 6),
 			T(31, RmgShorelineRole.InnerCornerNorthWest, 1, Water(), A, A, A, A, 23, 30, 22),
 			T(14, RmgShorelineRole.InnerCornerNorthEast, 0, Water(), A, A, A, A, 6, 15, 7),
-			T(30, RmgShorelineRole.InnerCornerNorthEast, 1, Water(), A, A, A, A, 22, 31, 23),
+			T(30, RmgShorelineRole.InnerCornerNorthEast, 1, Water(), A, A, A, A, 22, 31, 23, shoreDecoration: true),
 			T(6, RmgShorelineRole.InnerCornerSouthEast, 0, Water(), A, A, A, A, 14, 7, 15),
 			T(22, RmgShorelineRole.InnerCornerSouthEast, 1, Water(), A, A, A, A, 30, 23, 31),
 			T(7, RmgShorelineRole.InnerCornerSouthWest, 0, Water(), A, A, A, A, 15, 6, 14),
@@ -155,6 +157,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public static IReadOnlyList<NormalWaterTransition> Entries => AllTransitions;
 		public static IReadOnlyCollection<ushort> PermittedTemplateIds => ById.Values
 			.Where(transition => transition.Permitted).Select(transition => transition.TemplateId).ToArray();
+		public static IReadOnlyCollection<ushort> OpenWaterDetailTemplateIds => ById.Values
+			.Where(transition => transition.Role == RmgShorelineRole.FixedDetail).Select(transition => transition.TemplateId).OrderBy(id => id).ToArray();
 
 		public static bool TryGet(ushort templateId, out NormalWaterTransition transition) => ById.TryGetValue(templateId, out transition);
 
@@ -231,6 +235,13 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				failures.Add("The NORMAL fixed-Water catalogue does not cover exactly the 27 audited templates.");
 			if (AllTransitions.Count(transition => transition.Permitted) != 24)
 				failures.Add("The NORMAL fixed-Water catalogue must permit exactly 24 shoreline transitions.");
+			var expectedDecoratedIds = new ushort[] { 4, 8, 10, 17, 30 };
+			if (!expectedDecoratedIds.SequenceEqual(AllTransitions.Where(transition => transition.ShoreDecoration)
+				.Select(transition => transition.TemplateId).OrderBy(id => id)))
+				failures.Add("The NORMAL shoreline-decoration allow-list changed without a visual contract revision.");
+			var expectedDetailIds = new ushort[] { 24, 25, 27 };
+			if (!expectedDetailIds.SequenceEqual(OpenWaterDetailTemplateIds))
+				failures.Add("The NORMAL open-Water detail allow-list changed without a visual contract revision.");
 			foreach (var role in Enum.GetValues<RmgShorelineRole>().Where(role => role >= RmgShorelineRole.EdgeNorth && role <= RmgShorelineRole.InnerCornerSouthWest))
 				if (VariantCount(role) != 2)
 					failures.Add($"Shoreline role {role} does not expose exactly two deterministic variants.");
@@ -263,7 +274,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		static NormalWaterTransition T(ushort id, RmgShorelineRole role, int variant, RmgNativeTerrainIntent[] native,
 			RmgTerrainEdgeSignature north, RmgTerrainEdgeSignature east, RmgTerrainEdgeSignature south,
 			RmgTerrainEdgeSignature west, ushort mirrorHorizontal, ushort mirrorVertical, ushort rotate180,
-			bool permitted = true) => new(id, role, variant, permitted, native, north, east, south, west,
-			mirrorHorizontal, mirrorVertical, rotate180);
+			bool permitted = true, bool shoreDecoration = false) => new(id, role, variant, permitted, shoreDecoration, native,
+			north, east, south, west, mirrorHorizontal, mirrorVertical, rotate180);
 	}
 }

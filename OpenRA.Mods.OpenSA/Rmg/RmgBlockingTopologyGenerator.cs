@@ -931,7 +931,10 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var openTemplates = profile.ClearTemplateIds.ToHashSet();
 			var blockedTemplates = profile.BlockedTemplateIds.ToHashSet();
 			if (profile.UsesShorelineMaterialization)
+			{
 				blockedTemplates.UnionWith(NormalWaterTransitionCatalogue.PermittedTemplateIds);
+				blockedTemplates.UnionWith(profile.OpenWaterDetailTemplateIds);
+			}
 			for (var i = 0; i < map.TemplateIds.Length; i++)
 			{
 				if (map.Obstacles[i] != blockedTemplates.Contains(map.TemplateIds[i]))
@@ -957,8 +960,14 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					var pointIndex = map.Index(point);
 					var partnerIndex = map.Index(partner);
 					var templateSymmetry = map.TemplateIds[pointIndex] == map.TemplateIds[partnerIndex];
-					if (profile.UsesShorelineMaterialization && NormalWaterTransitionCatalogue.TryGet(map.TemplateIds[pointIndex], out var transition))
-						templateSymmetry = map.TemplateIds[partnerIndex] == NormalWaterTransitionCatalogue.Transform(transition.TemplateId, settings.Symmetry);
+					if (profile.UsesShorelineMaterialization && map.ShorelineRoles[pointIndex] != RmgShorelineRole.None)
+					{
+						var expectedPartnerRole = map.ShorelineRoles[pointIndex] == RmgShorelineRole.Interior ?
+							RmgShorelineRole.Interior :
+							NormalWaterTransitionCatalogue.TransformRole(map.ShorelineRoles[pointIndex], settings.Symmetry);
+						templateSymmetry = map.ShorelineRoles[partnerIndex] == expectedPartnerRole;
+					}
+
 					if (map.Obstacles[pointIndex] != map.Obstacles[partnerIndex] || !templateSymmetry ||
 						(map.RouteMasks[pointIndex] != 0) != (map.RouteMasks[partnerIndex] != 0))
 						Hard("TOPOLOGY_SYMMETRY", $"Semantic topology at {point} differs from symmetry partner {partner}.");
@@ -1043,6 +1052,11 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				report.Metrics["unsupported_shoreline_neighborhoods"] = map.ShorelineUnsupportedNeighborhoodCount;
 				report.Metrics["shoreline_cell_count"] = map.ShorelineRoles.Count(role => role != RmgShorelineRole.None);
 				report.Metrics["shoreline_transition_cell_count"] = map.ShorelineRoles.Count(role => role != RmgShorelineRole.None && role != RmgShorelineRole.Interior);
+				report.Metrics["shoreline_decorated_cell_count"] = map.TemplateIds.Count(template =>
+					NormalWaterTransitionCatalogue.TryGet(template, out var transition) && transition.ShoreDecoration);
+				report.Metrics["open_water_detail_cell_count"] = map.TemplateIds.Count(template => profile.OpenWaterDetailTemplateIds.Contains(template));
+				report.Metrics["shoreline_decoration_percent"] = profile.ShorelineDecorationPercent;
+				report.Metrics["open_water_detail_percent"] = profile.OpenWaterDetailPercent;
 				report.Metrics["native_water_cell_count"] = map.NativeTerrainIntents.Count(intent => intent == RmgNativeTerrainIntent.Water);
 				report.Metrics["native_clear_cell_count"] = map.NativeTerrainIntents.Count(intent => intent == RmgNativeTerrainIntent.Clear);
 			}

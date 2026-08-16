@@ -190,8 +190,11 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (profile.GeneratorVersion >= 2)
 				ValidateTemplates(profile.BlockedTemplateIds, "Water");
 			if (profile.UsesShorelineMaterialization)
+			{
+				ValidateTemplates(profile.OpenWaterDetailTemplateIds, "Water");
 				foreach (var transition in NormalWaterTransitionCatalogue.Entries)
 					ValidateTransition(transition);
+			}
 
 			void ValidateTemplates(IEnumerable<ushort> templateIds, string expectedTerrain)
 			{
@@ -446,7 +449,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					["obstacle_density_percent"] = generation.Validation.Metrics["obstacle_density_percent"],
 					["chokepoint_frequency"] = settings.Archetype == RmgArchetype.CentralContest ? "one-symmetry-orbit" : "none",
 					["route_openness"] = settings.Archetype == RmgArchetype.Open ? "major" : "normal-with-route-constriction",
-					["shoreline_mode"] = generation.Profile.UsesShorelineMaterialization ? "normal-transition-catalogue-v1" : "homogeneous-hard-seam-v1",
+					["shoreline_mode"] = generation.Profile.UsesShorelineMaterialization ? "normal-transition-catalogue-v2" : "homogeneous-hard-seam-v1",
 					["visual_shoreline_complete"] = generation.Profile.UsesShorelineMaterialization,
 					["unsupported_shoreline_neighborhoods"] = generation.Profile.UsesShorelineMaterialization ? generation.Map.ShorelineUnsupportedNeighborhoodCount : null,
 					["shoreline_role_counts"] = generation.Profile.UsesShorelineMaterialization ? new JObject(generation.Map.ShorelineRoles
@@ -455,6 +458,10 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					["water_template_usage"] = generation.Profile.UsesShorelineMaterialization ? new JObject(generation.Map.TemplateIds
 						.Where((template, index) => generation.Map.Obstacles[index]).GroupBy(template => template).OrderBy(group => group.Key)
 						.Select(group => new JProperty(group.Key.ToString(), group.Count()))) : null,
+					["shoreline_decoration_percent"] = generation.Profile.UsesShorelineMaterialization ? generation.Profile.ShorelineDecorationPercent : null,
+					["open_water_detail_percent"] = generation.Profile.UsesShorelineMaterialization ? generation.Profile.OpenWaterDetailPercent : null,
+					["shoreline_decorated_cells"] = generation.Profile.UsesShorelineMaterialization ? generation.Validation.Metrics["shoreline_decorated_cell_count"] : null,
+					["open_water_detail_cells"] = generation.Profile.UsesShorelineMaterialization ? generation.Validation.Metrics["open_water_detail_cell_count"] : null,
 					["native_water_cells"] = generation.Profile.UsesShorelineMaterialization ? generation.Map.NativeTerrainIntents.Count(intent => intent == RmgNativeTerrainIntent.Water) : null,
 					["native_clear_cells"] = generation.Profile.UsesShorelineMaterialization ? generation.Map.NativeTerrainIntents.Count(intent => intent == RmgNativeTerrainIntent.Clear) : null,
 					["repair_log"] = new JArray(generation.Map.Repairs.Select(repair => new JObject

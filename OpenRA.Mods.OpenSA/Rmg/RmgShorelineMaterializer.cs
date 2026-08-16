@@ -62,9 +62,10 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					var partnerRole = Classify(map, partner, out _, out _);
 					if (role == RmgShorelineRole.Interior)
 					{
-						var template = profile.BlockedTemplateIds[interiorRandom.NextInt(profile.BlockedTemplateIds.Length)];
+						var template = SelectInteriorTemplate(profile, interiorRandom);
+						var partnerTemplate = SelectInteriorTemplate(profile, interiorRandom);
 						Assign(map, index, template, role, Water());
-						Assign(map, partnerIndex, template, role, Water());
+						Assign(map, partnerIndex, partnerTemplate, role, Water());
 						continue;
 					}
 
@@ -73,17 +74,11 @@ namespace OpenRA.Mods.OpenSA.Rmg
 						throw new RmgGenerationRejectedException("TERRAIN_MATERIALIZATION_SYMMETRY",
 							$"Shoreline role {role} at {point} transforms to {transformedRole}, but {partner} classified as {partnerRole}.");
 
-					var variantCount = NormalWaterTransitionCatalogue.VariantCount(role);
-					var variant = shorelineRandom.NextInt(variantCount);
-					var transition = NormalWaterTransitionCatalogue.ForRole(role, variant);
-					var transformedTransition = NormalWaterTransitionCatalogue.ForRole(partnerRole, variant);
-					var expectedTransformedId = NormalWaterTransitionCatalogue.Transform(transition.TemplateId, settings.Symmetry);
-					if (transformedTransition.TemplateId != expectedTransformedId)
-						throw new RmgGenerationRejectedException("TERRAIN_MATERIALIZATION_TRANSFORM",
-							$"Template {transition.TemplateId}/{settings.Symmetry} resolves to {expectedTransformedId}, not variant {variant} of {partnerRole}.");
+					var transition = SelectShorelineTransition(role, profile, shorelineRandom);
+					var partnerTransition = SelectShorelineTransition(partnerRole, profile, shorelineRandom);
 
 					Assign(map, index, transition.TemplateId, role, transition.NativeTerrain);
-					Assign(map, partnerIndex, transformedTransition.TemplateId, partnerRole, transformedTransition.NativeTerrain);
+					Assign(map, partnerIndex, partnerTransition.TemplateId, partnerRole, partnerTransition.NativeTerrain);
 				}
 
 			ValidateEdges(map);
@@ -209,6 +204,30 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					throw new RmgGenerationRejectedException("TERRAIN_MATERIALIZATION_EDGE_MISMATCH",
 						$"Logical cells {first} and {second} expose incompatible {firstEdge}/{secondEdge} edges.");
 			}
+		}
+
+		static ushort SelectInteriorTemplate(RmgProfile profile, DeterministicRandom random)
+		{
+			var useDetail = profile.OpenWaterDetailTemplateIds.Length > 0 &&
+				random.NextInt(100) < profile.OpenWaterDetailPercent;
+			var candidates = useDetail ? profile.OpenWaterDetailTemplateIds : profile.BlockedTemplateIds;
+			return candidates[random.NextInt(candidates.Length)];
+		}
+
+		static NormalWaterTransition SelectShorelineTransition(RmgShorelineRole role, RmgProfile profile,
+			DeterministicRandom random)
+		{
+			var candidates = NormalWaterTransitionCatalogue.Entries
+				.Where(transition => transition.Permitted && transition.Role == role).ToArray();
+			var decorated = candidates.Where(transition => transition.ShoreDecoration).ToArray();
+			var plain = candidates.Where(transition => !transition.ShoreDecoration).ToArray();
+			var useDecoration = decorated.Length > 0 && random.NextInt(100) < profile.ShorelineDecorationPercent;
+			var eligible = useDecoration ? decorated : plain;
+			if (eligible.Length == 0)
+				throw new RmgGenerationRejectedException("TERRAIN_MATERIALIZATION_VISUAL_VARIANT",
+					$"Shoreline role {role} has no {(useDecoration ? "decorated" : "plain")} visual variant.");
+
+			return eligible[random.NextInt(eligible.Length)];
 		}
 
 		static void Assign(RmgLogicalMap map, int index, ushort templateId, RmgShorelineRole role,

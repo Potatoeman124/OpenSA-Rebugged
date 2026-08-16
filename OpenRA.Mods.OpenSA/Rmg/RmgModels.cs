@@ -101,12 +101,15 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public int StartRegionRadiusNative { get; private set; }
 		public ushort[] ClearTemplateIds { get; private set; }
 		public ushort[] BlockedTemplateIds { get; private set; }
+		public ushort[] OpenWaterDetailTemplateIds { get; private set; }
 		public string[] NeutralColonyActors { get; private set; }
 		public string SpawnActor { get; private set; }
 		public string SpawnOwner { get; private set; }
 		public string ColonyOwner { get; private set; }
 		public int ObstacleDensity { get; private set; }
 		public int VegetationDensity { get; private set; }
+		public int ShorelineDecorationPercent { get; private set; }
+		public int OpenWaterDetailPercent { get; private set; }
 		public int OpenObstacleDensityTarget { get; private set; }
 		public int OpenObstacleDensityMinimum { get; private set; }
 		public int OpenObstacleDensityMaximum { get; private set; }
@@ -171,12 +174,15 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				StartRegionRadiusNative = Get<int>(nameof(StartRegionRadiusNative)),
 				ClearTemplateIds = Get<int[]>(nameof(ClearTemplateIds)).Select(i => checked((ushort)i)).ToArray(),
 				BlockedTemplateIds = GetOptional(nameof(BlockedTemplateIds), Array.Empty<int>()).Select(i => checked((ushort)i)).ToArray(),
+				OpenWaterDetailTemplateIds = GetOptional(nameof(OpenWaterDetailTemplateIds), Array.Empty<int>()).Select(i => checked((ushort)i)).ToArray(),
 				NeutralColonyActors = Get<string[]>(nameof(NeutralColonyActors)),
 				SpawnActor = Get<string>(nameof(SpawnActor)),
 				SpawnOwner = Get<string>(nameof(SpawnOwner)),
 				ColonyOwner = Get<string>(nameof(ColonyOwner)),
 				ObstacleDensity = Get<int>(nameof(ObstacleDensity)),
 				VegetationDensity = Get<int>(nameof(VegetationDensity)),
+				ShorelineDecorationPercent = GetOptional(nameof(ShorelineDecorationPercent), 0),
+				OpenWaterDetailPercent = GetOptional(nameof(OpenWaterDetailPercent), 0),
 				OpenObstacleDensityTarget = GetOptional(nameof(OpenObstacleDensityTarget), 0),
 				OpenObstacleDensityMinimum = GetOptional(nameof(OpenObstacleDensityMinimum), 0),
 				OpenObstacleDensityMaximum = GetOptional(nameof(OpenObstacleDensityMaximum), 0),
@@ -222,6 +228,12 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				ObstacleRegionMinimumLogical != 8 || ObstacleRegionMaximumLogical != 64 || MaximumTopologyAttempts != 4 ||
 				MaximumRepairOperations != 8 || MaximumRepairCellsLogical != 64 || ColonyCombatSafetyBufferNative != 1))
 				throw new InvalidOperationException("The blocking-topology or combat-space constants do not match the accepted contract.");
+			if (version2 && (OpenWaterDetailTemplateIds.Length != 0 || ShorelineDecorationPercent != 0 || OpenWaterDetailPercent != 0))
+				throw new InvalidOperationException("The frozen Version 2 profile cannot enable Version 3 visual decoration.");
+			if (version3 && (!OpenWaterDetailTemplateIds.SequenceEqual(NormalWaterTransitionCatalogue.OpenWaterDetailTemplateIds) ||
+				ShorelineDecorationPercent != 16 || OpenWaterDetailPercent != 8))
+				throw new InvalidOperationException("The Version 3 visual-density policy must use the audited 16% shoreline decoration, " +
+					"8% open-Water detail, and fixed NORMAL detail templates 24, 25, and 27.");
 		}
 	}
 
