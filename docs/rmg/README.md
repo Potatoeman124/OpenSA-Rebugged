@@ -31,6 +31,10 @@ The frozen Generator Version 1 contract is intentionally Clear-only. Because Roc
 
 Generator Version 2 is governed by the [Phase 4B terrain, mover, and blocking-topology contract](PHASE_4B_TERRAIN_MOVER_TOPOLOGY_CONTRACT.md), its [Phase 4C implementation record](PHASE_4C_BLOCKING_TOPOLOGY_IMPLEMENTATION.md), the historical [Phase 4D automated verification decision](PHASE_4D_BLOCKING_TOPOLOGY_VERIFICATION.md), and the current [combat-space safety contract](COMBAT_SPACE_SAFETY.md). Configuration version 3 selects homogeneous Water templates as the first real ground blocker, implements macro-aligned route/chokepoint geometry and mover-specific validation, and derives bidirectional colony turret and player production-path clearances from the active ruleset. The [Phase 5A NORMAL terrain-materialization contract](PHASE_5A_NORMAL_TERRAIN_MATERIALIZATION_CONTRACT.md) audits the deferred transition layer and freezes the requirements for an opt-in shoreline implementation. [Phase 5B](PHASE_5B_NORMAL_SHORELINE_MATERIALIZATION.md) implements that transition catalogue and native-intent-aware materializer as the separate opt-in Generator Version 3 path, including authored-corpus-calibrated sparse shoreline and open-Water detail. Generator Version 1 remains the default and is identity-stable.
 
+The [Phase 6A NORMAL land-surface audit and contract](PHASE_6A_NORMAL_LAND_SURFACE_AUDIT.md) classifies Clear, Rock, and Vegetation template banks, measures authored-map density and clearance, and freezes the split between Clear-native cosmetic details and gameplay-affecting slow terrain. NORMAL land cover is a nested Clear-to-Rock-to-Vegetation stack; Rock and Vegetation impose 75-percent and 50-percent ground-speed movement, so their future implementation requires weighted-route validation.
+
+[Phase 6B](PHASE_6B_CLEAR_LAND_DETAILS.md) implements the first opt-in land-surface slice as Generator Version 4. It inherits Version 3 topology, actors, routes, Water, and shoreline identity, then replaces an exact rounded four percent of eligible non-protected Clear stamps with runtime-verified Clear-native templates 61 and 62. The [manual Phase 6B corpus](PHASE_6B_MANUAL_PLAYTEST_SEEDS.md) reuses the accepted Phase 5B seeds for direct visual comparison.
+
 ## Movement validation architecture
 
 OpenSA has two movement classes relevant to generated maps:
@@ -144,10 +148,22 @@ Select Version 3 explicitly with `-Topology shoreline`. It retains Version 2 gam
 powershell -ExecutionPolicy Bypass -File .\scripts\rmg\Invoke-MapGenerator.ps1 -Seed 51001 -Players 2 -Symmetry horizontal -Archetype open -Topology shoreline -MovementValidation both -InstallForPlay -Overwrite
 ```
 
-The map title includes `shoreline`, and reports are written beneath the ignored `artifacts/rmg/phase-5b-shoreline-materialization/` directory. Version 3 uses a 16-percent target for audited shoreline vegetation variants and an 8-percent target for fixed all-Water detail templates. Use `-Topology mixed` for the identity-stable homogeneous-Water Version 2 baseline. See the [Phase 5B implementation record](PHASE_5B_NORMAL_SHORELINE_MATERIALIZATION.md) for the transition catalogue, native-intent contract, automated evidence, and remaining manual gate.
+The map title includes `shoreline`, and reports are written beneath the ignored `artifacts/rmg/phase-5b-shoreline-materialization/` directory. Version 3 uses a 16-percent target for audited shoreline vegetation variants and an 8-percent target for fixed all-Water detail templates. Use `-Topology mixed` for the identity-stable homogeneous-Water Version 2 baseline. See the [Phase 5B implementation record](PHASE_5B_NORMAL_SHORELINE_MATERIALIZATION.md) for the transition catalogue, native-intent contract, automated evidence, and completed manual gate.
+
+## Generator Version 4 Clear-detail usage
+
+Select Version 4 explicitly with `-Topology land-details`. It inherits the Version 3 map and adds only sparse Clear-native stone details outside every protected start, colony, route, strategic, chokepoint, and repair layer:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\rmg\Invoke-MapGenerator.ps1 -Seed 610001 -Players 2 -Symmetry rotational -Archetype open -Topology land-details -MovementValidation both -InstallForPlay -Overwrite
+```
+
+The title includes `land-details`, and reports are written beneath ignored `artifacts/rmg/phase-6b-clear-land-details/`. The target is the exact rounded four percent of eligible Clear stamps, and the two symmetry-side counts differ by at most one. See the [Phase 6B implementation record](PHASE_6B_CLEAR_LAND_DETAILS.md) and [manual corpus](PHASE_6B_MANUAL_PLAYTEST_SEEDS.md).
 
 ## Current implementation boundary
 
 Generator Version 1 implements deterministic settings, independent random streams, symmetry-aware starts, a strategic graph with two start-to-hub routes, widened route reservations, role-scored neutral colonies, symmetric Clear-template materialization, proxy and engine-grounded static movement validation, map lint, quality metrics, repeatability hashes, and repeated save/reload package validation. Its obstacle stage remains a validated zero-density no-op.
 
 Generator Version 2 adds deterministic symmetric Water regions, named route masks, route-local chokepoints for `central-contest`, subtractive bounded repair, exact logical/native passability agreement, mover-specific validation, rule-derived combat-space validation, and durable debug layers. Homogeneous Water creates a known hard visual seam, and wasps intentionally bypass ground blockers. Configuration version 3 has passed manual spawn-safety validation and remains the frozen baseline. Phase 5A found no reusable engine autotiler, so opt-in Generator Version 3 selects fixed 2x2 shoreline stamps, validates per-frame native passability, and independently samples cosmetic symmetry partners. Its shoreline vegetation and open-Water detail densities are calibrated from authored NORMAL maps. Broader layout redesign, land decoration, Rock/Vegetation transitions, new archetypes, and UI work remain later phases.
+
+Phase 6A finds that authored NORMAL maps use median land-relative coverage of 13.8055 percent Rock and 8.3118 percent Vegetation, while Clear-native fixed details appear on 4.3060 percent of homogeneous Clear stamps. Generator Version 4 implements the safe cosmetic slice with templates `61` and `62` at a four-percent eligible-stamp target while preserving native Clear movement. Its functional gate is accepted, but manual review found the cosmetic distribution visibly over-constrained near route-dense interiors; this remains WIP for combined Phase 6C review. Symmetric Rock/Vegetation fields follow only after weighted-route validation is implemented, and their protected-Clear exclusions remain strict. Free-standing decoration actors, new archetypes, and broader layout redesign remain outside the current implementation.

@@ -22,7 +22,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 		string IUtilityCommand.Name => "--generate-sa-map";
 		bool IUtilityCommand.ValidateArguments(string[] args) => args.Length >= 1;
 
-		[Desc("OUTPUT.oramap", "--seed N", "[--players 2|4]", "[--symmetry horizontal|vertical|rotational]", "[--archetype open|central-contest]", "[--topology off|mixed|shoreline]", "[--neutral-colonies N]", "[--movement-validation proxy|native|both]", "[--report FILE]", "[--overwrite]", "Generate a deterministic OpenSA skirmish map. Topology defaults to the frozen Clear-only V1 path.")]
+		[Desc("OUTPUT.oramap", "--seed N", "[--players 2|4]", "[--symmetry horizontal|vertical|rotational]", "[--archetype open|central-contest]", "[--topology off|mixed|shoreline|land-details]", "[--neutral-colonies N]", "[--movement-validation proxy|native|both]", "[--report FILE]", "[--overwrite]", "Generate a deterministic OpenSA skirmish map. Topology defaults to the frozen Clear-only V1 path.")]
 		void IUtilityCommand.Run(Utility utility, string[] args)
 		{
 			try
@@ -118,6 +118,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			{
 				RmgTopologyPreset.Mixed => 2,
 				RmgTopologyPreset.Shoreline => 3,
+				RmgTopologyPreset.LandDetails => 4,
 				_ => 1
 			};
 			if (values.TryGetValue("--generator-version", out var versionText) &&
@@ -176,7 +177,8 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			"off" => RmgTopologyPreset.Off,
 			"mixed" => RmgTopologyPreset.Mixed,
 			"shoreline" => RmgTopologyPreset.Shoreline,
-			_ => throw new ArgumentException("Topology must be off, mixed, or shoreline.")
+			"land-details" => RmgTopologyPreset.LandDetails,
+			_ => throw new ArgumentException("Topology must be off, mixed, shoreline, or land-details.")
 		};
 
 		public static string TopologyName(RmgTopologyPreset value) => value switch
@@ -184,6 +186,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			RmgTopologyPreset.Off => "off",
 			RmgTopologyPreset.Mixed => "mixed",
 			RmgTopologyPreset.Shoreline => "shoreline",
+			RmgTopologyPreset.LandDetails => "land-details",
 			_ => throw new ArgumentOutOfRangeException(nameof(value))
 		};
 

@@ -26,13 +26,29 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 		public static DeterministicRandom ForStream(RmgGenerationSettings settings, RmgProfile profile, string streamName)
 		{
-			var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(settings.Canonical(profile) + "\nstream=" + streamName));
+			var canonical = profile.UsesClearLandDetails && streamName != "terrain-clear-land-details" ?
+				InheritedShorelineCanonical(settings) :
+				settings.Canonical(profile);
+			var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(canonical + "\nstream=" + streamName));
 			ulong seed = 0;
 			for (var i = 0; i < sizeof(ulong); i++)
 				seed |= (ulong)bytes[i] << (8 * i);
 
 			return new DeterministicRandom(seed);
 		}
+
+		static string InheritedShorelineCanonical(RmgGenerationSettings settings) => string.Join("\n", new[]
+		{
+			"profile=normal-water-shoreline-v3",
+			"configuration=1",
+			"generator=3",
+			$"seed={settings.Seed}",
+			$"players={settings.PlayerCount}",
+			$"symmetry={settings.Symmetry}",
+			$"archetype={settings.Archetype}",
+			$"colonies={settings.NeutralColonyCount}",
+			$"topology={RmgTopologyPreset.Shoreline}"
+		});
 
 		public ulong NextUInt64()
 		{

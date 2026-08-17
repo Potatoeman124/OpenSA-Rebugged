@@ -187,6 +187,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				throw new InvalidDataException($"Tileset {profile.Tileset} is not template-based.");
 
 			ValidateTemplates(profile.ClearTemplateIds, "Clear");
+			if (profile.UsesClearLandDetails)
+				ValidateTemplates(profile.ClearLandDetailTemplateIds, "Clear");
 			if (profile.GeneratorVersion >= 2)
 				ValidateTemplates(profile.BlockedTemplateIds, "Water");
 			if (profile.UsesShorelineMaterialization)
@@ -419,9 +421,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			RmgMovementValidationMode movementValidationMode)
 		{
 			var settings = generation.Settings;
-			return new JObject
+			var report = new JObject
 			{
-				["schema_version"] = generation.Profile.GeneratorVersion >= 3 ? 4 : generation.Profile.GeneratorVersion >= 2 ? 3 : 2,
+				["schema_version"] = generation.Profile.GeneratorVersion >= 4 ? 5 : generation.Profile.GeneratorVersion >= 3 ? 4 : generation.Profile.GeneratorVersion >= 2 ? 3 : 2,
 				["generator_version"] = settings.GeneratorVersion,
 				["configuration_id"] = generation.Profile.ProfileId,
 				["configuration_version"] = generation.Profile.ConfigurationVersion,
@@ -441,7 +443,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				{
 					1 => "validated-zero-density-no-op",
 					2 => "normal-water-blocking-v2",
-					_ => "normal-water-shoreline-v3"
+					3 => "normal-water-shoreline-v3",
+					_ => "normal-water-shoreline-v3+clear-land-details-v1"
 				},
 				["blocking_topology"] = generation.Profile.GeneratorVersion == 1 ? null : new JObject
 				{
@@ -490,6 +493,27 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				["package_validation"] = packageValidation.ToJson(),
 				["performance"] = packageValidation.Performance.ToJson()
 			};
+
+			if (generation.Profile.UsesClearLandDetails)
+				report["land_details"] = new JObject
+				{
+					["enabled"] = true,
+					["native_terrain"] = "Clear",
+					["target_percent"] = generation.Profile.ClearLandDetailPercent,
+					["eligible_clear_stamps"] = generation.Validation.Metrics["clear_land_detail_eligible_stamp_count"],
+					["excluded_protected_clear_stamps"] = generation.Validation.Metrics["clear_land_detail_excluded_protected_stamp_count"],
+					["selected_detail_stamps"] = generation.Validation.Metrics["clear_land_detail_selected_stamp_count"],
+					["achieved_percent"] = generation.Validation.Metrics["clear_land_detail_achieved_percent"],
+					["symmetry_side_a_count"] = generation.Validation.Metrics["clear_land_detail_symmetry_side_a_count"],
+					["symmetry_side_b_count"] = generation.Validation.Metrics["clear_land_detail_symmetry_side_b_count"],
+					["selection_sha256"] = RmgClearLandDetailMaterializer.SelectionHash(generation.Map, generation.Profile),
+					["template_usage"] = new JObject(generation.Map.TemplateIds
+						.Where(template => generation.Profile.ClearLandDetailTemplateIds.Contains(template))
+						.GroupBy(template => template).OrderBy(group => group.Key)
+						.Select(group => new JProperty(group.Key.ToString(), group.Count())))
+				};
+
+			return report;
 		}
 
 		public static CPos ToNative(RmgPoint point, RmgProfile profile) =>
@@ -523,6 +547,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			RmgTopologyPreset.Off => "off",
 			RmgTopologyPreset.Mixed => "mixed",
 			RmgTopologyPreset.Shoreline => "shoreline",
+			RmgTopologyPreset.LandDetails => "land-details",
 			_ => throw new ArgumentOutOfRangeException(nameof(topology))
 		};
 	}

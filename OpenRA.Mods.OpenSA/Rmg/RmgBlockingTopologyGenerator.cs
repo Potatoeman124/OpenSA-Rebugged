@@ -902,6 +902,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (profile.UsesShorelineMaterialization)
 			{
 				RmgShorelineMaterializer.Materialize(map, profile, settings);
+				RmgClearLandDetailMaterializer.Materialize(map, profile, settings);
 				return;
 			}
 
@@ -930,6 +931,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			void Hard(string code, string message) => report.HardFailures.Add(new RmgValidationIssue(code, message));
 			var openTemplates = profile.ClearTemplateIds.ToHashSet();
 			var blockedTemplates = profile.BlockedTemplateIds.ToHashSet();
+			if (profile.UsesClearLandDetails)
+				openTemplates.UnionWith(profile.ClearLandDetailTemplateIds);
 			if (profile.UsesShorelineMaterialization)
 			{
 				blockedTemplates.UnionWith(NormalWaterTransitionCatalogue.PermittedTemplateIds);
@@ -950,6 +953,12 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					Hard("TERRAIN_MATERIALIZATION_ROLE", $"BLOCKED logical cell {i} has invalid shoreline role {map.ShorelineRoles[i]}.");
 				if (profile.UsesShorelineMaterialization && !map.Obstacles[i] && map.ShorelineRoles[i] != RmgShorelineRole.None)
 					Hard("TERRAIN_MATERIALIZATION_OPEN_ROLE", $"OPEN logical cell {i} has shoreline role {map.ShorelineRoles[i]}.");
+				if (profile.UsesClearLandDetails && profile.ClearLandDetailTemplateIds.Contains(map.TemplateIds[i]) &&
+					RmgClearLandDetailMaterializer.IsProtected(map, i))
+					Hard("CLEAR_DETAIL_PROTECTED_OVERLAP", $"Clear detail at logical cell {i} overlaps a protected semantic layer.");
+				if (profile.UsesClearLandDetails && profile.ClearLandDetailTemplateIds.Contains(map.TemplateIds[i]) &&
+					Enumerable.Range(0, 4).Any(frame => map.NativeTerrainIntents[4 * i + frame] != RmgNativeTerrainIntent.Clear))
+					Hard("CLEAR_DETAIL_NATIVE_TERRAIN", $"Clear detail at logical cell {i} has a non-Clear native terrain intent.");
 			}
 
 			for (var y = 0; y < map.Height; y++)
@@ -960,6 +969,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					var pointIndex = map.Index(point);
 					var partnerIndex = map.Index(partner);
 					var templateSymmetry = map.TemplateIds[pointIndex] == map.TemplateIds[partnerIndex];
+					if (profile.UsesClearLandDetails && !map.Obstacles[pointIndex] && !map.Obstacles[partnerIndex])
+						templateSymmetry = true;
 					if (profile.UsesShorelineMaterialization && map.ShorelineRoles[pointIndex] != RmgShorelineRole.None)
 					{
 						var expectedPartnerRole = map.ShorelineRoles[pointIndex] == RmgShorelineRole.Interior ?
@@ -1059,6 +1070,34 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				report.Metrics["open_water_detail_percent"] = profile.OpenWaterDetailPercent;
 				report.Metrics["native_water_cell_count"] = map.NativeTerrainIntents.Count(intent => intent == RmgNativeTerrainIntent.Water);
 				report.Metrics["native_clear_cell_count"] = map.NativeTerrainIntents.Count(intent => intent == RmgNativeTerrainIntent.Clear);
+			}
+
+			if (profile.UsesClearLandDetails)
+			{
+				var details = profile.ClearLandDetailTemplateIds.ToHashSet();
+				var selected = map.TemplateIds.Select((template, index) => (template, index))
+					.Where(entry => details.Contains(entry.template)).ToArray();
+				var eligible = Enumerable.Range(0, map.TemplateIds.Length)
+					.Count(i => !map.Obstacles[i] && !RmgClearLandDetailMaterializer.IsProtected(map, i));
+				var excludedProtected = Enumerable.Range(0, map.TemplateIds.Length)
+					.Count(i => !map.Obstacles[i] && RmgClearLandDetailMaterializer.IsProtected(map, i));
+				var target = (eligible * profile.ClearLandDetailPercent + 50) / 100;
+				if (selected.Length != target || map.ClearLandDetailSelectedCount != target ||
+					map.ClearLandDetailTargetCount != target || map.ClearLandDetailEligibleCount != eligible)
+					Hard("CLEAR_DETAIL_RATE", $"Selected {selected.Length} Clear details from {eligible} eligible stamps; expected exact rounded target {target}.");
+				if (map.ClearLandDetailExcludedProtectedCount != excludedProtected)
+					Hard("CLEAR_DETAIL_EXCLUSION_ACCOUNTING",
+						$"Recorded {map.ClearLandDetailExcludedProtectedCount} protected exclusions; measured {excludedProtected}.");
+				if (Math.Abs(map.ClearLandDetailSymmetrySideACount - map.ClearLandDetailSymmetrySideBCount) > 1)
+					Hard("CLEAR_DETAIL_VISUAL_BALANCE", "Clear detail counts differ by more than one across symmetry sides.");
+
+				report.Metrics["clear_land_detail_eligible_stamp_count"] = eligible;
+				report.Metrics["clear_land_detail_excluded_protected_stamp_count"] = excludedProtected;
+				report.Metrics["clear_land_detail_selected_stamp_count"] = selected.Length;
+				report.Metrics["clear_land_detail_target_percent"] = profile.ClearLandDetailPercent;
+				report.Metrics["clear_land_detail_achieved_percent"] = eligible == 0 ? 0 : 100D * selected.Length / eligible;
+				report.Metrics["clear_land_detail_symmetry_side_a_count"] = map.ClearLandDetailSymmetrySideACount;
+				report.Metrics["clear_land_detail_symmetry_side_b_count"] = map.ClearLandDetailSymmetrySideBCount;
 			}
 
 			return report;

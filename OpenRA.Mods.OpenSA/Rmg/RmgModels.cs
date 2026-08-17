@@ -33,7 +33,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 	{
 		Off,
 		Mixed,
-		Shoreline
+		Shoreline,
+		LandDetails
 	}
 
 	public readonly struct RmgPoint : IEquatable<RmgPoint>
@@ -100,6 +101,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public int MinimumRouteWidthNative { get; private set; }
 		public int StartRegionRadiusNative { get; private set; }
 		public ushort[] ClearTemplateIds { get; private set; }
+		public ushort[] ClearLandDetailTemplateIds { get; private set; }
 		public ushort[] BlockedTemplateIds { get; private set; }
 		public ushort[] OpenWaterDetailTemplateIds { get; private set; }
 		public string[] NeutralColonyActors { get; private set; }
@@ -110,6 +112,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public int VegetationDensity { get; private set; }
 		public int ShorelineDecorationPercent { get; private set; }
 		public int OpenWaterDetailPercent { get; private set; }
+		public int ClearLandDetailPercent { get; private set; }
 		public int OpenObstacleDensityTarget { get; private set; }
 		public int OpenObstacleDensityMinimum { get; private set; }
 		public int OpenObstacleDensityMaximum { get; private set; }
@@ -127,7 +130,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public int MaximumRepairCellsLogical { get; private set; }
 		public int ColonyCombatSafetyBufferNative { get; private set; }
 		public RmgColonyCombatRules ColonyCombatRules { get; private set; }
-		public bool UsesShorelineMaterialization => GeneratorVersion == 3;
+		public bool UsesShorelineMaterialization => GeneratorVersion >= 3;
+		public bool UsesClearLandDetails => GeneratorVersion == 4;
 
 		public int ObstacleDensityTarget(RmgArchetype archetype) =>
 			archetype == RmgArchetype.Open ? OpenObstacleDensityTarget : CentralObstacleDensityTarget;
@@ -140,6 +144,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			{
 				RmgTopologyPreset.Mixed => "sa|rmg/normal-water-blocking-v2.yaml",
 				RmgTopologyPreset.Shoreline => "sa|rmg/normal-water-shoreline-v3.yaml",
+				RmgTopologyPreset.LandDetails => "sa|rmg/normal-land-details-v4.yaml",
 				_ => "sa|rmg/normal-clear-v1.yaml"
 			});
 
@@ -173,6 +178,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				MinimumRouteWidthNative = Get<int>(nameof(MinimumRouteWidthNative)),
 				StartRegionRadiusNative = Get<int>(nameof(StartRegionRadiusNative)),
 				ClearTemplateIds = Get<int[]>(nameof(ClearTemplateIds)).Select(i => checked((ushort)i)).ToArray(),
+				ClearLandDetailTemplateIds = GetOptional(nameof(ClearLandDetailTemplateIds), Array.Empty<int>()).Select(i => checked((ushort)i)).ToArray(),
 				BlockedTemplateIds = GetOptional(nameof(BlockedTemplateIds), Array.Empty<int>()).Select(i => checked((ushort)i)).ToArray(),
 				OpenWaterDetailTemplateIds = GetOptional(nameof(OpenWaterDetailTemplateIds), Array.Empty<int>()).Select(i => checked((ushort)i)).ToArray(),
 				NeutralColonyActors = Get<string[]>(nameof(NeutralColonyActors)),
@@ -183,6 +189,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				VegetationDensity = Get<int>(nameof(VegetationDensity)),
 				ShorelineDecorationPercent = GetOptional(nameof(ShorelineDecorationPercent), 0),
 				OpenWaterDetailPercent = GetOptional(nameof(OpenWaterDetailPercent), 0),
+				ClearLandDetailPercent = GetOptional(nameof(ClearLandDetailPercent), 0),
 				OpenObstacleDensityTarget = GetOptional(nameof(OpenObstacleDensityTarget), 0),
 				OpenObstacleDensityMinimum = GetOptional(nameof(OpenObstacleDensityMinimum), 0),
 				OpenObstacleDensityMaximum = GetOptional(nameof(OpenObstacleDensityMaximum), 0),
@@ -213,15 +220,16 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var version1 = ProfileId == "normal-clear-v1" && ConfigurationVersion == 1 && GeneratorVersion == 1;
 			var version2 = ProfileId == "normal-water-blocking-v2" && ConfigurationVersion == 3 && GeneratorVersion == 2;
 			var version3 = ProfileId == "normal-water-shoreline-v3" && ConfigurationVersion == 1 && GeneratorVersion == 3;
-			if (!version1 && !version2 && !version3)
-				throw new InvalidOperationException("Only the frozen normal-clear-v1, normal-water-blocking-v2, and opt-in normal-water-shoreline-v3 profiles are supported.");
+			var version4 = ProfileId == "normal-land-details-v4" && ConfigurationVersion == 1 && GeneratorVersion == 4;
+			if (!version1 && !version2 && !version3 && !version4)
+				throw new InvalidOperationException("Only the frozen normal-clear-v1, normal-water-blocking-v2, normal-water-shoreline-v3, and opt-in normal-land-details-v4 profiles are supported.");
 			if (Tileset != "NORMAL" || PlayableWidth != 128 || PlayableHeight != 128 || CordonWidth != 2 || LogicalWidth != 64 || LogicalHeight != 64)
 				throw new InvalidOperationException("The Version 1 geometry or tileset was changed without a contract revision.");
 			if (version1 && (ObstacleDensity != 0 || VegetationDensity != 0))
 				throw new InvalidOperationException("Version 1 is Clear-only: obstacle and vegetation density must be zero.");
 			if (ClearTemplateIds.Length == 0 || NeutralColonyActors.Length == 0)
 				throw new InvalidOperationException("The RMG profile must declare clear templates and neutral colony actors.");
-			if ((version2 || version3) && (BlockedTemplateIds.Length == 0 || VegetationDensity != 0 ||
+			if ((version2 || version3 || version4) && (BlockedTemplateIds.Length == 0 || VegetationDensity != 0 ||
 				MinimumRouteWidthNative != 5 || MajorRouteWidthNative != 9 || ChokepointWidthNative != 3 ||
 				OpenObstacleDensityTarget != 12 || OpenObstacleDensityMinimum != 10 || OpenObstacleDensityMaximum != 14 ||
 				CentralObstacleDensityTarget != 16 || CentralObstacleDensityMinimum != 14 || CentralObstacleDensityMaximum != 18 ||
@@ -230,10 +238,14 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				throw new InvalidOperationException("The blocking-topology or combat-space constants do not match the accepted contract.");
 			if (version2 && (OpenWaterDetailTemplateIds.Length != 0 || ShorelineDecorationPercent != 0 || OpenWaterDetailPercent != 0))
 				throw new InvalidOperationException("The frozen Version 2 profile cannot enable Version 3 visual decoration.");
-			if (version3 && (!OpenWaterDetailTemplateIds.SequenceEqual(NormalWaterTransitionCatalogue.OpenWaterDetailTemplateIds) ||
+			if ((version3 || version4) && (!OpenWaterDetailTemplateIds.SequenceEqual(NormalWaterTransitionCatalogue.OpenWaterDetailTemplateIds) ||
 				ShorelineDecorationPercent != 16 || OpenWaterDetailPercent != 8))
-				throw new InvalidOperationException("The Version 3 visual-density policy must use the audited 16% shoreline decoration, " +
+				throw new InvalidOperationException("The Version 3 shoreline policy must use the audited 16% shoreline decoration, " +
 					"8% open-Water detail, and fixed NORMAL detail templates 24, 25, and 27.");
+			if (!version4 && (ClearLandDetailTemplateIds.Length != 0 || ClearLandDetailPercent != 0))
+				throw new InvalidOperationException("Generator Versions 1 through 3 cannot enable Phase 6B Clear land details.");
+			if (version4 && (!ClearLandDetailTemplateIds.SequenceEqual(new ushort[] { 61, 62 }) || ClearLandDetailPercent != 4))
+				throw new InvalidOperationException("Version 4 must use the audited four-percent Clear detail policy and fixed NORMAL templates 61 and 62.");
 		}
 	}
 
@@ -252,6 +264,12 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public RmgNativeTerrainIntent[] NativeTerrainIntents { get; }
 		public RmgShorelineRole[] ShorelineRoles { get; }
 		public int ShorelineUnsupportedNeighborhoodCount { get; set; }
+		public int ClearLandDetailEligibleCount { get; set; }
+		public int ClearLandDetailExcludedProtectedCount { get; set; }
+		public int ClearLandDetailTargetCount { get; set; }
+		public int ClearLandDetailSelectedCount { get; set; }
+		public int ClearLandDetailSymmetrySideACount { get; set; }
+		public int ClearLandDetailSymmetrySideBCount { get; set; }
 		public int[] RegionIds { get; }
 		public int[] RouteIds { get; }
 		public bool[] StartReservations { get; }
