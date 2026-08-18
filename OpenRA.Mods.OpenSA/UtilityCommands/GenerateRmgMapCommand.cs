@@ -22,7 +22,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 		string IUtilityCommand.Name => "--generate-sa-map";
 		bool IUtilityCommand.ValidateArguments(string[] args) => args.Length >= 1;
 
-		[Desc("OUTPUT.oramap", "--seed N", "[--players 2|4]", "[--symmetry horizontal|vertical|rotational]", "[--archetype open|central-contest]", "[--topology off|mixed|shoreline|land-details]", "[--neutral-colonies N]", "[--movement-validation proxy|native|both]", "[--report FILE]", "[--overwrite]", "Generate a deterministic OpenSA skirmish map. Topology defaults to the frozen Clear-only V1 path.")]
+		[Desc("OUTPUT.oramap", "--seed N", "[--players 2|4]", "[--symmetry horizontal|vertical|rotational]", "[--archetype open|central-contest]", "[--topology off|mixed|shoreline|land-details|land-cover]", "[--neutral-colonies N]", "[--movement-validation proxy|native|both]", "[--report FILE]", "[--overwrite]", "Generate a deterministic OpenSA skirmish map. Topology defaults to the frozen Clear-only V1 path.")]
 		void IUtilityCommand.Run(Utility utility, string[] args)
 		{
 			try
@@ -119,6 +119,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				RmgTopologyPreset.Mixed => 2,
 				RmgTopologyPreset.Shoreline => 3,
 				RmgTopologyPreset.LandDetails => 4,
+				RmgTopologyPreset.LandCover => 5,
 				_ => 1
 			};
 			if (values.TryGetValue("--generator-version", out var versionText) &&
@@ -178,7 +179,8 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			"mixed" => RmgTopologyPreset.Mixed,
 			"shoreline" => RmgTopologyPreset.Shoreline,
 			"land-details" => RmgTopologyPreset.LandDetails,
-			_ => throw new ArgumentException("Topology must be off, mixed, shoreline, or land-details.")
+			"land-cover" => RmgTopologyPreset.LandCover,
+			_ => throw new ArgumentException("Topology must be off, mixed, shoreline, land-details, or land-cover.")
 		};
 
 		public static string TopologyName(RmgTopologyPreset value) => value switch
@@ -187,6 +189,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			RmgTopologyPreset.Mixed => "mixed",
 			RmgTopologyPreset.Shoreline => "shoreline",
 			RmgTopologyPreset.LandDetails => "land-details",
+			RmgTopologyPreset.LandCover => "land-cover",
 			_ => throw new ArgumentOutOfRangeException(nameof(value))
 		};
 

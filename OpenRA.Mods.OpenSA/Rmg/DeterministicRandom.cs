@@ -26,9 +26,16 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 		public static DeterministicRandom ForStream(RmgGenerationSettings settings, RmgProfile profile, string streamName)
 		{
-			var canonical = profile.UsesClearLandDetails && streamName != "terrain-clear-land-details" ?
-				InheritedShorelineCanonical(settings) :
-				settings.Canonical(profile);
+			var isLandCoverStream = streamName.StartsWith("terrain-land-cover-", StringComparison.Ordinal);
+			string canonical;
+			if (profile.UsesLandCover && isLandCoverStream)
+				canonical = settings.Canonical(profile);
+			else if (profile.UsesLandCover && streamName == "terrain-clear-land-details")
+				canonical = InheritedClearDetailCanonical(settings);
+			else if (profile.UsesClearLandDetails && streamName != "terrain-clear-land-details")
+				canonical = InheritedShorelineCanonical(settings);
+			else
+				canonical = settings.Canonical(profile);
 			var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(canonical + "\nstream=" + streamName));
 			ulong seed = 0;
 			for (var i = 0; i < sizeof(ulong); i++)
@@ -48,6 +55,19 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			$"archetype={settings.Archetype}",
 			$"colonies={settings.NeutralColonyCount}",
 			$"topology={RmgTopologyPreset.Shoreline}"
+		});
+
+		static string InheritedClearDetailCanonical(RmgGenerationSettings settings) => string.Join("\n", new[]
+		{
+			"profile=normal-land-details-v4",
+			"configuration=1",
+			"generator=4",
+			$"seed={settings.Seed}",
+			$"players={settings.PlayerCount}",
+			$"symmetry={settings.Symmetry}",
+			$"archetype={settings.Archetype}",
+			$"colonies={settings.NeutralColonyCount}",
+			$"topology={RmgTopologyPreset.LandDetails}"
 		});
 
 		public ulong NextUInt64()

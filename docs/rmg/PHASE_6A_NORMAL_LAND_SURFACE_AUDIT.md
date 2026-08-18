@@ -40,7 +40,9 @@ Consequences:
 
 ## NORMAL land-template architecture
 
-The audit covers 69 templates across 36 shipped NORMAL maps.
+The audit covers 69 templates across 36 shipped NORMAL maps: 28 campaign missions, 4 custom/challenge scenarios, 3 skirmish references, and 1 other System-class map. It is not a skirmish-only audit.
+
+The underlying Phase 1 corpus includes every available shipped System-class map: 100 campaign missions, 13 custom/challenge scenarios, 11 skirmish references, and 1 other map, for 125 total. Phase 7 layout analysis must retain that full scope even when individual terrain-semantic audits select a tileset subset.
 
 ### Clear interior bank
 

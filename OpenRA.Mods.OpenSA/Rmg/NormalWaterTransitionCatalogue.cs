@@ -18,7 +18,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 	public enum RmgNativeTerrainIntent
 	{
 		Clear,
-		Water
+		Water,
+		Rock,
+		Vegetation
 	}
 
 	public enum RmgShorelineRole

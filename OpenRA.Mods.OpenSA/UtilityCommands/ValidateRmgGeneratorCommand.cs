@@ -21,13 +21,13 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 		string IUtilityCommand.Name => "--validate-sa-rmg";
 		bool IUtilityCommand.ValidateArguments(string[] args) => args.Length == 1;
 
-		[Desc("Run focused deterministic RMG self-tests for frozen V1-V3 and opt-in Clear-detail V4 profiles.")]
+		[Desc("Run focused deterministic RMG self-tests for frozen V1-V4 and opt-in land-cover V5 profiles.")]
 		void IUtilityCommand.Run(Utility utility, string[] args)
 		{
 			try
 			{
 				var failures = new List<string>();
-				foreach (var topology in new[] { RmgTopologyPreset.Off, RmgTopologyPreset.Mixed, RmgTopologyPreset.Shoreline, RmgTopologyPreset.LandDetails })
+				foreach (var topology in new[] { RmgTopologyPreset.Off, RmgTopologyPreset.Mixed, RmgTopologyPreset.Shoreline, RmgTopologyPreset.LandDetails, RmgTopologyPreset.LandCover })
 				{
 					var profile = RmgProfile.Load(utility.ModData, topology);
 					var profileFailures = RmgGenerator.RunSelfTests(profile);
@@ -56,6 +56,23 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				if (!inheritedBaselineMatches)
 					failures.Add("normal-land-details-v4: Version 4 does not inherit the Version 3 topology, actors, routes, shoreline, and non-detail templates.");
 				Console.WriteLine($"v3-to-v4 inherited baseline: {(inheritedBaselineMatches ? "PASS" : "FAIL")}");
+
+				var landProfile = RmgProfile.Load(utility.ModData, RmgTopologyPreset.LandCover);
+				var landSettings = BaselineSettings(landProfile, RmgTopologyPreset.LandCover);
+				var land = RmgGenerator.Generate(landProfile, landSettings);
+				var version5BaselineMatches = details.ActorHash == land.ActorHash &&
+					details.GraphHash == land.GraphHash &&
+					details.Map.Obstacles.SequenceEqual(land.Map.Obstacles) &&
+					details.Map.RouteMasks.SequenceEqual(land.Map.RouteMasks) &&
+					details.Map.StartReservations.SequenceEqual(land.Map.StartReservations) &&
+					details.Map.StructureReservations.SequenceEqual(land.Map.StructureReservations) &&
+					details.Map.StrategicRegions.SequenceEqual(land.Map.StrategicRegions) &&
+					details.Map.ShorelineRoles.SequenceEqual(land.Map.ShorelineRoles) &&
+					Enumerable.Range(0, details.Map.TemplateIds.Length).Where(index => details.Map.Obstacles[index])
+						.All(index => details.Map.TemplateIds[index] == land.Map.TemplateIds[index]);
+				if (!version5BaselineMatches)
+					failures.Add("normal-land-cover-v5: Version 5 does not inherit the Version 4 actors, topology, reservations, shoreline, and Water templates.");
+				Console.WriteLine($"v4-to-v5 inherited baseline: {(version5BaselineMatches ? "PASS" : "FAIL")}");
 
 				static RmgGenerationSettings BaselineSettings(RmgProfile profile, RmgTopologyPreset topology) => new()
 				{

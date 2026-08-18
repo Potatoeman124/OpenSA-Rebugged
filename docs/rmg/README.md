@@ -35,6 +35,10 @@ The [Phase 6A NORMAL land-surface audit and contract](PHASE_6A_NORMAL_LAND_SURFA
 
 [Phase 6B](PHASE_6B_CLEAR_LAND_DETAILS.md) implements the first opt-in land-surface slice as Generator Version 4. It inherits Version 3 topology, actors, routes, Water, and shoreline identity, then replaces an exact rounded four percent of eligible non-protected Clear stamps with runtime-verified Clear-native templates 61 and 62. The [manual Phase 6B corpus](PHASE_6B_MANUAL_PLAYTEST_SEEDS.md) reuses the accepted Phase 5B seeds for direct visual comparison.
 
+[Phase 6C](PHASE_6C_WEIGHTED_LAND_COVER.md) implements opt-in Generator Version 5 with nested Clear-to-Rock-to-Vegetation fields, capacity-aware coverage targets, exact semantic symmetry, and native weighted-path parity. The full protected-Clear contract takes precedence over the nominal 14-percent Rock and 8-percent Vegetation targets. The [manual Phase 6C corpus](PHASE_6C_MANUAL_PLAYTEST_SEEDS.md) reuses the same eight comparison seeds and records the achieved coverage on each map.
+
+The proposed [player-facing random map parameters](PLAYER_FACING_RANDOM_MAP_PARAMETERS.md) separate meaningful gameplay choices from mandatory generator safety and fairness invariants, and define the future `Generate Map...` workflow without treating the current test layouts as UI-ready.
+
 ## Movement validation architecture
 
 OpenSA has two movement classes relevant to generated maps:
@@ -160,10 +164,20 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\rmg\Invoke-MapGene
 
 The title includes `land-details`, and reports are written beneath ignored `artifacts/rmg/phase-6b-clear-land-details/`. The target is the exact rounded four percent of eligible Clear stamps, and the two symmetry-side counts differ by at most one. See the [Phase 6B implementation record](PHASE_6B_CLEAR_LAND_DETAILS.md) and [manual corpus](PHASE_6B_MANUAL_PLAYTEST_SEEDS.md).
 
+## Generator Version 5 weighted-land-cover usage
+
+Select Version 5 explicitly with `-Topology land-cover`. It inherits Version 4 and adds capacity-aware Rock and Vegetation fields outside every protected Clear layer:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\rmg\Invoke-MapGenerator.ps1 -Seed 3100000 -Players 2 -NeutralColonies 8 -Symmetry horizontal -Archetype open -Topology land-cover -MovementValidation both -InstallForPlay -Overwrite
+```
+
+The title includes `land-cover`, and reports are written beneath ignored `artifacts/rmg/phase-6c-weighted-land-cover/`. See the [Phase 6C implementation record](PHASE_6C_WEIGHTED_LAND_COVER.md) and [manual corpus](PHASE_6C_MANUAL_PLAYTEST_SEEDS.md).
+
 ## Current implementation boundary
 
 Generator Version 1 implements deterministic settings, independent random streams, symmetry-aware starts, a strategic graph with two start-to-hub routes, widened route reservations, role-scored neutral colonies, symmetric Clear-template materialization, proxy and engine-grounded static movement validation, map lint, quality metrics, repeatability hashes, and repeated save/reload package validation. Its obstacle stage remains a validated zero-density no-op.
 
 Generator Version 2 adds deterministic symmetric Water regions, named route masks, route-local chokepoints for `central-contest`, subtractive bounded repair, exact logical/native passability agreement, mover-specific validation, rule-derived combat-space validation, and durable debug layers. Homogeneous Water creates a known hard visual seam, and wasps intentionally bypass ground blockers. Configuration version 3 has passed manual spawn-safety validation and remains the frozen baseline. Phase 5A found no reusable engine autotiler, so opt-in Generator Version 3 selects fixed 2x2 shoreline stamps, validates per-frame native passability, and independently samples cosmetic symmetry partners. Its shoreline vegetation and open-Water detail densities are calibrated from authored NORMAL maps. Broader layout redesign, land decoration, Rock/Vegetation transitions, new archetypes, and UI work remain later phases.
 
-Phase 6A finds that authored NORMAL maps use median land-relative coverage of 13.8055 percent Rock and 8.3118 percent Vegetation, while Clear-native fixed details appear on 4.3060 percent of homogeneous Clear stamps. Generator Version 4 implements the safe cosmetic slice with templates `61` and `62` at a four-percent eligible-stamp target while preserving native Clear movement. Its functional gate is accepted, but manual review found the cosmetic distribution visibly over-constrained near route-dense interiors; this remains WIP for combined Phase 6C review. Symmetric Rock/Vegetation fields follow only after weighted-route validation is implemented, and their protected-Clear exclusions remain strict. Free-standing decoration actors, new archetypes, and broader layout redesign remain outside the current implementation.
+Phase 6A found authored NORMAL land-relative medians of 13.8055 percent Rock and 8.3118 percent Vegetation, while Clear-native fixed details appear on 4.3060 percent of homogeneous Clear stamps. Generator Version 4 implements the safe cosmetic slice with templates `61` and `62`; its functional gate is accepted, while its conservative visual distribution remains WIP. Generator Version 5 now implements symmetric nested Rock/Vegetation morphology, capacity-aware 14/8-percent targets, runtime-verified native semantics, and exact weighted-path parity. Manual review accepted it as a mergeable working prototype, with battlefield placement still WIP: movement terrain is too border-biased and cosmetic details leave some interiors visually empty. Phase 7 owns role-aware layout and broader cosmetic coverage. Free-standing decoration actors, new archetypes, and UI work remain outside the current implementation.

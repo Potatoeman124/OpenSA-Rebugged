@@ -49,6 +49,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					2 => RmgTopologyPreset.Mixed,
 					3 => RmgTopologyPreset.Shoreline,
 					4 => RmgTopologyPreset.LandDetails,
+					5 => RmgTopologyPreset.LandCover,
 					_ => RmgTopologyPreset.Off
 				}
 			};
@@ -72,6 +73,12 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					failures.Add("Clear-land-detail selection changed native terrain intent.");
 				if (Math.Abs(first.Map.ClearLandDetailSymmetrySideACount - first.Map.ClearLandDetailSymmetrySideBCount) > 1)
 					failures.Add("Clear-land-detail selection is not count-balanced across symmetry sides.");
+			}
+
+			if (profile.UsesLandCover)
+			{
+				failures.AddRange(NormalLandTransitionCatalogue.RunSelfTests());
+				failures.AddRange(RmgLandCoverMaterializer.RunSelfTests());
 			}
 
 			first.Map.TemplateIds[0] = ushort.MaxValue;
@@ -192,6 +199,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				throw new ArgumentException("Generator Version 3 requires TopologyPreset=shoreline.");
 			if (profile.GeneratorVersion == 4 && settings.TopologyPreset != RmgTopologyPreset.LandDetails)
 				throw new ArgumentException("Generator Version 4 requires TopologyPreset=land-details.");
+			if (profile.GeneratorVersion == 5 && settings.TopologyPreset != RmgTopologyPreset.LandCover)
+				throw new ArgumentException("Generator Version 5 requires TopologyPreset=land-cover.");
 			if (settings.PlayerCount != 2 && settings.PlayerCount != 4)
 				throw new ArgumentException($"Generator Version {settings.GeneratorVersion} supports exactly two or four players.");
 			if (settings.PlayerCount == 2 && (settings.NeutralColonyCount < 8 || settings.NeutralColonyCount > 20 || settings.NeutralColonyCount % 2 != 0))

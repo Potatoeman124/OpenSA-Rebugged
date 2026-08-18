@@ -28,7 +28,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			foreach (var start in map.Starts)
 				ReserveSquare(map.StartReservations, map, start, profile.StartRegionRadiusNative / 2);
 
-			var routes = ReserveBlockingRoutes(map, profile, settings);
+			var routes = ReserveBlockingRoutes(map, settings);
 			MarkStrategicRegions(map);
 			ClearBlockingStage(map);
 			var startingObstacleOrbit = settings.Archetype == RmgArchetype.CentralContest ?
@@ -95,7 +95,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			}
 		}
 
-		static List<BlockingRoutePlan> ReserveBlockingRoutes(RmgLogicalMap map, RmgProfile profile, RmgGenerationSettings settings)
+		static List<BlockingRoutePlan> ReserveBlockingRoutes(RmgLogicalMap map, RmgGenerationSettings settings)
 		{
 			var nodes = map.GraphNodes.ToDictionary(n => n.Id, StringComparer.Ordinal);
 			var routes = new List<BlockingRoutePlan>();
@@ -234,6 +234,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					waypoints.Add(new RmgPoint(laneX, to.Y));
 					break;
 				}
+
 				case RmgSymmetry.MirrorVertical:
 				{
 					var towardCenter = from.Y < map.Height / 2 ? 1 : -1;
@@ -243,6 +244,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					waypoints.Add(new RmgPoint(to.X, laneY));
 					break;
 				}
+
 				case RmgSymmetry.Rotate180:
 				{
 					// Give each start two separated vertical lanes. The symmetry partner is derived
@@ -491,6 +493,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 							aperture.Add(new RmgPoint(p.X + 1, p.Y));
 						}
 					}
+
 					var wallLine = horizontal ?
 						Enumerable.Range(Math.Min(segment[0].X, segment[1].X) - 1, 4)
 							.Select(x => new RmgPoint(x, segment[0].Y)) :
@@ -524,18 +527,21 @@ namespace OpenRA.Mods.OpenSA.Rmg
 						routeCounts[1]++;
 						continue;
 					}
+
 					if (GenericStartAnchorDistance(aperture.Concat(partnerAperture), map) < 24)
 					{
 						startRejected++;
 						routeCounts[2]++;
 						continue;
 					}
+
 					if (GenericColonyCoverageDistance(aperture.Concat(partnerAperture), map, profile) < 10)
 					{
 						colonyRejected++;
 						routeCounts[3]++;
 						continue;
 					}
+
 					if (walls.Any(p => !map.Contains(p) || map.StartReservations[map.Index(p)] ||
 						map.StructureReservations[map.Index(p)] || map.StrategicRegions[map.Index(p)]))
 					{
@@ -543,6 +549,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 						routeCounts[4]++;
 						continue;
 					}
+
 					var allowedBits = (1UL << route.RouteId) | (1UL << partnerEdge.RouteId);
 					if (walls.Concat(walls.Select(p => Transform(p, settings.Symmetry, map.Width, map.Height)))
 						.Any(p => (map.RouteMasks[map.Index(p)] & ~allowedBits) != 0))
@@ -622,8 +629,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				}
 			}
 
-			var range = profile.ObstacleDensityRange(settings.Archetype);
-			var minimumTarget = (int)Math.Ceiling(map.Obstacles.Length * range.Minimum / 100D);
+			var (minimum, maximum) = profile.ObstacleDensityRange(settings.Archetype);
+			var minimumTarget = (int)Math.Ceiling(map.Obstacles.Length * minimum / 100D);
 			var fillRandom = DeterministicRandom.ForStream(settings, profile, $"topology-fill-{attempt}");
 			for (var pass = 0; pass < 4 && map.Obstacles.Count(x => x) < minimumTarget; pass++)
 				for (var y = 2; y < map.Height - 2 && map.Obstacles.Count(x => x) < minimumTarget; y++)
@@ -658,8 +665,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					}
 
 			var density = 100D * map.Obstacles.Count(x => x) / map.Obstacles.Length;
-			if (density < range.Minimum || density > range.Maximum)
-				throw new InvalidOperationException($"Attempt {attempt} produced obstacle density {density:F3}%, outside {range.Minimum}-{range.Maximum}%; " +
+			if (density < minimum || density > maximum)
+				throw new InvalidOperationException($"Attempt {attempt} produced obstacle density {density:F3}%, outside {minimum}-{maximum}%; " +
 					$"initially-eligible={initiallyEligibleCells}, minimum-target={minimumTarget}.");
 		}
 
@@ -787,6 +794,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					if (!region.Contains(neighbor) && map.Contains(neighbor))
 						frontier.Add(neighbor);
 			}
+
 			return region;
 		}
 
@@ -806,6 +814,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				map.Obstacles[index] = true;
 				map.ObstacleRegionIds[index] = firstId;
 			}
+
 			map.ObstacleRegions.Add(new RmgObstacleRegion(firstId, orbit, first.Count));
 			var secondId = map.ObstacleRegions.Count;
 			foreach (var point in second)
@@ -814,6 +823,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				map.Obstacles[index] = true;
 				map.ObstacleRegionIds[index] = secondId;
 			}
+
 			map.ObstacleRegions.Add(new RmgObstacleRegion(secondId, orbit, second.Count));
 			if (ConnectedComponents(map, blocked: false).Count != 1)
 			{
@@ -823,10 +833,12 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					map.Obstacles[index] = false;
 					map.ObstacleRegionIds[index] = -1;
 				}
+
 				map.ObstacleRegions.RemoveAt(map.ObstacleRegions.Count - 1);
 				map.ObstacleRegions.RemoveAt(map.ObstacleRegions.Count - 1);
 				throw new InvalidOperationException("Obstacle candidate would create a terrain-only OPEN island.");
 			}
+
 			return orbit + 1;
 		}
 
@@ -847,6 +859,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 						if (map.ObstacleRegionIds[map.Index(new RmgPoint(x, y))] == nearby.Id)
 							return false;
 			}
+
 			return true;
 		}
 
@@ -873,9 +886,11 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					map.ObstacleRegionIds[index] = -1;
 					map.RepairChanges[index] = true;
 				}
+
 				map.Repairs.Add(new RmgRepairRecord(map.Repairs.Count, group.Type, group.Reason, -1,
 					changed.Select(i => new RmgPoint(i % map.Width, i / map.Width)).ToArray()));
 			}
+
 			map.RepairCount = map.Repairs.Count;
 			RebuildObstacleRegionMetadata(map);
 		}
@@ -902,6 +917,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (profile.UsesShorelineMaterialization)
 			{
 				RmgShorelineMaterializer.Materialize(map, profile, settings);
+				RmgLandCoverMaterializer.Materialize(map, profile, settings);
 				RmgClearLandDetailMaterializer.Materialize(map, profile, settings);
 				return;
 			}
@@ -933,11 +949,14 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var blockedTemplates = profile.BlockedTemplateIds.ToHashSet();
 			if (profile.UsesClearLandDetails)
 				openTemplates.UnionWith(profile.ClearLandDetailTemplateIds);
+			if (profile.UsesLandCover)
+				openTemplates.UnionWith(NormalLandTransitionCatalogue.LandMaterializationTemplateIds);
 			if (profile.UsesShorelineMaterialization)
 			{
 				blockedTemplates.UnionWith(NormalWaterTransitionCatalogue.PermittedTemplateIds);
 				blockedTemplates.UnionWith(profile.OpenWaterDetailTemplateIds);
 			}
+
 			for (var i = 0; i < map.TemplateIds.Length; i++)
 			{
 				if (map.Obstacles[i] != blockedTemplates.Contains(map.TemplateIds[i]))
@@ -959,6 +978,21 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				if (profile.UsesClearLandDetails && profile.ClearLandDetailTemplateIds.Contains(map.TemplateIds[i]) &&
 					Enumerable.Range(0, 4).Any(frame => map.NativeTerrainIntents[4 * i + frame] != RmgNativeTerrainIntent.Clear))
 					Hard("CLEAR_DETAIL_NATIVE_TERRAIN", $"Clear detail at logical cell {i} has a non-Clear native terrain intent.");
+				if (profile.UsesLandCover && RmgClearLandDetailMaterializer.IsProtected(map, i) &&
+					Enumerable.Range(0, 4).Any(frame => RmgLandCoverMaterializer.IsSlow(map.NativeTerrainIntents[4 * i + frame])))
+					Hard("LAND_COVER_PROTECTED_OVERLAP", $"Slow terrain at logical cell {i} overlaps a protected Clear layer.");
+				if (profile.UsesLandCover && Enumerable.Range(0, 4).Any(frame =>
+					map.NativeTerrainIntents[4 * i + frame] == RmgNativeTerrainIntent.Vegetation) && Enumerable.Range(0, 4).Any(frame =>
+					map.NativeTerrainIntents[4 * i + frame] == RmgNativeTerrainIntent.Clear))
+					Hard("LAND_COVER_DIRECT_CLEAR_VEGETATION", $"Logical cell {i} contains a direct Clear/Vegetation transition.");
+				if (profile.UsesLandCover && NormalLandTransitionCatalogue.TryGet(map.TemplateIds[i], out var landTemplate) &&
+					landTemplate.Permitted && Enumerable.Range(0, 4).Any(frame =>
+						map.NativeTerrainIntents[4 * i + frame] != landTemplate.NativeTerrain[frame]))
+					Hard("LAND_COVER_TEMPLATE_SEMANTICS", $"Land template {map.TemplateIds[i]} at logical cell {i} disagrees with its audited native frames.");
+				if (profile.UsesLandCover && Enumerable.Range(0, 4).Any(frame =>
+					RmgLandCoverMaterializer.IsSlow(map.NativeTerrainIntents[4 * i + frame])) &&
+					(!NormalLandTransitionCatalogue.TryGet(map.TemplateIds[i], out var slowTemplate) || !slowTemplate.Permitted))
+					Hard("LAND_COVER_TEMPLATE", $"Slow terrain at logical cell {i} uses non-catalogued template {map.TemplateIds[i]}.");
 			}
 
 			for (var y = 0; y < map.Height; y++)
@@ -971,6 +1005,16 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					var templateSymmetry = map.TemplateIds[pointIndex] == map.TemplateIds[partnerIndex];
 					if (profile.UsesClearLandDetails && !map.Obstacles[pointIndex] && !map.Obstacles[partnerIndex])
 						templateSymmetry = true;
+					var nativeTerrainSymmetry = true;
+					if (profile.UsesLandCover)
+						for (var frame = 0; frame < 4; frame++)
+							if (map.NativeTerrainIntents[4 * pointIndex + frame] != map.NativeTerrainIntents[
+								4 * partnerIndex + NormalWaterTransitionCatalogue.TransformFrame(frame, settings.Symmetry)])
+							{
+								nativeTerrainSymmetry = false;
+								break;
+							}
+
 					if (profile.UsesShorelineMaterialization && map.ShorelineRoles[pointIndex] != RmgShorelineRole.None)
 					{
 						var expectedPartnerRole = map.ShorelineRoles[pointIndex] == RmgShorelineRole.Interior ?
@@ -979,8 +1023,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 						templateSymmetry = map.ShorelineRoles[partnerIndex] == expectedPartnerRole;
 					}
 
-					if (map.Obstacles[pointIndex] != map.Obstacles[partnerIndex] || !templateSymmetry ||
-						(map.RouteMasks[pointIndex] != 0) != (map.RouteMasks[partnerIndex] != 0))
+					if (map.Obstacles[pointIndex] != map.Obstacles[partnerIndex] || !templateSymmetry || !nativeTerrainSymmetry ||
+						map.RouteMasks[pointIndex] != 0 != (map.RouteMasks[partnerIndex] != 0))
 						Hard("TOPOLOGY_SYMMETRY", $"Semantic topology at {point} differs from symmetry partner {partner}.");
 				}
 
@@ -1018,14 +1062,15 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				if (map.Starts.Any(s => choke.From.ChebyshevDistance(s) < 12 || choke.To.ChebyshevDistance(s) < 12))
 					Hard("CHOKEPOINT_START_DISTANCE", $"{choke.Id} is less than 24 native cells from a start anchor.");
 			}
+
 			foreach (var colony in map.Actors.Where(a => a.Owner == profile.ColonyOwner))
 				if (CandidateChokepointDistance(map, colony.LogicalLocation) < 10)
 					Hard("CHOKEPOINT_COLONY_DISTANCE", $"A chokepoint is less than 10 native cells from colony coverage at {colony.LogicalLocation}.");
 
 			var density = 100D * map.Obstacles.Count(x => x) / map.Obstacles.Length;
-			var densityRange = profile.ObstacleDensityRange(settings.Archetype);
-			if (density < densityRange.Minimum || density > densityRange.Maximum)
-				Hard("OBSTACLE_DENSITY", $"Obstacle density {density:F3}% is outside {densityRange.Minimum}-{densityRange.Maximum}%.");
+			var (minimum, maximum) = profile.ObstacleDensityRange(settings.Archetype);
+			if (density < minimum || density > maximum)
+				Hard("OBSTACLE_DENSITY", $"Obstacle density {density:F3}% is outside {minimum}-{maximum}%.");
 			if (map.Repairs.Count > profile.MaximumRepairOperations || map.RepairChanges.Count(x => x) > profile.MaximumRepairCellsLogical)
 				Hard("REPAIR_BUDGET", "Bounded repairs exceeded the frozen operation or changed-cell budget.");
 
@@ -1037,6 +1082,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				var nearest = Enumerable.Range(0, map.Starts.Count).OrderBy(i => colony.LogicalLocation.ManhattanDistance(map.Starts[i])).ThenBy(i => i).First();
 				assignments[nearest]++;
 			}
+
 			var (reachableStarts, passableCells, maximumStartDistance) = NativeConnectivityProxy(map, profile);
 			if (reachableStarts != map.Starts.Count)
 				Hard("NATIVE_CONNECTIVITY_PROXY", $"The obstacle-aware 3x3 proxy reaches {reachableStarts}/{map.Starts.Count} starts.");
@@ -1078,9 +1124,13 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				var selected = map.TemplateIds.Select((template, index) => (template, index))
 					.Where(entry => details.Contains(entry.template)).ToArray();
 				var eligible = Enumerable.Range(0, map.TemplateIds.Length)
-					.Count(i => !map.Obstacles[i] && !RmgClearLandDetailMaterializer.IsProtected(map, i));
+					.Count(i => !map.Obstacles[i] && Enumerable.Range(0, 4).All(frame =>
+						map.NativeTerrainIntents[4 * i + frame] == RmgNativeTerrainIntent.Clear) &&
+						!RmgClearLandDetailMaterializer.IsProtected(map, i));
 				var excludedProtected = Enumerable.Range(0, map.TemplateIds.Length)
-					.Count(i => !map.Obstacles[i] && RmgClearLandDetailMaterializer.IsProtected(map, i));
+					.Count(i => !map.Obstacles[i] && Enumerable.Range(0, 4).All(frame =>
+						map.NativeTerrainIntents[4 * i + frame] == RmgNativeTerrainIntent.Clear) &&
+						RmgClearLandDetailMaterializer.IsProtected(map, i));
 				var target = (eligible * profile.ClearLandDetailPercent + 50) / 100;
 				if (selected.Length != target || map.ClearLandDetailSelectedCount != target ||
 					map.ClearLandDetailTargetCount != target || map.ClearLandDetailEligibleCount != eligible)
@@ -1100,7 +1150,126 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				report.Metrics["clear_land_detail_symmetry_side_b_count"] = map.ClearLandDetailSymmetrySideBCount;
 			}
 
+			if (profile.UsesLandCover)
+			{
+				var land = map.NativeTerrainIntents.Count(intent => intent != RmgNativeTerrainIntent.Water);
+				var rock = map.NativeTerrainIntents.Count(intent => intent == RmgNativeTerrainIntent.Rock);
+				var vegetation = map.NativeTerrainIntents.Count(intent => intent == RmgNativeTerrainIntent.Vegetation);
+				var requestedRockTarget = (land * profile.RockLandPercent + 50) / 100;
+				var requestedVegetationTarget = (land * profile.VegetationLandPercent + 50) / 100;
+				var rockTarget = map.LandCoverRockTargetNativeCount;
+				var vegetationTarget = map.LandCoverVegetationTargetNativeCount;
+				var tolerance = Math.Max(8, (land * profile.LandCoverTolerancePercent + 50) / 100);
+				if (map.LandCoverLandNativeCount != land || map.LandCoverRockNativeCount != rock ||
+					map.LandCoverVegetationNativeCount != vegetation)
+					Hard("LAND_COVER_ACCOUNTING", "Recorded land-cover counts differ from the materialized native terrain intents.");
+				if (rockTarget > requestedRockTarget || vegetationTarget > requestedVegetationTarget ||
+					rockTarget + vegetationTarget > map.LandCoverEnvelopeCapacityNativeCount ||
+					vegetationTarget > map.LandCoverVegetationCapacityNativeCount)
+					Hard("LAND_COVER_TARGET_ACCOUNTING", "Effective land-cover targets exceed their requested target or protected-zone capacity.");
+				if (Math.Abs(rock - rockTarget) > tolerance || Math.Abs(vegetation - vegetationTarget) > tolerance)
+					Hard("LAND_COVER_RATE", $"Rock/Vegetation counts {rock}/{vegetation} exceed tolerance {tolerance} around effective targets {rockTarget}/{vegetationTarget}.");
+
+				var waterAdjacency = 0;
+				var nativeWidth = 2 * map.Width;
+				var nativeHeight = 2 * map.Height;
+				for (var nativeY = 0; nativeY < nativeHeight; nativeY++)
+					for (var nativeX = 0; nativeX < nativeWidth; nativeX++)
+					{
+						var intent = NativeIntent(nativeX, nativeY);
+						if (!RmgLandCoverMaterializer.IsSlow(intent))
+							continue;
+						var touchesWater = false;
+						for (var dy = -1; dy <= 1 && !touchesWater; dy++)
+							for (var dx = -1; dx <= 1; dx++)
+							{
+								var x = nativeX + dx;
+								var y = nativeY + dy;
+								if (x >= 0 && x < nativeWidth && y >= 0 && y < nativeHeight && NativeIntent(x, y) == RmgNativeTerrainIntent.Water)
+								{
+									touchesWater = true;
+									break;
+								}
+							}
+
+						if (touchesWater)
+							waterAdjacency++;
+					}
+
+				if (waterAdjacency > 0)
+					Hard("LAND_COVER_WATER_SEPARATION", $"{waterAdjacency} Rock/Vegetation native cells touch Water.");
+
+				var rockComponents = NativeTerrainComponentSizes(map, RmgNativeTerrainIntent.Rock);
+				var vegetationComponents = NativeTerrainComponentSizes(map, RmgNativeTerrainIntent.Vegetation);
+				report.Metrics["rock_land_requested_native_cells"] = requestedRockTarget;
+				report.Metrics["vegetation_land_requested_native_cells"] = requestedVegetationTarget;
+				report.Metrics["rock_land_effective_target_native_cells"] = rockTarget;
+				report.Metrics["vegetation_land_effective_target_native_cells"] = vegetationTarget;
+				report.Metrics["land_cover_envelope_capacity_native_cells"] = map.LandCoverEnvelopeCapacityNativeCount;
+				report.Metrics["vegetation_core_capacity_native_cells"] = map.LandCoverVegetationCapacityNativeCount;
+				report.Metrics["rock_land_shortfall_native_cells"] = Math.Max(0, requestedRockTarget - rock);
+				report.Metrics["vegetation_land_shortfall_native_cells"] = Math.Max(0, requestedVegetationTarget - vegetation);
+				report.Metrics["rock_land_achieved_percent"] = land == 0 ? 0 : 100D * rock / land;
+				report.Metrics["vegetation_land_achieved_percent"] = land == 0 ? 0 : 100D * vegetation / land;
+				report.Metrics["slow_water_adjacency_native_cells"] = waterAdjacency;
+				report.Metrics["rock_component_count"] = rockComponents.Count;
+				report.Metrics["rock_component_maximum_native_cells"] = rockComponents.DefaultIfEmpty(0).Max();
+				report.Metrics["vegetation_component_count"] = vegetationComponents.Count;
+				report.Metrics["vegetation_component_maximum_native_cells"] = vegetationComponents.DefaultIfEmpty(0).Max();
+
+				RmgNativeTerrainIntent NativeIntent(int x, int y)
+				{
+					var logical = map.Index(new RmgPoint(x / 2, y / 2));
+					return map.NativeTerrainIntents[4 * logical + 2 * (y & 1) + (x & 1)];
+				}
+			}
+
 			return report;
+
+			static List<int> NativeTerrainComponentSizes(RmgLogicalMap map, RmgNativeTerrainIntent target)
+		{
+			var width = 2 * map.Width;
+			var height = 2 * map.Height;
+			var visited = new bool[width * height];
+			var sizes = new List<int>();
+			for (var y = 0; y < height; y++)
+				for (var x = 0; x < width; x++)
+				{
+					var start = y * width + x;
+					if (visited[start] || Intent(x, y) != target)
+						continue;
+					var size = 0;
+					var queue = new Queue<RmgPoint>();
+					queue.Enqueue(new RmgPoint(x, y));
+					visited[start] = true;
+					while (queue.Count > 0)
+					{
+						var point = queue.Dequeue();
+						size++;
+						foreach (var (dx, dy) in new[] { (0, -1), (1, 0), (0, 1), (-1, 0) })
+						{
+							var next = new RmgPoint(point.X + dx, point.Y + dy);
+							if (next.X < 0 || next.X >= width || next.Y < 0 || next.Y >= height)
+								continue;
+							var index = next.Y * width + next.X;
+							if (visited[index] || Intent(next.X, next.Y) != target)
+								continue;
+							visited[index] = true;
+							queue.Enqueue(next);
+						}
+					}
+
+					sizes.Add(size);
+				}
+
+			return sizes;
+
+			RmgNativeTerrainIntent Intent(int x, int y)
+			{
+				var logical = map.Index(new RmgPoint(x / 2, y / 2));
+				return map.NativeTerrainIntents[4 * logical + 2 * (y & 1) + (x & 1)];
+			}
+		}
 
 			RmgPoint IndexPoint(int index) => new(index % map.Width, index / map.Width);
 		}
@@ -1138,6 +1307,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					}
 				}
 			}
+
 			return result;
 		}
 
@@ -1209,6 +1379,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				value &= value - 1;
 				count++;
 			}
+
 			return count;
 		}
 
@@ -1258,7 +1429,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					["routes"] = ". none, R reserved, J strategic junction",
 					["clearances"] = ". none, S start, C colony, B both",
 					["chokes_repairs"] = ". none, K choke aperture, X repaired cell",
-					["native_terrain_intent"] = "Per logical cell, four native frames in NW, NE, SW, SE order: C Clear, W Water"
+					["native_terrain_intent"] = "Per logical cell, four native frames in NW, NE, SW, SE order: C Clear, R Rock, V Vegetation, W Water"
 				},
 				["topology"] = Layer(i => map.Obstacles[i] ? '#' : '.'),
 				["routes"] = Layer(i => map.StrategicRegions[i] ? 'J' : map.RouteMasks[i] != 0 ? 'R' : '.'),
@@ -1269,7 +1440,13 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				["template_ids"] = Values(i => new JValue(map.TemplateIds[i])),
 				["shoreline_roles"] = Values(i => new JValue(map.ShorelineRoles[i].ToString())),
 				["native_terrain_intent"] = Values(i => new JValue(string.Concat(Enumerable.Range(0, 4)
-					.Select(frame => map.NativeTerrainIntents[4 * i + frame] == RmgNativeTerrainIntent.Water ? 'W' : 'C'))))
+					.Select(frame => map.NativeTerrainIntents[4 * i + frame] switch
+					{
+						RmgNativeTerrainIntent.Water => 'W',
+						RmgNativeTerrainIntent.Rock => 'R',
+						RmgNativeTerrainIntent.Vegetation => 'V',
+						_ => 'C'
+					}))))
 			};
 		}
 	}

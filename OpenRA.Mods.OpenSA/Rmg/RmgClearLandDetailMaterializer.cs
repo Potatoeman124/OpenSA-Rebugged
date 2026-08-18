@@ -36,6 +36,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					if (map.Obstacles[index])
 						continue;
 
+					if (Enumerable.Range(0, 4).Any(frame => map.NativeTerrainIntents[4 * index + frame] != RmgNativeTerrainIntent.Clear))
+						continue;
+
 					if (IsProtected(map, index))
 					{
 						excludedProtected++;
