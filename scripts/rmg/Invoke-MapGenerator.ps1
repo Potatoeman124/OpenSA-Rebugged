@@ -8,7 +8,7 @@ param(
     [string]$Symmetry = "horizontal",
     [ValidateSet("open", "central-contest")]
     [string]$Archetype = "open",
-    [ValidateSet("off", "mixed", "shoreline")]
+    [ValidateSet("off", "mixed", "shoreline", "land-details", "land-cover")]
     [string]$Topology = "off",
     [ValidateSet("proxy", "native", "both")]
     [string]$MovementValidation = "both",
@@ -48,7 +48,7 @@ if ([string]::IsNullOrWhiteSpace($OutputPath))
     }
     else
     {
-        $phase = if ($Topology -eq "shoreline") { "phase-5b-shoreline-materialization" } elseif ($Topology -eq "mixed") { "phase-4c-blocking-topology" } else { "phase-4a-native-movement-validation" }
+        $phase = if ($Topology -eq "land-cover") { "phase-6c-weighted-land-cover" } elseif ($Topology -eq "land-details") { "phase-6b-clear-land-details" } elseif ($Topology -eq "shoreline") { "phase-5b-shoreline-materialization" } elseif ($Topology -eq "mixed") { "phase-4c-blocking-topology" } else { "phase-4a-native-movement-validation" }
         $OutputPath = Join-Path $root "artifacts\rmg\$phase\examples\manual-$Seed.oramap"
     }
 }
@@ -59,7 +59,7 @@ elseif (![System.IO.Path]::IsPathRooted($OutputPath))
 
 if ([string]::IsNullOrWhiteSpace($ReportPath))
 {
-    $phase = if ($Topology -eq "shoreline") { "phase-5b-shoreline-materialization" } elseif ($Topology -eq "mixed") { "phase-4c-blocking-topology" } else { "phase-4a-native-movement-validation" }
+    $phase = if ($Topology -eq "land-cover") { "phase-6c-weighted-land-cover" } elseif ($Topology -eq "land-details") { "phase-6b-clear-land-details" } elseif ($Topology -eq "shoreline") { "phase-5b-shoreline-materialization" } elseif ($Topology -eq "mixed") { "phase-4c-blocking-topology" } else { "phase-4a-native-movement-validation" }
     $ReportPath = Join-Path $root "artifacts\rmg\$phase\reports\manual-$Seed.json"
 }
 elseif (![System.IO.Path]::IsPathRooted($ReportPath))
@@ -81,7 +81,7 @@ $arguments = @(
     "--topology", $Topology,
     "--neutral-colonies", $NeutralColonies,
     "--movement-validation", $MovementValidation,
-    "--generator-version", $(if ($Topology -eq "shoreline") { "3" } elseif ($Topology -eq "mixed") { "2" } else { "1" })
+    "--generator-version", $(if ($Topology -eq "land-cover") { "5" } elseif ($Topology -eq "land-details") { "4" } elseif ($Topology -eq "shoreline") { "3" } elseif ($Topology -eq "mixed") { "2" } else { "1" })
 )
 
 if ($Overwrite)

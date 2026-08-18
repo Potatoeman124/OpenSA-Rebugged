@@ -27,16 +27,22 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 
 		public static void WriteNormalWaterAtlas(ModData modData, ITemplatedTerrainInfo terrainInfo, string outputPath)
 		{
+			WriteNormalCategoryAtlas(modData, terrainInfo, "Water", outputPath);
+		}
+
+		public static void WriteNormalCategoryAtlas(ModData modData, ITemplatedTerrainInfo terrainInfo,
+			string category, string outputPath)
+		{
 			var templates = terrainInfo.Templates.Values
-				.Where(t => t.Categories != null && t.Categories.Any(c => c.Equals("Water", StringComparison.OrdinalIgnoreCase)))
+				.Where(t => t.Categories != null && t.Categories.Any(c => c.Equals(category, StringComparison.OrdinalIgnoreCase)))
 				.OrderBy(t => t.Id)
 				.ToArray();
 			if (templates.Length == 0)
-				throw new InvalidDataException("The NORMAL tileset defines no Water templates.");
+				throw new InvalidDataException($"The NORMAL tileset defines no {category} templates.");
 
 			var frameCache = new FrameCache(modData.DefaultFileSystem, modData.SpriteLoaders);
 			var firstFrames = frameCache[Images(templates[0]).Single()];
-			ValidateFrames(templates[0], firstFrames);
+			ValidateFrames(templates[0], firstFrames, category);
 			var frameWidth = firstFrames[0].Size.Width;
 			var frameHeight = firstFrames[0].Size.Height;
 			var stampWidth = 2 * frameWidth;
@@ -49,13 +55,13 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			for (var i = 0; i < templates.Length; i++)
 			{
 				var frames = frameCache[Images(templates[i]).Single()];
-				ValidateFrames(templates[i], frames);
+				ValidateFrames(templates[i], frames, category);
 				var stampX = i % Columns * (stampWidth + Gap);
 				var stampY = i / Columns * (stampHeight + Gap);
 				for (var frame = 0; frame < 4; frame++)
 				{
 					if (frames[frame].Size.Width != frameWidth || frames[frame].Size.Height != frameHeight)
-						throw new InvalidDataException($"Water template {templates[i].Id} has inconsistent frame dimensions.");
+						throw new InvalidDataException($"{category} template {templates[i].Id} has inconsistent frame dimensions.");
 
 					var frameX = stampX + frame % 2 * frameWidth;
 					var frameY = stampY + frame / 2 * frameHeight;
@@ -78,10 +84,10 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			};
 		}
 
-		static void ValidateFrames(TerrainTemplateInfo template, ISpriteFrame[] frames)
+		static void ValidateFrames(TerrainTemplateInfo template, ISpriteFrame[] frames, string category)
 		{
 			if (frames.Length != 4 || frames.Any(f => f == null || f.Type != SpriteFrameType.Indexed8))
-				throw new InvalidDataException($"Water template {template.Id} does not resolve to four indexed DDF quarter-frames.");
+				throw new InvalidDataException($"{category} template {template.Id} does not resolve to four indexed DDF quarter-frames.");
 		}
 
 		static Color[] ReadPalette(ModData modData)

@@ -1,6 +1,8 @@
 # Phase 5B Manual Shoreline Playtest Corpus
 
-Status: post-review visual-refinement corpus installed; second-round results pending.
+Status: accepted on 2026-08-16; the post-review visual-refinement corpus passed manual validation.
+
+The reviewer inspected all eight maps and confirmed that shoreline and open-Water materialization look correct. No visual-density, movement, production-exit, spawn-fire, or match-play regression was reported. Generator Version 3 is the accepted baseline for subsequent phases.
 
 The development user-map folder contains only the following Generator Version 3 shoreline maps. All previous generated and roundtrip-test packages were removed before this corpus was regenerated and installed.
 

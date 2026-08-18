@@ -187,6 +187,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				throw new InvalidDataException($"Tileset {profile.Tileset} is not template-based.");
 
 			ValidateTemplates(profile.ClearTemplateIds, "Clear");
+			if (profile.UsesClearLandDetails)
+				ValidateTemplates(profile.ClearLandDetailTemplateIds, "Clear");
 			if (profile.GeneratorVersion >= 2)
 				ValidateTemplates(profile.BlockedTemplateIds, "Water");
 			if (profile.UsesShorelineMaterialization)
@@ -194,6 +196,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				ValidateTemplates(profile.OpenWaterDetailTemplateIds, "Water");
 				foreach (var transition in NormalWaterTransitionCatalogue.Entries)
 					ValidateTransition(transition);
+				if (profile.UsesLandCover)
+					foreach (var landTemplate in NormalLandTransitionCatalogue.Entries)
+						ValidateLandTemplate(landTemplate);
 			}
 
 			void ValidateTemplates(IEnumerable<ushort> templateIds, string expectedTerrain)
@@ -228,6 +233,23 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					var actual = tile == null ? "missing" : terrainInfo.TerrainTypes[tile.TerrainType].Type;
 					if (!string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase))
 						throw new InvalidDataException($"Audited NORMAL transition {transition.TemplateId}, frame {frame} is {actual}; expected {expected}.");
+				}
+			}
+
+			void ValidateLandTemplate(NormalLandTemplate landTemplate)
+			{
+				if (!templated.Templates.TryGetValue(landTemplate.TemplateId, out var template))
+					throw new InvalidDataException($"Audited NORMAL land template {landTemplate.TemplateId} does not exist in the active tileset.");
+				if (template.Size.X != 2 || template.Size.Y != 2 || template.TilesCount != 4)
+					throw new InvalidDataException($"Audited NORMAL land template {landTemplate.TemplateId} is not a complete 2x2 macro template.");
+
+				for (var frame = 0; frame < 4; frame++)
+				{
+					var tile = template[frame];
+					var expected = landTemplate.NativeTerrain[frame].ToString();
+					var actual = tile == null ? "missing" : terrainInfo.TerrainTypes[tile.TerrainType].Type;
+					if (!string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase))
+						throw new InvalidDataException($"Audited NORMAL land template {landTemplate.TemplateId}, frame {frame} is {actual}; expected {expected}.");
 				}
 			}
 
@@ -419,9 +441,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			RmgMovementValidationMode movementValidationMode)
 		{
 			var settings = generation.Settings;
-			return new JObject
+			var report = new JObject
 			{
-				["schema_version"] = generation.Profile.GeneratorVersion >= 3 ? 4 : generation.Profile.GeneratorVersion >= 2 ? 3 : 2,
+				["schema_version"] = generation.Profile.GeneratorVersion >= 5 ? 6 : generation.Profile.GeneratorVersion >= 4 ? 5 : generation.Profile.GeneratorVersion >= 3 ? 4 : generation.Profile.GeneratorVersion >= 2 ? 3 : 2,
 				["generator_version"] = settings.GeneratorVersion,
 				["configuration_id"] = generation.Profile.ProfileId,
 				["configuration_version"] = generation.Profile.ConfigurationVersion,
@@ -441,7 +463,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				{
 					1 => "validated-zero-density-no-op",
 					2 => "normal-water-blocking-v2",
-					_ => "normal-water-shoreline-v3"
+					3 => "normal-water-shoreline-v3",
+					4 => "normal-water-shoreline-v3+clear-land-details-v1",
+					_ => "normal-land-cover-v1"
 				},
 				["blocking_topology"] = generation.Profile.GeneratorVersion == 1 ? null : new JObject
 				{
@@ -464,6 +488,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					["open_water_detail_cells"] = generation.Profile.UsesShorelineMaterialization ? generation.Validation.Metrics["open_water_detail_cell_count"] : null,
 					["native_water_cells"] = generation.Profile.UsesShorelineMaterialization ? generation.Map.NativeTerrainIntents.Count(intent => intent == RmgNativeTerrainIntent.Water) : null,
 					["native_clear_cells"] = generation.Profile.UsesShorelineMaterialization ? generation.Map.NativeTerrainIntents.Count(intent => intent == RmgNativeTerrainIntent.Clear) : null,
+					["native_rock_cells"] = generation.Profile.UsesLandCover ? generation.Map.NativeTerrainIntents.Count(intent => intent == RmgNativeTerrainIntent.Rock) : null,
+					["native_vegetation_cells"] = generation.Profile.UsesLandCover ? generation.Map.NativeTerrainIntents.Count(intent => intent == RmgNativeTerrainIntent.Vegetation) : null,
 					["repair_log"] = new JArray(generation.Map.Repairs.Select(repair => new JObject
 					{
 						["index"] = repair.Index,
@@ -490,6 +516,61 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				["package_validation"] = packageValidation.ToJson(),
 				["performance"] = packageValidation.Performance.ToJson()
 			};
+
+			if (generation.Profile.UsesClearLandDetails)
+				report["land_details"] = new JObject
+				{
+					["enabled"] = true,
+					["native_terrain"] = "Clear",
+					["target_percent"] = generation.Profile.ClearLandDetailPercent,
+					["eligible_clear_stamps"] = generation.Validation.Metrics["clear_land_detail_eligible_stamp_count"],
+					["excluded_protected_clear_stamps"] = generation.Validation.Metrics["clear_land_detail_excluded_protected_stamp_count"],
+					["selected_detail_stamps"] = generation.Validation.Metrics["clear_land_detail_selected_stamp_count"],
+					["achieved_percent"] = generation.Validation.Metrics["clear_land_detail_achieved_percent"],
+					["symmetry_side_a_count"] = generation.Validation.Metrics["clear_land_detail_symmetry_side_a_count"],
+					["symmetry_side_b_count"] = generation.Validation.Metrics["clear_land_detail_symmetry_side_b_count"],
+					["selection_sha256"] = RmgClearLandDetailMaterializer.SelectionHash(generation.Map, generation.Profile),
+					["template_usage"] = new JObject(generation.Map.TemplateIds
+						.Where(template => generation.Profile.ClearLandDetailTemplateIds.Contains(template))
+						.GroupBy(template => template).OrderBy(group => group.Key)
+						.Select(group => new JProperty(group.Key.ToString(), group.Count())))
+				};
+
+			if (generation.Profile.UsesLandCover)
+				report["land_cover"] = new JObject
+				{
+					["enabled"] = true,
+					["selection_sha256"] = RmgLandCoverMaterializer.SelectionHash(generation.Map),
+					["land_native_cells"] = generation.Map.LandCoverLandNativeCount,
+					["allowed_lattice_points"] = generation.Map.LandCoverAllowedLatticeCount,
+					["rock_requested_percent"] = generation.Profile.RockLandPercent,
+					["vegetation_requested_percent"] = generation.Profile.VegetationLandPercent,
+					["tolerance_percent"] = generation.Profile.LandCoverTolerancePercent,
+					["rock_requested_native_cells"] = generation.Validation.Metrics["rock_land_requested_native_cells"],
+					["vegetation_requested_native_cells"] = generation.Validation.Metrics["vegetation_land_requested_native_cells"],
+					["rock_effective_target_native_cells"] = generation.Map.LandCoverRockTargetNativeCount,
+					["vegetation_effective_target_native_cells"] = generation.Map.LandCoverVegetationTargetNativeCount,
+					["envelope_capacity_native_cells"] = generation.Map.LandCoverEnvelopeCapacityNativeCount,
+					["vegetation_core_capacity_native_cells"] = generation.Map.LandCoverVegetationCapacityNativeCount,
+					["rock_native_cells"] = generation.Map.LandCoverRockNativeCount,
+					["rock_shortfall_native_cells"] = generation.Validation.Metrics["rock_land_shortfall_native_cells"],
+					["vegetation_shortfall_native_cells"] = generation.Validation.Metrics["vegetation_land_shortfall_native_cells"],
+					["vegetation_native_cells"] = generation.Map.LandCoverVegetationNativeCount,
+					["rock_achieved_percent"] = generation.Validation.Metrics["rock_land_achieved_percent"],
+					["vegetation_achieved_percent"] = generation.Validation.Metrics["vegetation_land_achieved_percent"],
+					["clear_rock_transition_stamps"] = generation.Map.LandCoverClearRockTransitionStampCount,
+					["rock_vegetation_transition_stamps"] = generation.Map.LandCoverRockVegetationTransitionStampCount,
+					["rock_interior_stamps"] = generation.Map.LandCoverRockInteriorStampCount,
+					["vegetation_interior_stamps"] = generation.Map.LandCoverVegetationInteriorStampCount,
+					["rock_detail_stamps"] = generation.Map.LandCoverRockDetailStampCount,
+					["vegetation_detail_stamps"] = generation.Map.LandCoverVegetationDetailStampCount,
+					["template_usage"] = new JObject(generation.Map.TemplateIds
+						.Where(template => NormalLandTransitionCatalogue.TryGet(template, out var entry) && entry.Permitted)
+						.GroupBy(template => template).OrderBy(group => group.Key)
+						.Select(group => new JProperty(group.Key.ToString(), group.Count())))
+				};
+
+			return report;
 		}
 
 		public static CPos ToNative(RmgPoint point, RmgProfile profile) =>
@@ -523,6 +604,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			RmgTopologyPreset.Off => "off",
 			RmgTopologyPreset.Mixed => "mixed",
 			RmgTopologyPreset.Shoreline => "shoreline",
+			RmgTopologyPreset.LandDetails => "land-details",
+			RmgTopologyPreset.LandCover => "land-cover",
 			_ => throw new ArgumentOutOfRangeException(nameof(topology))
 		};
 	}

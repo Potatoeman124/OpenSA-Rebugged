@@ -62,6 +62,10 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public int ProxyFalsePositiveCells { get; init; }
 		public JArray PassabilityDisagreements { get; init; }
 		public JArray RouteMeasurements { get; init; }
+		public bool LandCoverCostContractAccepted { get; init; }
+		public int WeightedParityFailures { get; init; }
+		public long MaximumWeightedParityDelta { get; init; }
+		public JArray WeightedPathMeasurements { get; init; }
 		public JArray FailureDetails { get; init; }
 		public List<RmgValidationIssue> HardFailures { get; } = new();
 		public List<RmgValidationIssue> Warnings { get; } = new();
@@ -101,11 +105,15 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					["minimum_chokepoint_colony_distance_native"] = MinimumChokepointColonyDistance,
 					["minimum_chokepoint_separation_native"] = MinimumChokepointSeparation,
 					["minimum_blocked_start_coverage_distance_native"] = MinimumBlockedStartCoverageDistance,
-					["minimum_blocked_neutral_colony_coverage_distance_native"] = MinimumBlockedNeutralColonyCoverageDistance
+					["minimum_blocked_neutral_colony_coverage_distance_native"] = MinimumBlockedNeutralColonyCoverageDistance,
+					["land_cover_cost_contract_accepted"] = LandCoverCostContractAccepted,
+					["weighted_parity_failures"] = WeightedParityFailures,
+					["maximum_weighted_parity_delta"] = MaximumWeightedParityDelta
 				},
 				["starting_colony_actors"] = new JArray(StartingColonyActors),
 				["route_scope"] = RouteScope,
 				["route_measurements"] = RouteMeasurements,
+				["weighted_path_measurements"] = WeightedPathMeasurements,
 				["proxy_comparison"] = new JObject
 				{
 					["proxy_accepted"] = ProxyAccepted,
@@ -144,6 +152,10 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				.ToArray();
 			var groundLocomotor = locomotors.Single(l => l.Name.Equals(GroundLocomotorName, StringComparison.OrdinalIgnoreCase));
 			var baseGrid = BuildGrid(map, groundLocomotor, out var actors, out var transitOnlyCells);
+			var terrainGrid = TerrainOnlyGrid(baseGrid);
+			var landCoverCostContractMessage = "not applicable";
+			var landCoverCostContractAccepted = generation.Profile.GeneratorVersion < 5 ||
+				ValidateLandCoverCostContract(groundLocomotor, out landCoverCostContractMessage);
 			var startingUnits = worldInfo.TraitInfos<StartingUnitsInfo>()
 				.Where(s => !string.IsNullOrEmpty(s.BaseActor))
 				.OrderBy(s => s.BaseActor, StringComparer.OrdinalIgnoreCase)
@@ -199,6 +211,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var traversableRoutes = 0;
 			var minimumRouteWidth = int.MaxValue;
 			var routeWidthFailures = 0;
+			var weightedRoutes = new Dictionary<int, WeightedPath>();
 			foreach (var edge in generation.Map.GraphEdges.OrderBy(e => e.RouteId))
 			{
 				var from = nodes[edge.From];
@@ -212,6 +225,10 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					BuildNamedRouteGrid(withStarts, generation, edge.RouteId, from, to) : withStarts;
 				var routeClearance = generation.Profile.GeneratorVersion >= 2 ? Clearance(routeGrid) : clearance;
 				var traversable = CanConnect(routeGrid, sources, targets, null, 1);
+				var weightedRoute = WeightedShortestPath(terrainGrid,
+					LogicalStampCells(terrainGrid, from.Location, generation.Profile),
+					LogicalStampCells(terrainGrid, to.Location, generation.Profile));
+				weightedRoutes[edge.RouteId] = weightedRoute;
 				var widthSources = generation.Profile.GeneratorVersion >= 2 ?
 					NamedRouteRingCells(routeGrid, generation, edge.RouteId,
 						OpenRaRmgMapAdapter.ToNative(from.Location, generation.Profile), fromRadius) : sources;
@@ -236,12 +253,12 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					var chokeClearance = Clearance(widthGrid);
 					var aperture = ChokepointCells(widthGrid, generation, choke);
 					apertureWidth = aperture.Length == 0 ? 0 : aperture.Max(cell => 2 * chokeClearance[widthGrid.Index(cell)] - 1);
-					var shoulders = ChokepointShoulderCells(widthGrid, generation, choke);
-					measuredWidth = WidestPathWidth(widthGrid, chokeClearance, shoulders.Before, shoulders.After);
+					var (before, after) = ChokepointShoulderCells(widthGrid, generation, choke);
+					measuredWidth = WidestPathWidth(widthGrid, chokeClearance, before, after);
 					var withoutAperture = widthGrid.Clone();
 					foreach (var cell in aperture)
 						withoutAperture.Block(cell, $"chokepoint-separator:{choke.Id}");
-					chokeIsSeparator = !CanConnect(withoutAperture, shoulders.Before, shoulders.After, null, 1);
+					chokeIsSeparator = !CanConnect(withoutAperture, before, after, null, 1);
 				}
 				else if (generation.Profile.GeneratorVersion >= 2 && generation.Settings.Archetype == RmgArchetype.Open)
 					expectedWidth = generation.Profile.MajorRouteWidthNative;
@@ -271,12 +288,107 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					["expected_width_native"] = expectedWidth,
 					["contains_intentional_choke"] = choke != null,
 					["chokepoint_is_separator"] = choke == null ? null : chokeIsSeparator,
-					["meets_configured_width"] = widthAccepted
+					["meets_configured_width"] = widthAccepted,
+					["weighted_cost"] = weightedRoute?.Cost,
+					["weighted_scope"] = "unconstrained engine-terrain shortest path between exact logical endpoint stamps",
+					["weighted_steps"] = weightedRoute?.Steps,
+					["weighted_clear_cells"] = weightedRoute?.ClearCells,
+					["weighted_rock_cells"] = weightedRoute?.RockCells,
+					["weighted_vegetation_cells"] = weightedRoute?.VegetationCells
 				});
 			}
 
 			if (minimumRouteWidth == int.MaxValue)
 				minimumRouteWidth = 0;
+
+			var weightedPathMeasurements = new JArray();
+			var weightedParityFailures = 0;
+			long maximumWeightedParityDelta = 0;
+			void CompareWeighted(string scope, string id, WeightedPath path, WeightedPath partnerPath)
+			{
+				var missing = path == null || partnerPath == null;
+				var delta = missing ? long.MaxValue : Math.Abs(path.Cost - partnerPath.Cost);
+				if (missing || delta != 0)
+					weightedParityFailures++;
+				if (!missing)
+					maximumWeightedParityDelta = Math.Max(maximumWeightedParityDelta, delta);
+				weightedPathMeasurements.Add(new JObject
+				{
+					["scope"] = scope,
+					["id"] = id,
+					["reachable"] = path != null,
+					["partner_reachable"] = partnerPath != null,
+					["cost"] = path?.Cost,
+					["partner_cost"] = partnerPath?.Cost,
+					["cost_delta"] = missing ? null : delta,
+					["steps"] = path?.Steps,
+					["clear_cells"] = path?.ClearCells,
+					["rock_cells"] = path?.RockCells,
+					["vegetation_cells"] = path?.VegetationCells,
+					["exact_parity"] = !missing && delta == 0
+				});
+			}
+
+			if (generation.Profile.GeneratorVersion >= 5)
+			{
+				foreach (var edge in generation.Map.GraphEdges.OrderBy(edge => edge.RouteId))
+				{
+					var partner = SymmetryPartnerEdge(generation, edge, nodes);
+					if (partner != null && edge.RouteId > partner.RouteId)
+						continue;
+					weightedRoutes.TryGetValue(edge.RouteId, out var path);
+					weightedRoutes.TryGetValue(partner?.RouteId ?? -1, out var partnerPath);
+					CompareWeighted("declared-strategic-route", edge.Id, path, partnerPath);
+				}
+
+				for (var startIndex = 0; startIndex < generation.Map.Starts.Count; startIndex++)
+				{
+					var start = generation.Map.Starts[startIndex];
+					var transformedStart = RmgGenerator.Transform(start, generation.Settings.Symmetry,
+						generation.Map.Width, generation.Map.Height);
+					var partnerStartIndex = generation.Map.Starts.IndexOf(transformedStart);
+					if (partnerStartIndex < 0)
+					{
+						CompareWeighted("start-to-opponent", $"start-{startIndex}", null, null);
+						continue;
+					}
+
+					if (startIndex >= partnerStartIndex)
+						continue;
+					var path = WeightedShortestPath(terrainGrid,
+						LogicalStampCells(terrainGrid, start, generation.Profile),
+						LogicalStampCells(terrainGrid, generation.Map.Starts[partnerStartIndex], generation.Profile));
+					var partnerPath = WeightedShortestPath(terrainGrid,
+						LogicalStampCells(terrainGrid, generation.Map.Starts[partnerStartIndex], generation.Profile),
+						LogicalStampCells(terrainGrid, start, generation.Profile));
+					CompareWeighted("start-to-opponent", $"start-{startIndex}:start-{partnerStartIndex}", path, partnerPath);
+				}
+
+				var neutralPlans = generation.Map.Actors.Where(actor => actor.Owner == generation.Profile.ColonyOwner).ToArray();
+				for (var startIndex = 0; startIndex < generation.Map.Starts.Count; startIndex++)
+					for (var colonyIndex = 0; colonyIndex < neutralPlans.Length; colonyIndex++)
+					{
+						var transformedStart = RmgGenerator.Transform(generation.Map.Starts[startIndex], generation.Settings.Symmetry,
+							generation.Map.Width, generation.Map.Height);
+						var transformedColony = RmgGenerator.Transform(neutralPlans[colonyIndex].LogicalLocation, generation.Settings.Symmetry,
+							generation.Map.Width, generation.Map.Height);
+						var partnerStartIndex = generation.Map.Starts.IndexOf(transformedStart);
+						var partnerColonyIndex = Array.FindIndex(neutralPlans, actor => actor.LogicalLocation == transformedColony &&
+							actor.Owner == neutralPlans[colonyIndex].Owner && actor.Role == neutralPlans[colonyIndex].Role);
+						var key = startIndex * neutralPlans.Length + colonyIndex;
+						var partnerKey = partnerStartIndex < 0 || partnerColonyIndex < 0 ? -1 :
+							partnerStartIndex * neutralPlans.Length + partnerColonyIndex;
+						if (partnerKey >= 0 && key > partnerKey)
+							continue;
+						var path = WeightedShortestPath(terrainGrid,
+							LogicalStampCells(terrainGrid, generation.Map.Starts[startIndex], generation.Profile),
+							LogicalStampCells(terrainGrid, neutralPlans[colonyIndex].LogicalLocation, generation.Profile));
+						var partnerPath = partnerKey < 0 ? null : WeightedShortestPath(terrainGrid,
+							LogicalStampCells(terrainGrid, generation.Map.Starts[partnerStartIndex], generation.Profile),
+							LogicalStampCells(terrainGrid, neutralPlans[partnerColonyIndex].LogicalLocation, generation.Profile));
+						CompareWeighted("start-to-neutral-colony", $"start-{startIndex}:colony-{colonyIndex}", path, partnerPath);
+					}
+			}
 
 			var semanticMismatches = CountTerrainSemanticMismatches(baseGrid, generation, out var semanticMismatchSamples);
 			var escapeSectors = generation.Map.Starts.Select(start =>
@@ -284,7 +396,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var minimumEscapeSectors = escapeSectors.DefaultIfEmpty(0).Min();
 			var productionExitFailures = CountProductionExitFailures(map, withStarts, generation, startingUnits, colonies, out var productionExitDetails);
 			var waspContractAccepted = ValidateWaspContract(locomotors, out var waspContractMessage);
-			var chokeDistances = ChokepointDistances(generation, colonies);
+			var (chokepointStartDistance, chokepointColonyDistance, chokepointSeparation) = ChokepointDistances(generation, colonies);
 
 			var proxyMask = BuildProxyMask(generation);
 			var falseNegatives = 0;
@@ -358,9 +470,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				TerrainSemanticMismatchCells = semanticMismatches,
 				ProductionExitFailures = productionExitFailures,
 				WaspSupportContractAccepted = waspContractAccepted,
-				MinimumChokepointStartDistance = chokeDistances.Start,
-				MinimumChokepointColonyDistance = chokeDistances.Colony,
-				MinimumChokepointSeparation = chokeDistances.Separation,
+				MinimumChokepointStartDistance = chokepointStartDistance,
+				MinimumChokepointColonyDistance = chokepointColonyDistance,
+				MinimumChokepointSeparation = chokepointSeparation,
 				MinimumBlockedStartCoverageDistance = blockedStartDistance,
 				MinimumBlockedNeutralColonyCoverageDistance = blockedNeutralColonyDistance,
 				ProxyAccepted = proxyAccepted,
@@ -369,8 +481,17 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				ProxyFalsePositiveCells = falsePositives,
 				PassabilityDisagreements = disagreementSamples,
 				RouteMeasurements = routeMeasurements,
+				LandCoverCostContractAccepted = landCoverCostContractAccepted,
+				WeightedParityFailures = weightedParityFailures,
+				MaximumWeightedParityDelta = maximumWeightedParityDelta,
+				WeightedPathMeasurements = weightedPathMeasurements,
 				FailureDetails = failureDetails
 			};
+
+			if (generation.Profile.GeneratorVersion >= 5 && !landCoverCostContractAccepted)
+				Hard("LAND_COVER_LOCOMOTOR_COSTS", landCoverCostContractMessage);
+			if (generation.Profile.GeneratorVersion >= 5 && weightedParityFailures > 0)
+				Hard("LAND_COVER_WEIGHTED_PARITY", $"{weightedParityFailures} symmetry-equivalent weighted journeys are unreachable or have unequal costs; maximum finite delta is {maximumWeightedParityDelta}.");
 
 			if (startingUnits.Length == 0)
 				Hard("NATIVE_STARTING_UNITS", "No StartingUnitsInfo base actors were available for start-footprint validation.");
@@ -420,12 +541,12 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				Hard("WASP_SUPPORT_CONTRACT", waspContractMessage);
 			if (generation.Profile.GeneratorVersion >= 2 && generation.Map.Chokepoints.Count > 0)
 			{
-				if (chokeDistances.Start < 24)
-					Hard("NATIVE_CHOKEPOINT_START_DISTANCE", $"Minimum chokepoint/start-anchor distance is {chokeDistances.Start} native cells; required minimum is 24.");
-				if (chokeDistances.Colony < 10)
-					Hard("NATIVE_CHOKEPOINT_COLONY_DISTANCE", $"Minimum chokepoint/colony-coverage distance is {chokeDistances.Colony} native cells; required minimum is 10.");
-				if (chokeDistances.Separation < 16)
-					Hard("NATIVE_CHOKEPOINT_SEPARATION", $"Minimum chokepoint-segment separation is {chokeDistances.Separation} native cells; required minimum is 16.");
+				if (chokepointStartDistance < 24)
+					Hard("NATIVE_CHOKEPOINT_START_DISTANCE", $"Minimum chokepoint/start-anchor distance is {chokepointStartDistance} native cells; required minimum is 24.");
+				if (chokepointColonyDistance < 10)
+					Hard("NATIVE_CHOKEPOINT_COLONY_DISTANCE", $"Minimum chokepoint/colony-coverage distance is {chokepointColonyDistance} native cells; required minimum is 10.");
+				if (chokepointSeparation < 16)
+					Hard("NATIVE_CHOKEPOINT_SEPARATION", $"Minimum chokepoint-segment separation is {chokepointSeparation} native cells; required minimum is 16.");
 			}
 
 			if (falsePositives > 0)
@@ -486,7 +607,147 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (comparisonA != (1, 1) || comparisonA != comparisonB)
 				failures.Add("Proxy/native disagreement reporting is not complete and reproducible.");
 
+			var weighted = Grid.Synthetic(5, 1, true);
+			weighted.Terrain[2] = "Vegetation";
+			weighted.Cost[2] = 200;
+			var forward = WeightedShortestPath(weighted, new[] { new CPos(0, 0) }, new[] { new CPos(4, 0) });
+			var reverse = WeightedShortestPath(weighted, new[] { new CPos(4, 0) }, new[] { new CPos(0, 0) });
+			if (forward == null || reverse == null || forward.Cost != 500 || reverse.Cost != 500 ||
+				forward.Steps != 4 || forward.ClearCells != 3 || forward.RockCells != 0 || forward.VegetationCells != 1)
+				failures.Add("Weighted native pathing did not apply the audited Clear/Vegetation costs and traversal accounting.");
+			if (forward != null && reverse != null && forward.Cost != reverse.Cost)
+				failures.Add("Weighted native pathing is not directionally symmetric between Clear endpoints.");
+
 			return failures;
+		}
+
+		static bool ValidateLandCoverCostContract(LocomotorInfo locomotor, out string message)
+		{
+			foreach (var (terrain, expectedSpeed, expectedCost) in new[]
+			{
+				("Clear", 100, 100), ("Rock", 75, 133), ("Vegetation", 50, 200)
+			})
+				if (!locomotor.TerrainSpeeds.TryGetValue(terrain, out var speed) ||
+					speed.Speed != expectedSpeed || speed.Cost != expectedCost)
+				{
+					message = $"Ground locomotor must define {terrain} at speed {expectedSpeed} and cost {expectedCost}.";
+					return false;
+				}
+
+			if (locomotor.TerrainSpeeds.ContainsKey("Water"))
+			{
+				message = "Ground locomotor unexpectedly permits Water.";
+				return false;
+			}
+
+			message = "passed";
+			return true;
+		}
+
+		static Grid TerrainOnlyGrid(Grid source)
+		{
+			var result = source.Clone();
+			for (var index = 0; index < result.CellCount; index++)
+				if (!result.Passable[index] && result.Cost[index] > 0 &&
+					result.Reasons[index]?.StartsWith("actor:", StringComparison.Ordinal) == true)
+				{
+					result.Passable[index] = true;
+					result.Reasons[index] = null;
+				}
+
+			result.StaticBlockedCells = 0;
+			return result;
+		}
+
+		static CPos[] LogicalStampCells(Grid grid, RmgPoint logical, RmgProfile profile)
+		{
+			var x = profile.CordonWidth + 2 * logical.X;
+			var y = profile.CordonWidth + 2 * logical.Y;
+			return new[] { new CPos(x, y), new CPos(x + 1, y), new CPos(x, y + 1), new CPos(x + 1, y + 1) }
+				.Where(grid.IsPassable).ToArray();
+		}
+
+		static RmgGraphEdge SymmetryPartnerEdge(RmgGenerationResult generation, RmgGraphEdge edge,
+			IReadOnlyDictionary<string, RmgGraphNode> nodes)
+		{
+			var transformedFrom = RmgGenerator.Transform(nodes[edge.From].Location, generation.Settings.Symmetry,
+				generation.Map.Width, generation.Map.Height);
+			var transformedTo = RmgGenerator.Transform(nodes[edge.To].Location, generation.Settings.Symmetry,
+				generation.Map.Width, generation.Map.Height);
+			return generation.Map.GraphEdges.SingleOrDefault(candidate =>
+			{
+				var candidateFrom = nodes[candidate.From].Location;
+				var candidateTo = nodes[candidate.To].Location;
+				return (candidateFrom == transformedFrom && candidateTo == transformedTo) ||
+					(candidateFrom == transformedTo && candidateTo == transformedFrom);
+			});
+		}
+
+		static WeightedPath WeightedShortestPath(Grid grid, IEnumerable<CPos> sources, IEnumerable<CPos> targets)
+		{
+			var targetIndexes = targets.Where(grid.IsPassable).Select(grid.Index).ToHashSet();
+			if (targetIndexes.Count == 0)
+				return null;
+			var distance = Enumerable.Repeat(long.MaxValue, grid.CellCount).ToArray();
+			var previous = Enumerable.Repeat(-2, grid.CellCount).ToArray();
+			var queue = new PriorityQueue<int, long>();
+			foreach (var source in sources.Where(grid.IsPassable).Distinct())
+			{
+				var index = grid.Index(source);
+				if (distance[index] == 0)
+					continue;
+				distance[index] = 0;
+				previous[index] = -1;
+				queue.Enqueue(index, 0);
+			}
+
+			var reached = -1;
+			while (queue.Count > 0)
+			{
+				queue.TryDequeue(out var currentIndex, out var priority);
+				if (priority != distance[currentIndex])
+					continue;
+				if (targetIndexes.Contains(currentIndex))
+				{
+					reached = currentIndex;
+					break;
+				}
+
+				var current = grid.Cell(currentIndex);
+				foreach (var neighbor in grid.Neighbors(current))
+				{
+					var index = grid.Index(neighbor);
+					if (!grid.Passable[index] || grid.Cost[index] <= 0)
+						continue;
+					var diagonal = current.X != neighbor.X && current.Y != neighbor.Y;
+					var stepCost = diagonal ? (grid.Cost[index] * 141L + 50) / 100 : grid.Cost[index];
+					var candidate = distance[currentIndex] + stepCost;
+					if (candidate >= distance[index])
+						continue;
+					distance[index] = candidate;
+					previous[index] = currentIndex;
+					queue.Enqueue(index, candidate);
+				}
+			}
+
+			if (reached < 0)
+				return null;
+			var steps = 0;
+			var clear = 0;
+			var rock = 0;
+			var vegetation = 0;
+			for (var index = reached; previous[index] >= 0; index = previous[index])
+			{
+				steps++;
+				if (string.Equals(grid.Terrain[index], "Clear", StringComparison.OrdinalIgnoreCase))
+					clear++;
+				else if (string.Equals(grid.Terrain[index], "Rock", StringComparison.OrdinalIgnoreCase))
+					rock++;
+				else if (string.Equals(grid.Terrain[index], "Vegetation", StringComparison.OrdinalIgnoreCase))
+					vegetation++;
+			}
+
+			return new WeightedPath(distance[reached], steps, clear, rock, vegetation);
 		}
 
 		static Grid BuildNamedRouteGrid(Grid source, RmgGenerationResult generation, int routeId, RmgGraphNode from, RmgGraphNode to,
@@ -1149,6 +1410,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 		sealed record ActorFootprint(string Type, CPos Location, HashSet<CPos> Coverage, HashSet<CPos> Blocked, HashSet<CPos> TransitOnly);
 
+		sealed record WeightedPath(long Cost, int Steps, int ClearCells, int RockCells, int VegetationCells);
+
 		sealed class ComponentMap
 		{
 			readonly Grid grid;
@@ -1198,7 +1461,12 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				var grid = new Grid(0, 0, width, height);
 				Array.Fill(grid.Passable, passable);
 				if (passable)
+				{
 					grid.TerrainPassableCells = grid.CellCount;
+					Array.Fill(grid.Cost, (short)100);
+					Array.Fill(grid.Terrain, "Clear");
+				}
+
 				return grid;
 			}
 

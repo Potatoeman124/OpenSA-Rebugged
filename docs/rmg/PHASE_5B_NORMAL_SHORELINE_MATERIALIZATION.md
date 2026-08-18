@@ -1,6 +1,6 @@
 # Phase 5B: NORMAL Shoreline Materialization
 
-Status: implemented as an opt-in Generator Version 3 path; automated gates pass; manual validation of the post-review visual-density refinement remains the release gate.
+Status: accepted and merged as the opt-in Generator Version 3 path; automated and manual gates pass.
 
 ## Purpose and compatibility boundary
 
@@ -129,8 +129,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\rmg\Invoke-MapGeneratorFuzz.p
 
 Omitting `-Topology shoreline` continues to select the frozen Clear-only Version 1 default. `-Topology mixed` continues to select the frozen blocking-topology Version 2 baseline.
 
-## Remaining gate
+## Manual acceptance
 
-Manual validation must confirm that transition tiles remain coherent, shoreline vegetation now appears sparse and irregular, open-Water details are visible without becoming dense, and the visual changes preserve ground blocking and orientation under every supported symmetry.
+On 2026-08-16, the reviewer accepted all eight post-review maps. Shoreline orientation remained coherent, shoreline vegetation appeared sparse and irregular, open-Water details remained visible without becoming dense, and no blocking, production-exit, spawn-fire, or match-play regression was reported.
 
 Land decoration, land-cover fields, Rock/Vegetation terrain transitions, more irregular authored-style coastlines, new topology archetypes, and broader layout redesign remain outside Phase 5B.

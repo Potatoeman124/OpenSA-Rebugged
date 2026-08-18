@@ -48,6 +48,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				{
 					2 => RmgTopologyPreset.Mixed,
 					3 => RmgTopologyPreset.Shoreline,
+					4 => RmgTopologyPreset.LandDetails,
+					5 => RmgTopologyPreset.LandCover,
 					_ => RmgTopologyPreset.Off
 				}
 			};
@@ -55,6 +57,29 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var second = Generate(profile, settings);
 			if (first.LogicalHash != second.LogicalHash || first.ActorHash != second.ActorHash || first.GraphHash != second.GraphHash)
 				failures.Add("Same-seed deterministic hash self-test failed.");
+
+			if (profile.UsesClearLandDetails)
+			{
+				var details = profile.ClearLandDetailTemplateIds.ToHashSet();
+				var selected = first.Map.TemplateIds.Select((template, index) => (template, index))
+					.Where(entry => details.Contains(entry.template)).ToArray();
+				if (selected.Length != first.Map.ClearLandDetailTargetCount ||
+					selected.Length != first.Map.ClearLandDetailSelectedCount)
+					failures.Add("Clear-land-detail selection did not meet its exact rounded target.");
+				if (selected.Any(entry => RmgClearLandDetailMaterializer.IsProtected(first.Map, entry.index)))
+					failures.Add("Clear-land-detail selection overlapped a protected semantic layer.");
+				if (selected.Any(entry => Enumerable.Range(0, 4).Any(frame =>
+					first.Map.NativeTerrainIntents[4 * entry.index + frame] != RmgNativeTerrainIntent.Clear)))
+					failures.Add("Clear-land-detail selection changed native terrain intent.");
+				if (Math.Abs(first.Map.ClearLandDetailSymmetrySideACount - first.Map.ClearLandDetailSymmetrySideBCount) > 1)
+					failures.Add("Clear-land-detail selection is not count-balanced across symmetry sides.");
+			}
+
+			if (profile.UsesLandCover)
+			{
+				failures.AddRange(NormalLandTransitionCatalogue.RunSelfTests());
+				failures.AddRange(RmgLandCoverMaterializer.RunSelfTests());
+			}
 
 			first.Map.TemplateIds[0] = ushort.MaxValue;
 			if (Validate(first.Map, profile, settings).Accepted)
@@ -172,6 +197,10 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				throw new ArgumentException("Generator Version 2 requires TopologyPreset=mixed.");
 			if (profile.GeneratorVersion == 3 && settings.TopologyPreset != RmgTopologyPreset.Shoreline)
 				throw new ArgumentException("Generator Version 3 requires TopologyPreset=shoreline.");
+			if (profile.GeneratorVersion == 4 && settings.TopologyPreset != RmgTopologyPreset.LandDetails)
+				throw new ArgumentException("Generator Version 4 requires TopologyPreset=land-details.");
+			if (profile.GeneratorVersion == 5 && settings.TopologyPreset != RmgTopologyPreset.LandCover)
+				throw new ArgumentException("Generator Version 5 requires TopologyPreset=land-cover.");
 			if (settings.PlayerCount != 2 && settings.PlayerCount != 4)
 				throw new ArgumentException($"Generator Version {settings.GeneratorVersion} supports exactly two or four players.");
 			if (settings.PlayerCount == 2 && (settings.NeutralColonyCount < 8 || settings.NeutralColonyCount > 20 || settings.NeutralColonyCount % 2 != 0))
