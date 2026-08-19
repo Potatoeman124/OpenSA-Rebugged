@@ -180,7 +180,7 @@ The title includes `land-cover`, and reports are written beneath ignored `artifa
 
 ## Generator Version 6 battlefield-layout usage
 
-Select Version 6 explicitly with `-Topology battlefield-layout`. It inherits Version 5 and adds semantic battlefield roles, role-prioritized slow terrain, capacity-aware tactical anchors, and broadly distributed passable decoration:
+Select Version 6 explicitly with `-Topology battlefield-layout`. It inherits Version 5 and adds semantic battlefield roles, role-prioritized slow terrain, capacity-aware tactical anchors, terrain-specific passable doodads, and a seamless moss-detail policy:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\rmg\Invoke-MapGenerator.ps1 -Seed 3100026 -Players 4 -NeutralColonies 12 -Symmetry vertical -Archetype open -Topology battlefield-layout -MovementValidation both -InstallForPlay -Overwrite
@@ -202,6 +202,6 @@ Generator Version 2 adds deterministic symmetric Water regions, named route mask
 
 Phase 6A found authored NORMAL land-relative medians of 13.8055 percent Rock and 8.3118 percent Vegetation, while Clear-native fixed details appear on 4.3060 percent of homogeneous Clear stamps. Generator Version 4 implements the safe cosmetic slice with templates `61` and `62`. Generator Version 5 implements symmetric nested Rock/Vegetation morphology, capacity-aware 14/8-percent targets, runtime-verified native semantics, and exact weighted-path parity. It remains the frozen pre-layout prototype.
 
-Phase 7A quantifies the placement problem across the complete shipped corpus and the accepted generated comparison set. Generator Version 6 now creates symmetry-closed battlefield roles before terrain materialization, allocates Rock and Vegetation to declared tactical roles instead of borders, and broadens passable cosmetic coverage independently. Its automated gate is accepted and its eight-map manual review is pending. Campaign and scripted scenario maps remain spatial and visual calibration sources; their runtime traffic cannot be inferred from static actors alone.
+Phase 7A quantifies the placement problem across the complete shipped corpus and the accepted generated comparison set. Generator Version 6 now creates symmetry-closed battlefield roles before terrain materialization, allocates Rock and Vegetation to declared tactical roles instead of borders, and broadens terrain-specific cosmetic coverage independently. Its automated gate is accepted and its refreshed eight-map manual review is pending. Campaign and scripted scenario maps remain spatial and visual calibration sources; their runtime traffic cannot be inferred from static actors alone.
 
-Phase 7B adds only the audited passable `plant_flower` actor as a free-standing cosmetic decorator. Blocking vegetation and mushroom actors remain outside the current implementation because they must participate in topology and path validation. New archetypes and the player-facing in-game generator interface also remain future work.
+Phase 7B maps soil to flowers and high grass, gravel to brown mushrooms, and moss to red mushrooms. High grass and mushrooms use RMG-only passable aliases with the stock artwork, preserving official-map blocking behavior while preventing generated-route narrowing. Version 6 also rejects square-edged moss detail template `93` and uses seamless interior template `78`. New archetypes and the player-facing in-game generator interface remain future work.

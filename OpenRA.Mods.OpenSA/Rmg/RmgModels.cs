@@ -122,9 +122,12 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public int LandCoverTolerancePercent { get; private set; }
 		public int BattlefieldFlankRadiusLogical { get; private set; }
 		public int TacticalLandAnchorOrbitCount { get; private set; }
-		public string[] PassableDecorationActors { get; private set; }
-		public int PassableDecorationPerThousand { get; private set; }
-		public int MinimumPassableDecorationSectors { get; private set; }
+		public string[] SoilDecorationActors { get; private set; }
+		public string[] RockDecorationActors { get; private set; }
+		public string[] VegetationDecorationActors { get; private set; }
+		public string[] BlockingDecorationActors { get; private set; }
+		public int LandDecorationPerThousand { get; private set; }
+		public int MinimumLandDecorationSectors { get; private set; }
 		public int OpenObstacleDensityTarget { get; private set; }
 		public int OpenObstacleDensityMinimum { get; private set; }
 		public int OpenObstacleDensityMaximum { get; private set; }
@@ -213,9 +216,12 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				LandCoverTolerancePercent = GetOptional(nameof(LandCoverTolerancePercent), 0),
 				BattlefieldFlankRadiusLogical = GetOptional(nameof(BattlefieldFlankRadiusLogical), 0),
 				TacticalLandAnchorOrbitCount = GetOptional(nameof(TacticalLandAnchorOrbitCount), 0),
-				PassableDecorationActors = GetOptional(nameof(PassableDecorationActors), Array.Empty<string>()),
-				PassableDecorationPerThousand = GetOptional(nameof(PassableDecorationPerThousand), 0),
-				MinimumPassableDecorationSectors = GetOptional(nameof(MinimumPassableDecorationSectors), 0),
+				SoilDecorationActors = GetOptional(nameof(SoilDecorationActors), Array.Empty<string>()),
+				RockDecorationActors = GetOptional(nameof(RockDecorationActors), Array.Empty<string>()),
+				VegetationDecorationActors = GetOptional(nameof(VegetationDecorationActors), Array.Empty<string>()),
+				BlockingDecorationActors = GetOptional(nameof(BlockingDecorationActors), Array.Empty<string>()),
+				LandDecorationPerThousand = GetOptional(nameof(LandDecorationPerThousand), 0),
+				MinimumLandDecorationSectors = GetOptional(nameof(MinimumLandDecorationSectors), 0),
 				OpenObstacleDensityTarget = GetOptional(nameof(OpenObstacleDensityTarget), 0),
 				OpenObstacleDensityMinimum = GetOptional(nameof(OpenObstacleDensityMinimum), 0),
 				OpenObstacleDensityMaximum = GetOptional(nameof(OpenObstacleDensityMaximum), 0),
@@ -277,19 +283,25 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (!version5 && !version6 && (RockLandPercent != 0 || VegetationLandPercent != 0 || RockDetailPercent != 0 ||
 				VegetationDetailPercent != 0 || LandCoverTolerancePercent != 0))
 				throw new InvalidOperationException("Generator Versions 1 through 4 cannot enable Phase 6C slow land cover.");
-			if ((version5 || version6) && (RockLandPercent != 14 || VegetationLandPercent != 8 || RockDetailPercent != 2 ||
+			if (version5 && (RockLandPercent != 14 || VegetationLandPercent != 8 || RockDetailPercent != 2 ||
 				VegetationDetailPercent != 3 || LandCoverTolerancePercent != 2))
-				throw new InvalidOperationException("Generator Versions 5 and 6 must use the audited 14% Rock, 8% Vegetation, 2% Rock-detail, 3% Vegetation-detail, and two-point tolerance policy.");
+				throw new InvalidOperationException("Generator Version 5 must use the frozen 14% Rock, 8% Vegetation, 2% Rock-detail, 3% Vegetation-detail, and two-point tolerance policy.");
+			if (version6 && (RockLandPercent != 14 || VegetationLandPercent != 8 || RockDetailPercent != 2 ||
+				VegetationDetailPercent != 3 || LandCoverTolerancePercent != 2))
+				throw new InvalidOperationException("Generator Version 6 must preserve the Version 5 coverage and detail-selection rates.");
 			if (version6 && (BattlefieldFlankRadiusLogical != 3 || TacticalLandAnchorOrbitCount != 3 ||
-				!PassableDecorationActors.SequenceEqual(new[] { "plant_flower" }) || PassableDecorationPerThousand != 3 ||
-				MinimumPassableDecorationSectors != 12))
-				throw new InvalidOperationException("Version 6 must use the accepted role radius, tactical-anchor, and passable-decoration policy.");
+				!SoilDecorationActors.SequenceEqual(new[] { "plant_flower", "rmg_plant_broad_leaf_grass" }) ||
+				!RockDecorationActors.SequenceEqual(new[] { "rmg_plant_brown_mushroom" }) ||
+				!VegetationDecorationActors.SequenceEqual(new[] { "rmg_plant_toad_stool" }) ||
+				BlockingDecorationActors.Length != 0 ||
+				LandDecorationPerThousand != 3 || MinimumLandDecorationSectors != 12))
+				throw new InvalidOperationException("Version 6 must use the accepted role, tactical-anchor, and terrain-specific decoration policy.");
 		}
 	}
 
 	public sealed record RmgGraphNode(string Id, string Role, RmgPoint Location);
 	public sealed record RmgGraphEdge(string Id, string From, string To, int RouteId);
-	public sealed record RmgActorPlan(string Type, string Owner, string Role, RmgPoint LogicalLocation, int EquivalenceGroup);
+	public sealed record RmgActorPlan(string Type, string Owner, string Role, RmgPoint LogicalLocation, int EquivalenceGroup, int NativeFrame = 0);
 	public sealed record RmgObstacleRegion(int Id, int SymmetryOrbit, int CellCount);
 	public sealed record RmgChokepoint(string Id, int RouteId, int SymmetryOrbit, RmgPoint From, RmgPoint To, int LengthNative, int WidthNative);
 	public sealed record RmgRepairRecord(int Index, string Type, string Reason, int TargetId, RmgPoint[] ChangedCells);
@@ -327,10 +339,13 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public RmgBattlefieldRole[] BattlefieldRoles { get; }
 		public List<RmgPoint> BattlefieldTacticalAnchors { get; } = new();
 		public int BattlefieldTacticalAnchorOrbitCount { get; set; }
-		public int PassableDecorationRequestedCount { get; set; }
-		public int PassableDecorationTargetCount { get; set; }
-		public int PassableDecorationSelectedCount { get; set; }
-		public int PassableDecorationSectorCount { get; set; }
+		public int LandDecorationRequestedCount { get; set; }
+		public int LandDecorationTargetCount { get; set; }
+		public int LandDecorationSelectedCount { get; set; }
+		public int LandDecorationSectorCount { get; set; }
+		public int LandDecorationClearTargetCount { get; set; }
+		public int LandDecorationRockTargetCount { get; set; }
+		public int LandDecorationVegetationTargetCount { get; set; }
 		public int[] RegionIds { get; }
 		public int[] RouteIds { get; }
 		public bool[] StartReservations { get; }

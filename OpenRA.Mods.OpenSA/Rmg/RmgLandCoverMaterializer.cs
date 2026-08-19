@@ -105,8 +105,11 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					if (vegetationMask != 0)
 					{
 						NormalLandTemplate template;
+
+						// Template 93 has homogeneous Vegetation semantics but a square Rock-colored visual border.
+						// Keep the frozen V5 choice, but use seamless Vegetation interior 78 for revised V6 detail stamps.
 						if (vegetationMask == 15 && vegetationDetails.Contains(index))
-							template = Required(93);
+							template = Required((ushort)(profile.UsesBattlefieldLayout ? 78 : 93));
 						else
 						{
 							var candidates = NormalLandTransitionCatalogue.ForMask(RmgLandTemplateBank.RockVegetation, vegetationMask);

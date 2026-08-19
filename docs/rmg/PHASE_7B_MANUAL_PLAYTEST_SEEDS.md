@@ -8,7 +8,7 @@ The automated gate is complete. Manual review remains responsible for judging ta
 
 ## Installed comparison maps
 
-| Seed | Players | Colonies | Symmetry | Archetype | Rock % | Vegetation % | Tactical slow cells | Central-half slow cells | Tactical anchors | Passable decorations | Covered 4x4 sectors | Native validation |
+| Seed | Players | Colonies | Symmetry | Archetype | Rock % | Vegetation % | Tactical slow cells | Central-half slow cells | Tactical anchors | Land decorations | Covered 4x4 sectors | Native validation |
 | ---: | ---: | ---: | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
 | 3100000 | 2 | 8 | horizontal | open | 13.969 | 8.030 | 3200 | 1962 | 3 | 48 | 16 | pass |
 | 3100009 | 2 | 10 | vertical | central-contest | 13.981 | 8.022 | 2976 | 1926 | 3 | 48 | 16 | pass |
@@ -36,14 +36,20 @@ This removes only old `OpenSA-RMG-*.oramap` development packages and installs th
 
 Check the following on every map:
 
-- passable flowers and Clear-native details appear across the playable interior rather than only around the map brim;
+- terrain-specific doodads appear across the playable interior rather than only around the map brim;
+- soil uses both yellow flowers and high grass, gravel uses brown mushrooms, and moss uses red mushrooms;
 - no large interior region is visually empty without a clear compositional reason;
 - cosmetic coverage reads as irregular natural detail, not a visible grid or repeated line;
 - symmetry preserves competitive equivalence without making individual decoration pairs distractingly mechanical;
 - Rock and Vegetation form coherent fields and transitions rather than isolated random noise; and
+- moss fields contain no square gravel-colored cuts or disconnected edges from the excluded template `93`;
 - Water, shoreline, and open-Water details remain visually correct.
 
 Seed `3100026` is the primary regression for the previously empty central battlefield. Inspect the center at both map-preview scale and normal game-camera scale.
+
+Seed `3100016` is the primary moss-seam regression. Its six selected Vegetation detail stamps now use seamless interior template `78`; template `93` is forbidden by the Version 6 hard gate.
+
+The grass and mushroom visuals are RMG-only passable aliases. Their source actors remain blocking on official, campaign, and authored custom maps, so this visual revision cannot narrow generated routes or alter shipped-map behavior.
 
 ## Tactical and movement review
 
@@ -56,7 +62,7 @@ Check that:
 - horizontal, vertical, or rotational counterparts feel competitively equivalent; and
 - the dense `3100047` layout remains playable despite its reduced land-cover capacity.
 
-Do not interpret broadly distributed flowers as a request for uniformly random Rock or Vegetation. The former are passable visual detail; the latter change movement and must remain role-aware.
+Do not interpret broadly distributed doodads as a request for uniformly random Rock or Vegetation. The former are passable visual detail; the latter change movement and must remain role-aware.
 
 ## Functional regression review
 

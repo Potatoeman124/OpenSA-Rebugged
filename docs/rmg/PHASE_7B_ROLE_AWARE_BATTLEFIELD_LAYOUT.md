@@ -7,7 +7,7 @@ Generator Version 6 is implemented and has passed the automated Phase 7B gate. I
 Phase 7B addresses two separate findings from the Phase 7A audit:
 
 - movement-affecting Rock and Vegetation must be placed according to battlefield purpose rather than used mainly as a border treatment; and
-- passable cosmetic detail must cover the playable interior broadly enough to avoid large visually empty fields.
+- terrain-specific cosmetic detail must cover the playable interior broadly enough to avoid large visually empty fields.
 
 These are deliberately separate systems. Cosmetic coverage is spatially broad, while slow terrain remains tactically guided. Phase 7B does not uniformly scatter Rock or Vegetation.
 
@@ -55,13 +55,23 @@ Validation requires:
 
 Weighted movement validation remains authoritative. Rock and Vegetation continue to use the active ruleset's reduced ground movement speeds, while native and logical path results must agree.
 
-## Passable cosmetic coverage
+Template `93` is excluded from Version 6. Although its four native frames all report Vegetation semantics, its artwork has a square Rock-colored border that creates disconnected cuts inside moss fields. Version 6 uses seamless Vegetation interior template `78` for the same sparse detail selection; the frozen Version 5 output remains unchanged.
 
-Version 6 adds a separate passable-decoration pass after terrain materialization. The audited `plant_flower` actor is used because its active rules classify it as passable. Blocking vegetation and mushroom actors remain deferred until they can participate in topology, weighted routing, and placement validation rather than being treated as harmless decoration.
+## Terrain-specific cosmetic coverage
 
-For the current 128x128 map contract, the pass places 48 actors, equivalent to three decorations per thousand native cells after symmetry-compatible rounding. Placement uses deterministic symmetry orbits, a minimum logical spacing of two cells, and greedy 4x4 sector coverage before filling the remaining budget.
+Version 6 adds a separate decoration pass after terrain materialization. Its visual mapping is:
 
-The hard gate requires at least 12 of the 16 sectors to contain a decoration. All eight manual comparison maps currently cover all 16 sectors. Decorations may not overlap Water, blocked cells, protected Clear, or an occupied native actor cell.
+- Clear soil: yellow flowers and broad-leaf high grass;
+- Rock gravel: brown mushrooms; and
+- Vegetation moss: red toad-stool mushrooms.
+
+The stock grass and mushroom actors are genuinely blocking. An attempted implementation with their native footprints reduced required route width from nine cells to seven on a manual-corpus seed, and seed `3100026` places every moss candidate inside tactical route space. Weakening the route gate or omitting the requested terrain type would both violate the accepted contract.
+
+The generator therefore uses RMG-only aliases that inherit the exact stock artwork but override the footprint to passable. The original actors and their official, campaign, and authored custom-map behavior are unchanged. Native package validation reloads these alias definitions and confirms they add no static blocker cells.
+
+For the current 128x128 map contract, the pass places 48 actors, equivalent to three decorations per thousand native cells after symmetry-compatible rounding. Surface quotas are proportional to the materialized Clear, Rock, and Vegetation cell counts. Placement uses exact native-cell symmetry orbits, four-cell native spacing within each terrain family, and greedy 4x4 sector coverage before filling the remaining budget.
+
+The hard gate requires at least 12 of the 16 sectors to contain a decoration, validates the terrain-to-actor mapping and exact native symmetry, and requires every configured variant to be used. All eight manual comparison maps cover all 16 sectors and use all four variants. Decorations may not overlap Water, blocked cells, protected Clear, or an occupied native actor cell.
 
 Clear-native template details from Version 4 are also less conservatively excluded in Version 6: only protected Clear remains forbidden. This permits audited passable stone details on route, contest, flank, and quiet land without changing their movement semantics.
 
@@ -71,8 +81,10 @@ The opt-in profile is `mods/sa/rmg/normal-battlefield-layout-v6.yaml`. Its new c
 
 - flank influence radius: 3 logical cells;
 - tactical slow-terrain anchor target: 3 symmetry orbits, capacity-aware with a hard minimum of 1;
-- passable decoration type: `plant_flower`;
-- passable decoration density: 3 per thousand native cells; and
+- soil decoration types: `plant_flower` and passable RMG high-grass alias;
+- gravel decoration type: passable RMG brown-mushroom alias;
+- moss decoration type: passable RMG red-mushroom alias;
+- land-decoration density: 3 per thousand native cells; and
 - minimum occupied decoration sectors: 12 of a 4x4 grid.
 
 Changing these values is a contract change and must be accompanied by deterministic, native-movement, coverage, and manual visual validation.
@@ -88,15 +100,17 @@ The final Phase 7B validation produced:
 - a native movement validator pass; and
 - a Version 6 smoke campaign with 84 accepted cases from 106 attempts, 22 expected bounded rejections, zero blocking failures, zero accepted hard-invalid maps, zero same-seed hash mismatches, and 48/48 package/native samples accepted.
 
-The final bounded rejection codes were inherited `CHOKEPOINT_PLACEMENT`, `TOPOLOGY_ATTEMPTS_EXHAUSTED`, and `COLONY_PLACEMENT`. No tactical-anchor rejection remained after the capacity-aware contract was applied.
+The eight-map manual package corpus also passed static and native validation with 48 passable decorations, all four visual variants, and all 16 sectors covered per map. Seed `3100016` contains six Vegetation detail selections, uses seamless template `78`, and contains no template `93`.
+
+The bounded campaign rejections remain expected capacity or topology rejections rather than accepted invalid maps. No decoration, seam, movement, or package failure remained in the final campaign.
 
 Generated packages and machine-readable reports remain under ignored `artifacts/rmg/phase-7b-battlefield-layout/` directories.
 
 ## Compatibility boundary
 
-Version 6 is additive and opt-in. The V5→V6 inherited-baseline test verifies that the Version 5 graph, blocking topology, reservations, shoreline, Water templates, and gameplay actor placements remain stable when Version 6 is not selected.
+Version 6 is additive and opt-in. The V5→V6 inherited-baseline test verifies that the Version 5 graph, blocking topology, reservations, shoreline, Water templates, and pre-existing actor placements remain stable. RMG-only passable aliases do not change the stock decoration actors used by shipped maps.
 
-Phase 7B is not the final battlefield-layout design. Manual review must still judge whether the amount, shapes, and tactical positioning of slow terrain produce useful route choices rather than merely satisfying coverage metrics. New archetypes, blocking decorators, and the player-facing in-game generator interface remain later work.
+Phase 7B is not the final battlefield-layout design. Manual review must still judge whether the amount, shapes, tactical positioning, and terrain-specific decoration rhythm are visually and tactically successful. New archetypes and the player-facing in-game generator interface remain later work.
 
 ## Usage
 

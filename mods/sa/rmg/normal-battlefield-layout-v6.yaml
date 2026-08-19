@@ -23,9 +23,11 @@ VegetationDetailPercent: 3
 LandCoverTolerancePercent: 2
 BattlefieldFlankRadiusLogical: 3
 TacticalLandAnchorOrbitCount: 3
-PassableDecorationActors: plant_flower
-PassableDecorationPerThousand: 3
-MinimumPassableDecorationSectors: 12
+SoilDecorationActors: plant_flower, rmg_plant_broad_leaf_grass
+RockDecorationActors: rmg_plant_brown_mushroom
+VegetationDecorationActors: rmg_plant_toad_stool
+LandDecorationPerThousand: 3
+MinimumLandDecorationSectors: 12
 BlockedTemplateIds: 9, 12, 26, 28, 29
 OpenWaterDetailTemplateIds: 24, 25, 27
 ShorelineDecorationPercent: 16

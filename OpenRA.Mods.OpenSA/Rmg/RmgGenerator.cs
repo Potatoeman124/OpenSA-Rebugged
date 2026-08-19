@@ -99,12 +99,17 @@ namespace OpenRA.Mods.OpenSA.Rmg
 						.Any(frame => RmgLandCoverMaterializer.IsSlow(first.Map.NativeTerrainIntents[4 * index + frame])));
 				if (slowTactical == 0)
 					failures.Add("Role-aware land cover did not place slow terrain in a tactical role.");
-				var decorations = first.Map.Actors.Where(actor => actor.Role == "cosmetic-passable").ToArray();
-				if (decorations.Length != first.Map.PassableDecorationTargetCount ||
-					decorations.Any(actor => !profile.PassableDecorationActors.Contains(actor.Type)))
-					failures.Add("Passable-decoration selection does not match the Version 6 profile target.");
-				if (first.Map.PassableDecorationSectorCount < profile.MinimumPassableDecorationSectors)
-					failures.Add("Passable decorations do not meet the minimum broad-sector coverage.");
+				var decorations = first.Map.Actors.Where(RmgTerrainDecorationGenerator.IsDecoration).ToArray();
+				if (decorations.Length != first.Map.LandDecorationTargetCount || decorations.Any(actor =>
+					!RmgTerrainDecorationGenerator.ActorsForTerrain(profile,
+						RmgTerrainDecorationGenerator.TerrainAt(first.Map, actor)).Contains(actor.Type)))
+					failures.Add("Terrain-specific decoration selection does not match the Version 6 profile target.");
+				if (first.Map.LandDecorationSectorCount < profile.MinimumLandDecorationSectors)
+					failures.Add("Land decorations do not meet the minimum broad-sector coverage.");
+				if (decorations.Any(RmgTerrainDecorationGenerator.IsBlocking))
+					failures.Add("Version 6 materialized a blocking RMG land decoration.");
+				if (first.Map.TemplateIds.Contains((ushort)93))
+					failures.Add("Version 6 materialized defective square-edged Vegetation detail template 93.");
 			}
 
 			first.Map.TemplateIds[0] = ushort.MaxValue;
@@ -875,8 +880,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		static string HashActors(RmgLogicalMap map)
 		{
 			var text = string.Join("\n", map.Actors.OrderBy(a => a.Type, StringComparer.Ordinal).ThenBy(a => a.Owner, StringComparer.Ordinal)
-				.ThenBy(a => a.LogicalLocation.Y).ThenBy(a => a.LogicalLocation.X)
-				.Select(a => $"{a.Type}|{a.Owner}|{a.Role}|{a.LogicalLocation.X},{a.LogicalLocation.Y}|{a.EquivalenceGroup}"));
+				.ThenBy(a => a.LogicalLocation.Y).ThenBy(a => a.LogicalLocation.X).ThenBy(a => a.NativeFrame)
+				.Select(a => $"{a.Type}|{a.Owner}|{a.Role}|{a.LogicalLocation.X},{a.LogicalLocation.Y}|{a.EquivalenceGroup}" +
+					(a.NativeFrame == 0 ? string.Empty : $"|frame={a.NativeFrame}")));
 			return Sha256(text);
 		}
 

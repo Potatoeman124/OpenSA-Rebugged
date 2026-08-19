@@ -920,7 +920,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				RmgShorelineMaterializer.Materialize(map, profile, settings);
 				RmgLandCoverMaterializer.Materialize(map, profile, settings);
 				RmgClearLandDetailMaterializer.Materialize(map, profile, settings);
-				RmgPassableDecorationGenerator.Materialize(map, profile, settings);
+				RmgTerrainDecorationGenerator.Materialize(map, profile, settings);
 				return;
 			}
 
@@ -1255,32 +1255,71 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				if (map.BattlefieldTacticalAnchorOrbitCount <= 0 || map.BattlefieldTacticalAnchorOrbitCount > profile.TacticalLandAnchorOrbitCount)
 					Hard("BATTLEFIELD_TACTICAL_ANCHORS", $"Materialized {map.BattlefieldTacticalAnchorOrbitCount} tactical anchor orbits; expected a positive capacity-aware count up to target {profile.TacticalLandAnchorOrbitCount}.");
 
-				var decorations = map.Actors.Where(actor => actor.Role == "cosmetic-passable").ToArray();
-				var requestedDecorations = (profile.PlayableWidth * profile.PlayableHeight * profile.PassableDecorationPerThousand + 500) / 1000;
+				if (map.TemplateIds.Contains((ushort)93))
+					Hard("VEGETATION_DETAIL_VISUAL_SEAM", "Version 6 used excluded square-border Vegetation detail template 93.");
+
+				var decorations = map.Actors.Where(RmgTerrainDecorationGenerator.IsDecoration).ToArray();
+				var requestedDecorations = (profile.PlayableWidth * profile.PlayableHeight * profile.LandDecorationPerThousand + 500) / 1000;
 				var targetDecorations = requestedDecorations & ~1;
 				var decorationSectors = decorations.Select(actor =>
-					RmgBattlefieldRolePlanner.Sector(map, actor.LogicalLocation)).Distinct().Count();
+				{
+					var native = RmgTerrainDecorationGenerator.NativePoint(actor);
+					var sectorX = Math.Min(3, 4 * native.X / profile.PlayableWidth);
+					var sectorY = Math.Min(3, 4 * native.Y / profile.PlayableHeight);
+					return 4 * sectorY + sectorX;
+				}).Distinct().Count();
 				foreach (var decoration in decorations)
 				{
 					var index = map.Index(decoration.LogicalLocation);
-					if (!profile.PassableDecorationActors.Contains(decoration.Type))
-						Hard("PASSABLE_DECORATION_ACTOR", $"Actor {decoration.Type} is not in the audited passable-decoration set.");
+					if (decoration.NativeFrame < 0 || decoration.NativeFrame > 3)
+					{
+						Hard("LAND_DECORATION_FRAME", $"Decoration {decoration.Type} uses invalid native frame {decoration.NativeFrame}.");
+						continue;
+					}
+
+					var terrain = RmgTerrainDecorationGenerator.TerrainAt(map, decoration);
+					var expectedActors = RmgTerrainDecorationGenerator.ActorsForTerrain(profile, terrain);
+					if (!expectedActors.Contains(decoration.Type))
+						Hard("LAND_DECORATION_TERRAIN", $"Actor {decoration.Type} is not valid on {terrain} at {RmgTerrainDecorationGenerator.NativePoint(decoration)}.");
+					var expectedBlocking = profile.BlockingDecorationActors.Contains(decoration.Type);
+					if (RmgTerrainDecorationGenerator.IsBlocking(decoration) != expectedBlocking)
+						Hard("LAND_DECORATION_FOOTPRINT_ROLE", $"Actor {decoration.Type} has the wrong passable/blocking decoration role.");
 					if (RmgBattlefieldRolePlanner.MustRemainClear(map.BattlefieldRoles[index]) || map.Obstacles[index])
-						Hard("PASSABLE_DECORATION_PROTECTED_OVERLAP", $"Passable decoration at {decoration.LogicalLocation} overlaps protected or blocked space.");
-					if (Enumerable.Range(0, 4).Any(frame => map.NativeTerrainIntents[4 * index + frame] == RmgNativeTerrainIntent.Water))
-						Hard("PASSABLE_DECORATION_WATER", $"Passable decoration at {decoration.LogicalLocation} overlaps Water.");
-					var partner = Transform(decoration.LogicalLocation, settings.Symmetry, map.Width, map.Height);
-					if (!decorations.Any(other => other.LogicalLocation == partner && other.Type == decoration.Type &&
+						Hard("LAND_DECORATION_PROTECTED_OVERLAP", $"Decoration at {decoration.LogicalLocation}/{decoration.NativeFrame} overlaps protected or blocked space.");
+					if (terrain == RmgNativeTerrainIntent.Water)
+						Hard("LAND_DECORATION_WATER", $"Decoration at {decoration.LogicalLocation}/{decoration.NativeFrame} overlaps Water.");
+					var native = RmgTerrainDecorationGenerator.NativePoint(decoration);
+					var partner = Transform(native, settings.Symmetry, profile.PlayableWidth, profile.PlayableHeight);
+					if (!decorations.Any(other => RmgTerrainDecorationGenerator.NativePoint(other) == partner && other.Type == decoration.Type &&
+						other.Role == decoration.Role &&
 						other.EquivalenceGroup == decoration.EquivalenceGroup))
-						Hard("PASSABLE_DECORATION_SYMMETRY", $"Passable decoration at {decoration.LogicalLocation} has no equivalent partner at {partner}.");
+						Hard("LAND_DECORATION_SYMMETRY", $"Decoration at native {native} has no equivalent partner at {partner}.");
 				}
 
-				if (map.PassableDecorationRequestedCount != requestedDecorations ||
-					map.PassableDecorationTargetCount != targetDecorations ||
-					map.PassableDecorationSelectedCount != decorations.Length || decorations.Length != targetDecorations)
-					Hard("PASSABLE_DECORATION_ACCOUNTING", $"Selected {decorations.Length} passable decorations; exact target is {targetDecorations} from requested {requestedDecorations}.");
-				if (map.PassableDecorationSectorCount != decorationSectors || decorationSectors < profile.MinimumPassableDecorationSectors)
-					Hard("PASSABLE_DECORATION_COVERAGE", $"Passable decorations cover {decorationSectors}/16 sectors; expected at least {profile.MinimumPassableDecorationSectors}.");
+				var validDecorations = decorations.Where(actor => actor.NativeFrame >= 0 && actor.NativeFrame <= 3).ToArray();
+				foreach (var terrainGroup in validDecorations.GroupBy(actor => RmgTerrainDecorationGenerator.TerrainAt(map, actor)))
+				{
+					var decorationPoints = terrainGroup.Select(RmgTerrainDecorationGenerator.NativePoint).ToArray();
+					for (var i = 0; i < decorationPoints.Length; i++)
+						for (var j = i + 1; j < decorationPoints.Length; j++)
+							if (decorationPoints[i].ChebyshevDistance(decorationPoints[j]) < 4)
+								Hard("LAND_DECORATION_SPACING", $"{terrainGroup.Key} decorations at {decorationPoints[i]} and {decorationPoints[j]} violate four-cell native spacing.");
+				}
+
+				var clearDecorations = validDecorations.Count(actor => RmgTerrainDecorationGenerator.TerrainAt(map, actor) == RmgNativeTerrainIntent.Clear);
+				var rockDecorations = validDecorations.Count(actor => RmgTerrainDecorationGenerator.TerrainAt(map, actor) == RmgNativeTerrainIntent.Rock);
+				var vegetationDecorations = validDecorations.Count(actor => RmgTerrainDecorationGenerator.TerrainAt(map, actor) == RmgNativeTerrainIntent.Vegetation);
+				if (map.LandDecorationRequestedCount != requestedDecorations ||
+					map.LandDecorationTargetCount != targetDecorations ||
+					map.LandDecorationSelectedCount != decorations.Length || decorations.Length != targetDecorations ||
+					map.LandDecorationClearTargetCount != clearDecorations || map.LandDecorationRockTargetCount != rockDecorations ||
+					map.LandDecorationVegetationTargetCount != vegetationDecorations)
+					Hard("LAND_DECORATION_ACCOUNTING", $"Selected {decorations.Length} land decorations ({clearDecorations}/{rockDecorations}/{vegetationDecorations}); exact total is {targetDecorations}.");
+				if (map.LandDecorationSectorCount != decorationSectors || decorationSectors < profile.MinimumLandDecorationSectors)
+					Hard("LAND_DECORATION_COVERAGE", $"Land decorations cover {decorationSectors}/16 sectors; expected at least {profile.MinimumLandDecorationSectors}.");
+				foreach (var actor in profile.SoilDecorationActors.Concat(profile.RockDecorationActors).Concat(profile.VegetationDecorationActors).Distinct())
+					if (decorations.All(decoration => decoration.Type != actor))
+						Hard("LAND_DECORATION_VARIETY", $"Configured terrain decoration actor {actor} was not used.");
 
 				foreach (var role in Enum.GetValues<RmgBattlefieldRole>())
 				{
@@ -1293,10 +1332,15 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				report.Metrics["battlefield_central_half_slow_native_cells"] = centralSlowNative;
 				report.Metrics["battlefield_tactical_anchor_orbits"] = map.BattlefieldTacticalAnchorOrbitCount;
 				report.Metrics["battlefield_tactical_anchor_points"] = map.BattlefieldTacticalAnchors.Count;
-				report.Metrics["passable_decoration_requested_count"] = requestedDecorations;
-				report.Metrics["passable_decoration_target_count"] = targetDecorations;
-				report.Metrics["passable_decoration_selected_count"] = decorations.Length;
-				report.Metrics["passable_decoration_sector_count"] = decorationSectors;
+				report.Metrics["land_decoration_requested_count"] = requestedDecorations;
+				report.Metrics["land_decoration_target_count"] = targetDecorations;
+				report.Metrics["land_decoration_selected_count"] = decorations.Length;
+				report.Metrics["land_decoration_sector_count"] = decorationSectors;
+				report.Metrics["land_decoration_clear_count"] = clearDecorations;
+				report.Metrics["land_decoration_rock_count"] = rockDecorations;
+				report.Metrics["land_decoration_vegetation_count"] = vegetationDecorations;
+				report.Metrics["land_decoration_passable_count"] = decorations.Count(actor => !RmgTerrainDecorationGenerator.IsBlocking(actor));
+				report.Metrics["land_decoration_blocking_count"] = decorations.Count(RmgTerrainDecorationGenerator.IsBlocking);
 			}
 
 			return report;

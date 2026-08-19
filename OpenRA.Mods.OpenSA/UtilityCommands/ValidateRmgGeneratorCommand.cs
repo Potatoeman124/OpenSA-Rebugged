@@ -84,14 +84,18 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 					land.Map.StructureReservations.SequenceEqual(battlefield.Map.StructureReservations) &&
 					land.Map.StrategicRegions.SequenceEqual(battlefield.Map.StrategicRegions) &&
 					land.Map.ShorelineRoles.SequenceEqual(battlefield.Map.ShorelineRoles) &&
-					land.Map.Actors.SequenceEqual(battlefield.Map.Actors.Where(actor => actor.Role != "cosmetic-passable")) &&
+					land.Map.Actors.SequenceEqual(battlefield.Map.Actors.Where(actor =>
+						!RmgTerrainDecorationGenerator.IsDecoration(actor))) &&
 					Enumerable.Range(0, land.Map.TemplateIds.Length).Where(index => land.Map.Obstacles[index])
 						.All(index => land.Map.TemplateIds[index] == battlefield.Map.TemplateIds[index]);
 				if (!version6BaselineMatches)
-					failures.Add("normal-battlefield-layout-v6: Version 6 does not inherit the Version 5 graph, blocking topology, reservations, shoreline, Water templates, and gameplay actors.");
+					failures.Add("normal-battlefield-layout-v6: Version 6 does not inherit the Version 5 graph, blocking topology, reservations, shoreline, Water templates, and pre-existing actors.");
 				Console.WriteLine($"v5-to-v6 inherited baseline: {(version6BaselineMatches ? "PASS" : "FAIL")}");
-				if (battlefield.Map.Actors.All(actor => actor.Role != "cosmetic-passable"))
-					failures.Add("normal-battlefield-layout-v6: Version 6 did not materialize its passable cosmetic actor layer.");
+				var decorations = battlefield.Map.Actors.Where(RmgTerrainDecorationGenerator.IsDecoration).ToArray();
+				if (decorations.Length == 0)
+					failures.Add("normal-battlefield-layout-v6: Version 6 did not materialize its terrain-specific decoration layer.");
+				if (decorations.Any(RmgTerrainDecorationGenerator.IsBlocking))
+					failures.Add("normal-battlefield-layout-v6: Version 6 materialized a blocking RMG decoration alias.");
 				if (battlefield.Map.BattlefieldRoles.Any(role => role == RmgBattlefieldRole.None))
 					failures.Add("normal-battlefield-layout-v6: Version 6 left battlefield-role cells unassigned.");
 				static RmgGenerationSettings BaselineSettings(RmgProfile profile, RmgTopologyPreset topology) => new()

@@ -253,7 +253,11 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				}
 			}
 
-			foreach (var actor in profile.NeutralColonyActors.Append(profile.SpawnActor).Concat(profile.PassableDecorationActors))
+			foreach (var actor in profile.NeutralColonyActors.Append(profile.SpawnActor)
+				.Concat(profile.SoilDecorationActors)
+				.Concat(profile.RockDecorationActors)
+				.Concat(profile.VegetationDecorationActors)
+				.Distinct())
 				if (!modData.DefaultRules.Actors.ContainsKey(actor))
 					throw new InvalidDataException($"Configured RMG actor '{actor}' is not defined by the mod rules.");
 		}
@@ -293,7 +297,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			map.PlayerDefinitions = new MapPlayers(map.Rules, generation.Settings.PlayerCount).ToMiniYaml();
 			foreach (var plan in generation.Map.Actors)
 			{
-				var location = ToNative(plan.LogicalLocation, profile);
+				var logicalLocation = ToNative(plan.LogicalLocation, profile);
+				var location = new CPos(logicalLocation.X + plan.NativeFrame % 2,
+					logicalLocation.Y + plan.NativeFrame / 2);
 				var actor = new ActorReference(plan.Type)
 				{
 					new LocationInit(location),
@@ -587,18 +593,26 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					["tactical_anchor_lattice_points"] = new JArray(generation.Map.BattlefieldTacticalAnchors
 						.OrderBy(point => point.Y).ThenBy(point => point.X)
 						.Select(point => new JObject { ["x"] = point.X, ["y"] = point.Y })),
-					["passable_decorations"] = new JObject
+					["land_decorations"] = new JObject
 					{
-						["policy"] = "broad-sector-cosmetic-v1",
-						["actors"] = new JArray(generation.Profile.PassableDecorationActors),
-						["requested_count"] = generation.Map.PassableDecorationRequestedCount,
-						["target_count"] = generation.Map.PassableDecorationTargetCount,
-						["selected_count"] = generation.Map.PassableDecorationSelectedCount,
-						["covered_sectors"] = generation.Map.PassableDecorationSectorCount,
+						["policy"] = "terrain-specific-native-symmetry-v2",
+						["soil_actors"] = new JArray(generation.Profile.SoilDecorationActors),
+						["rock_actors"] = new JArray(generation.Profile.RockDecorationActors),
+						["vegetation_actors"] = new JArray(generation.Profile.VegetationDecorationActors),
+						["blocking_actors"] = new JArray(generation.Profile.BlockingDecorationActors),
+						["requested_count"] = generation.Map.LandDecorationRequestedCount,
+						["target_count"] = generation.Map.LandDecorationTargetCount,
+						["selected_count"] = generation.Map.LandDecorationSelectedCount,
+						["covered_sectors"] = generation.Map.LandDecorationSectorCount,
 						["sector_grid"] = "4x4",
-						["minimum_covered_sectors"] = generation.Profile.MinimumPassableDecorationSectors,
-						["selection_sha256"] = RmgPassableDecorationGenerator.SelectionHash(generation.Map),
-						["actor_usage"] = new JObject(generation.Map.Actors.Where(actor => actor.Role == "cosmetic-passable")
+						["minimum_covered_sectors"] = generation.Profile.MinimumLandDecorationSectors,
+						["clear_target_count"] = generation.Map.LandDecorationClearTargetCount,
+						["rock_target_count"] = generation.Map.LandDecorationRockTargetCount,
+						["vegetation_target_count"] = generation.Map.LandDecorationVegetationTargetCount,
+						["passable_selected_count"] = generation.Validation.Metrics["land_decoration_passable_count"],
+						["blocking_selected_count"] = generation.Validation.Metrics["land_decoration_blocking_count"],
+						["selection_sha256"] = RmgTerrainDecorationGenerator.SelectionHash(generation.Map),
+						["actor_usage"] = new JObject(generation.Map.Actors.Where(RmgTerrainDecorationGenerator.IsDecoration)
 							.GroupBy(actor => actor.Type).OrderBy(group => group.Key)
 							.Select(group => new JProperty(group.Key, group.Count())))
 					}

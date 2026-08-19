@@ -36,6 +36,22 @@ plant_toad_stool:
 	EditorOnlyTooltip:
 		Name: Normal tileset plant.
 
+# Generated maps use the original NORMAL artwork without changing the blocking behavior of official-map actors.
+rmg_plant_broad_leaf_grass:
+	Inherits: plant_broad_leaf_grass
+	Building:
+		Footprint: _
+
+rmg_plant_brown_mushroom:
+	Inherits: plant_brown_mushroom
+	Building:
+		Footprint: _
+
+rmg_plant_toad_stool:
+	Inherits: plant_toad_stool
+	Building:
+		Footprint: _
+
 plant_desert_grass:
 	Inherits: ^CoreDecoration
 	RenderSprites:
