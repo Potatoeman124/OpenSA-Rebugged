@@ -21,13 +21,13 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 		string IUtilityCommand.Name => "--validate-sa-rmg";
 		bool IUtilityCommand.ValidateArguments(string[] args) => args.Length == 1;
 
-		[Desc("Run focused deterministic RMG self-tests for frozen V1-V4 and opt-in land-cover V5 profiles.")]
+		[Desc("Run focused deterministic RMG self-tests for frozen V1-V4 and opt-in V5-V6 terrain profiles.")]
 		void IUtilityCommand.Run(Utility utility, string[] args)
 		{
 			try
 			{
 				var failures = new List<string>();
-				foreach (var topology in new[] { RmgTopologyPreset.Off, RmgTopologyPreset.Mixed, RmgTopologyPreset.Shoreline, RmgTopologyPreset.LandDetails, RmgTopologyPreset.LandCover })
+				foreach (var topology in new[] { RmgTopologyPreset.Off, RmgTopologyPreset.Mixed, RmgTopologyPreset.Shoreline, RmgTopologyPreset.LandDetails, RmgTopologyPreset.LandCover, RmgTopologyPreset.BattlefieldLayout })
 				{
 					var profile = RmgProfile.Load(utility.ModData, topology);
 					var profileFailures = RmgGenerator.RunSelfTests(profile);
@@ -74,6 +74,26 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 					failures.Add("normal-land-cover-v5: Version 5 does not inherit the Version 4 actors, topology, reservations, shoreline, and Water templates.");
 				Console.WriteLine($"v4-to-v5 inherited baseline: {(version5BaselineMatches ? "PASS" : "FAIL")}");
 
+				var battlefieldProfile = RmgProfile.Load(utility.ModData, RmgTopologyPreset.BattlefieldLayout);
+				var battlefieldSettings = BaselineSettings(battlefieldProfile, RmgTopologyPreset.BattlefieldLayout);
+				var battlefield = RmgGenerator.Generate(battlefieldProfile, battlefieldSettings);
+				var version6BaselineMatches = land.GraphHash == battlefield.GraphHash &&
+					land.Map.Obstacles.SequenceEqual(battlefield.Map.Obstacles) &&
+					land.Map.RouteMasks.SequenceEqual(battlefield.Map.RouteMasks) &&
+					land.Map.StartReservations.SequenceEqual(battlefield.Map.StartReservations) &&
+					land.Map.StructureReservations.SequenceEqual(battlefield.Map.StructureReservations) &&
+					land.Map.StrategicRegions.SequenceEqual(battlefield.Map.StrategicRegions) &&
+					land.Map.ShorelineRoles.SequenceEqual(battlefield.Map.ShorelineRoles) &&
+					land.Map.Actors.SequenceEqual(battlefield.Map.Actors.Where(actor => actor.Role != "cosmetic-passable")) &&
+					Enumerable.Range(0, land.Map.TemplateIds.Length).Where(index => land.Map.Obstacles[index])
+						.All(index => land.Map.TemplateIds[index] == battlefield.Map.TemplateIds[index]);
+				if (!version6BaselineMatches)
+					failures.Add("normal-battlefield-layout-v6: Version 6 does not inherit the Version 5 graph, blocking topology, reservations, shoreline, Water templates, and gameplay actors.");
+				Console.WriteLine($"v5-to-v6 inherited baseline: {(version6BaselineMatches ? "PASS" : "FAIL")}");
+				if (battlefield.Map.Actors.All(actor => actor.Role != "cosmetic-passable"))
+					failures.Add("normal-battlefield-layout-v6: Version 6 did not materialize its passable cosmetic actor layer.");
+				if (battlefield.Map.BattlefieldRoles.Any(role => role == RmgBattlefieldRole.None))
+					failures.Add("normal-battlefield-layout-v6: Version 6 left battlefield-role cells unassigned.");
 				static RmgGenerationSettings BaselineSettings(RmgProfile profile, RmgTopologyPreset topology) => new()
 				{
 					Seed = 45006,

@@ -50,6 +50,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					3 => RmgTopologyPreset.Shoreline,
 					4 => RmgTopologyPreset.LandDetails,
 					5 => RmgTopologyPreset.LandCover,
+					6 => RmgTopologyPreset.BattlefieldLayout,
 					_ => RmgTopologyPreset.Off
 				}
 			};
@@ -66,7 +67,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				if (selected.Length != first.Map.ClearLandDetailTargetCount ||
 					selected.Length != first.Map.ClearLandDetailSelectedCount)
 					failures.Add("Clear-land-detail selection did not meet its exact rounded target.");
-				if (selected.Any(entry => RmgClearLandDetailMaterializer.IsProtected(first.Map, entry.index)))
+				if (selected.Any(entry => RmgClearLandDetailMaterializer.IsProtected(first.Map, entry.index, profile)))
 					failures.Add("Clear-land-detail selection overlapped a protected semantic layer.");
 				if (selected.Any(entry => Enumerable.Range(0, 4).Any(frame =>
 					first.Map.NativeTerrainIntents[4 * entry.index + frame] != RmgNativeTerrainIntent.Clear)))
@@ -79,6 +80,31 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			{
 				failures.AddRange(NormalLandTransitionCatalogue.RunSelfTests());
 				failures.AddRange(RmgLandCoverMaterializer.RunSelfTests());
+			}
+
+			if (profile.UsesBattlefieldLayout)
+			{
+				if (first.Map.BattlefieldRoles.Any(role => role == RmgBattlefieldRole.None))
+					failures.Add("Battlefield-role planner left unclassified logical cells.");
+				for (var i = 0; i < first.Map.BattlefieldRoles.Length; i++)
+				{
+					var point = new RmgPoint(i % first.Map.Width, i / first.Map.Width);
+					var partner = Transform(point, settings.Symmetry, first.Map.Width, first.Map.Height);
+					if (first.Map.BattlefieldRoles[i] != first.Map.BattlefieldRoles[first.Map.Index(partner)])
+						failures.Add($"Battlefield role at {point} differs from its symmetry partner.");
+				}
+
+				var slowTactical = Enumerable.Range(0, first.Map.BattlefieldRoles.Length).Count(index =>
+					RmgBattlefieldRolePlanner.IsTactical(first.Map.BattlefieldRoles[index]) && Enumerable.Range(0, 4)
+						.Any(frame => RmgLandCoverMaterializer.IsSlow(first.Map.NativeTerrainIntents[4 * index + frame])));
+				if (slowTactical == 0)
+					failures.Add("Role-aware land cover did not place slow terrain in a tactical role.");
+				var decorations = first.Map.Actors.Where(actor => actor.Role == "cosmetic-passable").ToArray();
+				if (decorations.Length != first.Map.PassableDecorationTargetCount ||
+					decorations.Any(actor => !profile.PassableDecorationActors.Contains(actor.Type)))
+					failures.Add("Passable-decoration selection does not match the Version 6 profile target.");
+				if (first.Map.PassableDecorationSectorCount < profile.MinimumPassableDecorationSectors)
+					failures.Add("Passable decorations do not meet the minimum broad-sector coverage.");
 			}
 
 			first.Map.TemplateIds[0] = ushort.MaxValue;
@@ -201,6 +227,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				throw new ArgumentException("Generator Version 4 requires TopologyPreset=land-details.");
 			if (profile.GeneratorVersion == 5 && settings.TopologyPreset != RmgTopologyPreset.LandCover)
 				throw new ArgumentException("Generator Version 5 requires TopologyPreset=land-cover.");
+			if (profile.GeneratorVersion == 6 && settings.TopologyPreset != RmgTopologyPreset.BattlefieldLayout)
+				throw new ArgumentException("Generator Version 6 requires TopologyPreset=battlefield-layout.");
 			if (settings.PlayerCount != 2 && settings.PlayerCount != 4)
 				throw new ArgumentException($"Generator Version {settings.GeneratorVersion} supports exactly two or four players.");
 			if (settings.PlayerCount == 2 && (settings.NeutralColonyCount < 8 || settings.NeutralColonyCount > 20 || settings.NeutralColonyCount % 2 != 0))

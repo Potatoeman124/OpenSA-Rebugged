@@ -1,0 +1,50 @@
+ProfileId: normal-battlefield-layout-v6
+ConfigurationVersion: 1
+GeneratorVersion: 6
+Tileset: NORMAL
+PlayableWidth: 128
+PlayableHeight: 128
+CordonWidth: 2
+LogicalWidth: 64
+LogicalHeight: 64
+MinimumRouteWidthNative: 5
+MajorRouteWidthNative: 9
+ChokepointWidthNative: 3
+ChokepointLengthMinimumNative: 4
+ChokepointLengthMaximumNative: 12
+StartRegionRadiusNative: 12
+ClearTemplateIds: 32, 33, 34, 35, 36
+ClearLandDetailTemplateIds: 61, 62
+ClearLandDetailPercent: 4
+RockLandPercent: 14
+VegetationLandPercent: 8
+RockDetailPercent: 2
+VegetationDetailPercent: 3
+LandCoverTolerancePercent: 2
+BattlefieldFlankRadiusLogical: 3
+TacticalLandAnchorOrbitCount: 3
+PassableDecorationActors: plant_flower
+PassableDecorationPerThousand: 3
+MinimumPassableDecorationSectors: 12
+BlockedTemplateIds: 9, 12, 26, 28, 29
+OpenWaterDetailTemplateIds: 24, 25, 27
+ShorelineDecorationPercent: 16
+OpenWaterDetailPercent: 8
+NeutralColonyActors: ants_colony, beetles_colony, scorpions_colony, spiders_colony, wasps_colony
+SpawnActor: mpspawn
+SpawnOwner: Neutral
+ColonyOwner: Creeps
+ObstacleDensity: 12
+VegetationDensity: 0
+OpenObstacleDensityTarget: 12
+OpenObstacleDensityMinimum: 10
+OpenObstacleDensityMaximum: 14
+CentralObstacleDensityTarget: 16
+CentralObstacleDensityMinimum: 14
+CentralObstacleDensityMaximum: 18
+ObstacleRegionMinimumLogical: 8
+ObstacleRegionMaximumLogical: 64
+MaximumTopologyAttempts: 4
+MaximumRepairOperations: 8
+MaximumRepairCellsLogical: 64
+ColonyCombatSafetyBufferNative: 1

@@ -41,6 +41,8 @@ The proposed [player-facing random map parameters](PLAYER_FACING_RANDOM_MAP_PARA
 
 The [Phase 7A battlefield-layout audit](PHASE_7A_BATTLEFIELD_LAYOUT_AUDIT.md) covers all 100 campaign maps, 13 custom/challenge scenarios, 11 skirmish references, one unclassified shipped map, and the eight Phase 6 generated comparisons. It confirms that the prototype's Rock and Vegetation are almost entirely edge-biased while cosmetic detail is too sparse, and freezes the separation between role-aware movement terrain, passable cosmetic detail, and blocking decorations for Phase 7B.
 
+[Phase 7B](PHASE_7B_ROLE_AWARE_BATTLEFIELD_LAYOUT.md) implements opt-in Generator Version 6. It classifies passable land as protected Clear, contest, primary-route, flank, or quiet space before materialization; prioritizes Rock and Vegetation according to those roles; and independently spreads passable cosmetic decoration across a 4x4 coverage grid. The [manual Phase 7B corpus](PHASE_7B_MANUAL_PLAYTEST_SEEDS.md) preserves the eight Phase 6 comparison seeds, including the empty-center regression seed `3100026` and the dense capacity case `3100047`.
+
 ## Movement validation architecture
 
 OpenSA has two movement classes relevant to generated maps:
@@ -176,12 +178,30 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\rmg\Invoke-MapGene
 
 The title includes `land-cover`, and reports are written beneath ignored `artifacts/rmg/phase-6c-weighted-land-cover/`. See the [Phase 6C implementation record](PHASE_6C_WEIGHTED_LAND_COVER.md) and [manual corpus](PHASE_6C_MANUAL_PLAYTEST_SEEDS.md).
 
+## Generator Version 6 battlefield-layout usage
+
+Select Version 6 explicitly with `-Topology battlefield-layout`. It inherits Version 5 and adds semantic battlefield roles, role-prioritized slow terrain, capacity-aware tactical anchors, and broadly distributed passable decoration:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\rmg\Invoke-MapGenerator.ps1 -Seed 3100026 -Players 4 -NeutralColonies 12 -Symmetry vertical -Archetype open -Topology battlefield-layout -MovementValidation both -InstallForPlay -Overwrite
+```
+
+Install the complete eight-map comparison corpus with:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\rmg\Prepare-Phase7bManualCorpus.ps1 -InstallForPlay -ReplaceInstalledRmgCorpus -Overwrite
+```
+
+The replacement option deletes only matching `OpenSA-RMG-*.oramap` files from the OpenRA development user-map directory. See the [Phase 7B implementation contract](PHASE_7B_ROLE_AWARE_BATTLEFIELD_LAYOUT.md) and [manual playtest corpus](PHASE_7B_MANUAL_PLAYTEST_SEEDS.md).
+
 ## Current implementation boundary
 
 Generator Version 1 implements deterministic settings, independent random streams, symmetry-aware starts, a strategic graph with two start-to-hub routes, widened route reservations, role-scored neutral colonies, symmetric Clear-template materialization, proxy and engine-grounded static movement validation, map lint, quality metrics, repeatability hashes, and repeated save/reload package validation. Its obstacle stage remains a validated zero-density no-op.
 
 Generator Version 2 adds deterministic symmetric Water regions, named route masks, route-local chokepoints for `central-contest`, subtractive bounded repair, exact logical/native passability agreement, mover-specific validation, rule-derived combat-space validation, and durable debug layers. Homogeneous Water creates a known hard visual seam, and wasps intentionally bypass ground blockers. Configuration version 3 has passed manual spawn-safety validation and remains the frozen baseline. Phase 5A found no reusable engine autotiler, so opt-in Generator Version 3 selects fixed 2x2 shoreline stamps, validates per-frame native passability, and independently samples cosmetic symmetry partners. Its shoreline vegetation and open-Water detail densities are calibrated from authored NORMAL maps. Broader layout redesign, land decoration, Rock/Vegetation transitions, new archetypes, and UI work remain later phases.
 
-Phase 6A found authored NORMAL land-relative medians of 13.8055 percent Rock and 8.3118 percent Vegetation, while Clear-native fixed details appear on 4.3060 percent of homogeneous Clear stamps. Generator Version 4 implements the safe cosmetic slice with templates `61` and `62`; its functional gate is accepted, while its conservative visual distribution remains WIP. Generator Version 5 now implements symmetric nested Rock/Vegetation morphology, capacity-aware 14/8-percent targets, runtime-verified native semantics, and exact weighted-path parity. Manual review accepted it as a mergeable working prototype, with battlefield placement still WIP: movement terrain is too border-biased and cosmetic details leave some interiors visually empty. Phase 7 owns role-aware layout and broader cosmetic coverage. Free-standing decoration actors, new archetypes, and UI work remain outside the current implementation.
+Phase 6A found authored NORMAL land-relative medians of 13.8055 percent Rock and 8.3118 percent Vegetation, while Clear-native fixed details appear on 4.3060 percent of homogeneous Clear stamps. Generator Version 4 implements the safe cosmetic slice with templates `61` and `62`. Generator Version 5 implements symmetric nested Rock/Vegetation morphology, capacity-aware 14/8-percent targets, runtime-verified native semantics, and exact weighted-path parity. It remains the frozen pre-layout prototype.
 
-Phase 7A quantifies that boundary across the complete shipped corpus and the accepted generated comparison set. Phase 7B must create battlefield roles before terrain materialization, allocate Rock and Vegetation to declared tactical roles instead of borders, and broaden passable cosmetic coverage independently. Campaign and scripted scenario maps remain spatial and visual calibration sources; their runtime traffic cannot be inferred from static actors alone.
+Phase 7A quantifies the placement problem across the complete shipped corpus and the accepted generated comparison set. Generator Version 6 now creates symmetry-closed battlefield roles before terrain materialization, allocates Rock and Vegetation to declared tactical roles instead of borders, and broadens passable cosmetic coverage independently. Its automated gate is accepted and its eight-map manual review is pending. Campaign and scripted scenario maps remain spatial and visual calibration sources; their runtime traffic cannot be inferred from static actors alone.
+
+Phase 7B adds only the audited passable `plant_flower` actor as a free-standing cosmetic decorator. Blocking vegetation and mushroom actors remain outside the current implementation because they must participate in topology and path validation. New archetypes and the player-facing in-game generator interface also remain future work.

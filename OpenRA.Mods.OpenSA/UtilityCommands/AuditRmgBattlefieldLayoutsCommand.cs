@@ -15,8 +15,8 @@ using System.IO;
 using System.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using OpenRA.Mods.Common.Traits;
 using OpenRA.FileSystem;
+using OpenRA.Mods.Common.Traits;
 using OpenRA.Traits;
 
 namespace OpenRA.Mods.OpenSA.UtilityCommands
@@ -50,8 +50,6 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 		{
 			"Candyland Battleground", "Desert Battleground", "Narrow Passage", "Swamp Battleground"
 		};
-
-
 		static readonly HashSet<ushort> EmbeddedDetailTemplateIds = new()
 		{
 			61, 62, 93, 94
@@ -306,9 +304,9 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			var sectorCounts = new int[SectorGridSize * SectorGridSize];
 			var edgeCount = 0;
 			var centralCount = 0;
-			foreach (var anchor in anchors)
+			foreach (var (location, _) in anchors)
 			{
-				var index = grid.Index(anchor.Location);
+				var index = grid.Index(location);
 				sectorCounts[grid.Sector(index)]++;
 				if (grid.NormalizedBorderDepth(index) <= EdgeBandFraction)
 					edgeCount++;
@@ -343,7 +341,6 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 		}
 
 		static DecorationMetric AnalyzeDecorations(GridModel grid, ActorPoint[] decorations)
-
 		{
 			var sectorCounts = new int[SectorGridSize * SectorGridSize];
 			var edgeCount = 0;
