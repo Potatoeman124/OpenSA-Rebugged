@@ -271,9 +271,11 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			using var map = new Map(modData, terrainInfo, storedWidth, storedHeight)
 			{
 				RequiresMod = modData.Manifest.Id,
-				Title = generation.Profile.GeneratorVersion == 1 ?
-					$"OpenSA RMG {ArchetypeName(generation.Settings.Archetype)} {generation.Settings.Seed}" :
-					$"OpenSA RMG {ArchetypeName(generation.Settings.Archetype)} {TopologyName(generation.Settings.TopologyPreset)} {generation.Settings.Seed}",
+				Title = generation.Settings.PlayerSettingsResolution != null ?
+					$"OpenSA RMG {RmgPlayerSettingsContract.PresetDisplayName(generation.Settings.PlayerSettingsResolution.Requested.Preset)} {generation.Settings.Seed}" :
+					generation.Profile.GeneratorVersion == 1 ?
+						$"OpenSA RMG {ArchetypeName(generation.Settings.Archetype)} {generation.Settings.Seed}" :
+						$"OpenSA RMG {ArchetypeName(generation.Settings.Archetype)} {TopologyName(generation.Settings.TopologyPreset)} {generation.Settings.Seed}",
 				Author = $"OpenSA RMG v{generation.Settings.GeneratorVersion}",
 				Visibility = MapVisibility.Lobby,
 				Categories = new[] { "Conquest" }
@@ -449,7 +451,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var settings = generation.Settings;
 			var report = new JObject
 			{
-				["schema_version"] = generation.Profile.GeneratorVersion >= 6 ? 7 : generation.Profile.GeneratorVersion >= 5 ? 6 : generation.Profile.GeneratorVersion >= 4 ? 5 : generation.Profile.GeneratorVersion >= 3 ? 4 : generation.Profile.GeneratorVersion >= 2 ? 3 : 2,
+				["schema_version"] = generation.Profile.GeneratorVersion >= 6 ? 8 : generation.Profile.GeneratorVersion >= 5 ? 6 : generation.Profile.GeneratorVersion >= 4 ? 5 : generation.Profile.GeneratorVersion >= 3 ? 4 : generation.Profile.GeneratorVersion >= 2 ? 3 : 2,
 				["generator_version"] = settings.GeneratorVersion,
 				["configuration_id"] = generation.Profile.ProfileId,
 				["configuration_version"] = generation.Profile.ConfigurationVersion,
@@ -460,6 +462,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				["topology_preset"] = TopologyName(settings.TopologyPreset),
 				["neutral_colonies"] = settings.NeutralColonyCount,
 				["output"] = outputPath,
+				["player_settings"] = settings.PlayerSettingsResolution?.ToJson(),
 				["logical_hash_sha256"] = generation.LogicalHash,
 				["actor_hash_sha256"] = generation.ActorHash,
 				["graph_hash_sha256"] = generation.GraphHash,

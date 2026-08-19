@@ -2,7 +2,7 @@
 
 ## Status
 
-Generator Version 6 is implemented and has passed the automated Phase 7B gate. It is ready for manual visual and gameplay review. It is opt-in through the `battlefield-layout` topology; Versions 1 through 5 retain their established behavior.
+Generator Version 6 is implemented and has passed both the automated and manual Phase 7B gates. Its role-aware terrain, terrain-specific doodads, and seamless moss-detail revision are the accepted baseline for player-settings work. It is opt-in through the `battlefield-layout` topology; Versions 1 through 5 retain their established behavior.
 
 Phase 7B addresses two separate findings from the Phase 7A audit:
 

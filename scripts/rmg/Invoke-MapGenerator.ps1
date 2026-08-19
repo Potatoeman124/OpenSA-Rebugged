@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$OutputPath,
+    [string]$PlayerSettingsPath,
     [UInt64]$Seed = 1,
     [ValidateSet(2, 4)]
     [int]$Players = 2,
@@ -23,6 +24,30 @@ $root = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $engineRoot = Join-Path $root "engine"
 $utility = Join-Path $engineRoot "bin\OpenRA.Utility.exe"
 $dotnetRoot = Join-Path $root ".tools\dotnet"
+
+$usingPlayerSettings = ![string]::IsNullOrWhiteSpace($PlayerSettingsPath)
+if ($usingPlayerSettings)
+{
+    $incompatible = @("Seed", "Players", "Symmetry", "Archetype", "Topology", "NeutralColonies") |
+        Where-Object { $PSBoundParameters.ContainsKey($_) }
+    if ($incompatible.Count -gt 0)
+    {
+        throw "-PlayerSettingsPath cannot be combined with low-level parameter(s): $($incompatible -join ', ')."
+    }
+
+    if (![System.IO.Path]::IsPathRooted($PlayerSettingsPath))
+    {
+        $PlayerSettingsPath = Join-Path $root $PlayerSettingsPath
+    }
+
+    if (!(Test-Path -LiteralPath $PlayerSettingsPath -PathType Leaf))
+    {
+        throw "Player settings file not found: $PlayerSettingsPath"
+    }
+
+    $playerSettings = Get-Content -LiteralPath $PlayerSettingsPath -Raw | ConvertFrom-Json
+    $Seed = [UInt64]$playerSettings.seed
+}
 
 if (!(Test-Path -LiteralPath $utility -PathType Leaf))
 {
@@ -48,7 +73,7 @@ if ([string]::IsNullOrWhiteSpace($OutputPath))
     }
     else
     {
-        $phase = if ($Topology -eq "battlefield-layout") { "phase-7b-battlefield-layout" } elseif ($Topology -eq "land-cover") { "phase-6c-weighted-land-cover" } elseif ($Topology -eq "land-details") { "phase-6b-clear-land-details" } elseif ($Topology -eq "shoreline") { "phase-5b-shoreline-materialization" } elseif ($Topology -eq "mixed") { "phase-4c-blocking-topology" } else { "phase-4a-native-movement-validation" }
+        $phase = if ($usingPlayerSettings) { "phase-7c-player-settings" } elseif ($Topology -eq "battlefield-layout") { "phase-7b-battlefield-layout" } elseif ($Topology -eq "land-cover") { "phase-6c-weighted-land-cover" } elseif ($Topology -eq "land-details") { "phase-6b-clear-land-details" } elseif ($Topology -eq "shoreline") { "phase-5b-shoreline-materialization" } elseif ($Topology -eq "mixed") { "phase-4c-blocking-topology" } else { "phase-4a-native-movement-validation" }
         $OutputPath = Join-Path $root "artifacts\rmg\$phase\examples\manual-$Seed.oramap"
     }
 }
@@ -59,7 +84,7 @@ elseif (![System.IO.Path]::IsPathRooted($OutputPath))
 
 if ([string]::IsNullOrWhiteSpace($ReportPath))
 {
-    $phase = if ($Topology -eq "battlefield-layout") { "phase-7b-battlefield-layout" } elseif ($Topology -eq "land-cover") { "phase-6c-weighted-land-cover" } elseif ($Topology -eq "land-details") { "phase-6b-clear-land-details" } elseif ($Topology -eq "shoreline") { "phase-5b-shoreline-materialization" } elseif ($Topology -eq "mixed") { "phase-4c-blocking-topology" } else { "phase-4a-native-movement-validation" }
+    $phase = if ($usingPlayerSettings) { "phase-7c-player-settings" } elseif ($Topology -eq "battlefield-layout") { "phase-7b-battlefield-layout" } elseif ($Topology -eq "land-cover") { "phase-6c-weighted-land-cover" } elseif ($Topology -eq "land-details") { "phase-6b-clear-land-details" } elseif ($Topology -eq "shoreline") { "phase-5b-shoreline-materialization" } elseif ($Topology -eq "mixed") { "phase-4c-blocking-topology" } else { "phase-4a-native-movement-validation" }
     $ReportPath = Join-Path $root "artifacts\rmg\$phase\reports\manual-$Seed.json"
 }
 elseif (![System.IO.Path]::IsPathRooted($ReportPath))
@@ -67,22 +92,36 @@ elseif (![System.IO.Path]::IsPathRooted($ReportPath))
     $ReportPath = Join-Path $root $ReportPath
 }
 
-$arguments = @(
-    "sa",
-    "--generate-sa-map",
-    $OutputPath,
-    "--report", $ReportPath,
-    "--seed", $Seed,
-    "--size", "128,128",
-    "--players", $Players,
-    "--tileset", "NORMAL",
-    "--symmetry", $Symmetry,
-    "--archetype", $Archetype,
-    "--topology", $Topology,
-    "--neutral-colonies", $NeutralColonies,
-    "--movement-validation", $MovementValidation,
-    "--generator-version", $(if ($Topology -eq "battlefield-layout") { "6" } elseif ($Topology -eq "land-cover") { "5" } elseif ($Topology -eq "land-details") { "4" } elseif ($Topology -eq "shoreline") { "3" } elseif ($Topology -eq "mixed") { "2" } else { "1" })
-)
+if ($usingPlayerSettings)
+{
+    $arguments = @(
+        "sa",
+        "--generate-sa-map",
+        $OutputPath,
+        "--report", $ReportPath,
+        "--player-settings", $PlayerSettingsPath,
+        "--movement-validation", $MovementValidation
+    )
+}
+else
+{
+    $arguments = @(
+        "sa",
+        "--generate-sa-map",
+        $OutputPath,
+        "--report", $ReportPath,
+        "--seed", $Seed,
+        "--size", "128,128",
+        "--players", $Players,
+        "--tileset", "NORMAL",
+        "--symmetry", $Symmetry,
+        "--archetype", $Archetype,
+        "--topology", $Topology,
+        "--neutral-colonies", $NeutralColonies,
+        "--movement-validation", $MovementValidation,
+        "--generator-version", $(if ($Topology -eq "battlefield-layout") { "6" } elseif ($Topology -eq "land-cover") { "5" } elseif ($Topology -eq "land-details") { "4" } elseif ($Topology -eq "shoreline") { "3" } elseif ($Topology -eq "mixed") { "2" } else { "1" })
+    )
+}
 
 if ($Overwrite)
 {

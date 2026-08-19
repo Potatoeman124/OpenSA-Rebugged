@@ -84,6 +84,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 			if (profile.UsesBattlefieldLayout)
 			{
+				failures.AddRange(RmgPlayerSettingsContract.RunSelfTests());
 				if (first.Map.BattlefieldRoles.Any(role => role == RmgBattlefieldRole.None))
 					failures.Add("Battlefield-role planner left unclassified logical cells.");
 				for (var i = 0; i < first.Map.BattlefieldRoles.Length; i++)

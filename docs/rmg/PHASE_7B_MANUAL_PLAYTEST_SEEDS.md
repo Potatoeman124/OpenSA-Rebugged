@@ -4,7 +4,7 @@
 
 This corpus is the manual gate for Generator Version 6 `battlefield-layout`. It keeps the eight Phase 6 comparison seeds so visual and gameplay changes can be judged directly rather than against unrelated random layouts.
 
-The automated gate is complete. Manual review remains responsible for judging tactical quality, visual rhythm, and actual in-match movement behavior.
+The automated gate and the refreshed manual visual review are accepted. This corpus remains the baseline for judging tactical quality, visual rhythm, and actual in-match movement behavior after future changes.
 
 ## Installed comparison maps
 

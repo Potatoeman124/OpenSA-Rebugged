@@ -194,6 +194,24 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\rmg\Prepare-Phase7
 
 The replacement option deletes only matching `OpenSA-RMG-*.oramap` files from the OpenRA development user-map directory. See the [Phase 7B implementation contract](PHASE_7B_ROLE_AWARE_BATTLEFIELD_LAYOUT.md) and [manual playtest corpus](PHASE_7B_MANUAL_PLAYTEST_SEEDS.md).
 
+## Phase 7C player-settings usage
+
+Generate through the serializable player-facing settings layer with:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\rmg\Invoke-PlayerMapGenerator.ps1 -Seed 3100009 -Preset balanced -Players 2 -Symmetry automatic -InstallForPlay -Overwrite
+```
+
+Available presets are `balanced`, `open-conflict`, and `tactical-crossroads`. Optional constrained overrides are `-Layout preset|open-fields|contested-center`, `-NeutralColonyDensity preset|sparse|standard|dense`, and explicit symmetry. Every accepted request normalizes to Generator Version 6, `battlefield-layout`, NORMAL, and 128 by 128.
+
+Install the complete eight-map settings corpus with:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\rmg\Prepare-Phase7cManualCorpus.ps1 -InstallForPlay -ReplaceInstalledRmgCorpus -Overwrite
+```
+
+The generated settings, reports, and local examples remain ignored under `artifacts/rmg/phase-7c-player-settings/`. Reports record both requested and normalized settings. See the [Phase 7C contract](PHASE_7C_PLAYER_SETTINGS_CONTRACT.md) and [manual corpus](PHASE_7C_MANUAL_PLAYTEST_SEEDS.md).
+
 ## Current implementation boundary
 
 Generator Version 1 implements deterministic settings, independent random streams, symmetry-aware starts, a strategic graph with two start-to-hub routes, widened route reservations, role-scored neutral colonies, symmetric Clear-template materialization, proxy and engine-grounded static movement validation, map lint, quality metrics, repeatability hashes, and repeated save/reload package validation. Its obstacle stage remains a validated zero-density no-op.
@@ -202,6 +220,8 @@ Generator Version 2 adds deterministic symmetric Water regions, named route mask
 
 Phase 6A found authored NORMAL land-relative medians of 13.8055 percent Rock and 8.3118 percent Vegetation, while Clear-native fixed details appear on 4.3060 percent of homogeneous Clear stamps. Generator Version 4 implements the safe cosmetic slice with templates `61` and `62`. Generator Version 5 implements symmetric nested Rock/Vegetation morphology, capacity-aware 14/8-percent targets, runtime-verified native semantics, and exact weighted-path parity. It remains the frozen pre-layout prototype.
 
-Phase 7A quantifies the placement problem across the complete shipped corpus and the accepted generated comparison set. Generator Version 6 now creates symmetry-closed battlefield roles before terrain materialization, allocates Rock and Vegetation to declared tactical roles instead of borders, and broadens terrain-specific cosmetic coverage independently. Its automated gate is accepted and its refreshed eight-map manual review is pending. Campaign and scripted scenario maps remain spatial and visual calibration sources; their runtime traffic cannot be inferred from static actors alone.
+Phase 7A quantifies the placement problem across the complete shipped corpus and the accepted generated comparison set. Generator Version 6 now creates symmetry-closed battlefield roles before terrain materialization, allocates Rock and Vegetation to declared tactical roles instead of borders, and broadens terrain-specific cosmetic coverage independently. Its automated and refreshed eight-map manual gates are accepted. Campaign and scripted scenario maps remain spatial and visual calibration sources; their runtime traffic cannot be inferred from static actors alone.
 
-Phase 7B maps soil to flowers and high grass, gravel to brown mushrooms, and moss to red mushrooms. High grass and mushrooms use RMG-only passable aliases with the stock artwork, preserving official-map blocking behavior while preventing generated-route narrowing. Version 6 also rejects square-edged moss detail template `93` and uses seamless interior template `78`. New archetypes and the player-facing in-game generator interface remain future work.
+Phase 7B maps soil to flowers and high grass, gravel to brown mushrooms, and moss to red mushrooms. High grass and mushrooms use RMG-only passable aliases with the stock artwork, preserving official-map blocking behavior while preventing generated-route narrowing. Version 6 also rejects square-edged moss detail template `93` and uses seamless interior template `78`.
+
+Phase 7C adds strict JSON schema version 1 and player-facing presets over Version 6. Unsupported fields and deferred options are rejected; validation behavior is unchanged. The in-game dialog, progress/cancellation, preview, map-cache refresh, and multiplayer lifecycle remain a separate audited integration phase.

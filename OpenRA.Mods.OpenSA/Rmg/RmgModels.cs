@@ -69,6 +69,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public int NeutralColonyCount { get; set; } = 10;
 		public int GeneratorVersion { get; set; } = 1;
 		public RmgTopologyPreset TopologyPreset { get; set; } = RmgTopologyPreset.Off;
+		public RmgPlayerSettingsResolution PlayerSettingsResolution { get; set; }
 
 		public string Canonical(RmgProfile profile)
 		{
