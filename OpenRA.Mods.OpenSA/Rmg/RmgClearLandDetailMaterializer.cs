@@ -39,7 +39,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					if (Enumerable.Range(0, 4).Any(frame => map.NativeTerrainIntents[4 * index + frame] != RmgNativeTerrainIntent.Clear))
 						continue;
 
-					if (IsProtected(map, index))
+					if (IsProtected(map, index, profile))
 					{
 						excludedProtected++;
 						continue;
@@ -103,6 +103,10 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public static bool IsProtected(RmgLogicalMap map, int index) =>
 			map.StartReservations[index] || map.StructureReservations[index] || map.StrategicRegions[index] ||
 			map.RouteMasks[index] != 0 || map.ChokepointIds[index] >= 0 || map.RepairChanges[index];
+
+		public static bool IsProtected(RmgLogicalMap map, int index, RmgProfile profile) =>
+			profile.UsesBattlefieldLayout ? RmgBattlefieldRolePlanner.MustRemainClear(map.BattlefieldRoles[index]) :
+			IsProtected(map, index);
 
 		public static string SelectionHash(RmgLogicalMap map, RmgProfile profile)
 		{

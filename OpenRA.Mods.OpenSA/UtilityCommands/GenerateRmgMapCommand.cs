@@ -12,6 +12,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Newtonsoft.Json;
 using OpenRA.Mods.OpenSA.Rmg;
 
@@ -22,7 +23,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 		string IUtilityCommand.Name => "--generate-sa-map";
 		bool IUtilityCommand.ValidateArguments(string[] args) => args.Length >= 1;
 
-		[Desc("OUTPUT.oramap", "--seed N", "[--players 2|4]", "[--symmetry horizontal|vertical|rotational]", "[--archetype open|central-contest]", "[--topology off|mixed|shoreline|land-details|land-cover]", "[--neutral-colonies N]", "[--movement-validation proxy|native|both]", "[--report FILE]", "[--overwrite]", "Generate a deterministic OpenSA skirmish map. Topology defaults to the frozen Clear-only V1 path.")]
+		[Desc("OUTPUT.oramap", "--seed N | --player-settings FILE", "[--players 2|4]", "[--symmetry horizontal|vertical|rotational]", "[--archetype open|central-contest]", "[--topology off|mixed|shoreline|land-details|land-cover|battlefield-layout]", "[--neutral-colonies N]", "[--movement-validation proxy|native|both]", "[--report FILE]", "[--overwrite]", "Generate a deterministic OpenSA skirmish map. Player settings normalize to the accepted Version 6 battlefield-layout profile.")]
 		void IUtilityCommand.Run(Utility utility, string[] args)
 		{
 			try
@@ -85,7 +86,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 		static Options Parse(string[] args)
 		{
 			if (args.Length < 2)
-				throw new CommandLineException("Usage: --generate-sa-map OUTPUT.oramap --seed N [options]");
+				throw new CommandLineException("Usage: --generate-sa-map OUTPUT.oramap (--seed N [options] | --player-settings FILE)");
 
 			var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 			var flags = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -104,13 +105,35 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				values[args[i]] = args[++i];
 			}
 
-			var known = new HashSet<string>(new[] { "--seed", "--players", "--tileset", "--size", "--symmetry", "--archetype", "--topology", "--neutral-colonies", "--generator-version", "--movement-validation", "--report" }, StringComparer.OrdinalIgnoreCase);
+			var known = new HashSet<string>(new[] { "--seed", "--player-settings", "--players", "--tileset", "--size", "--symmetry", "--archetype", "--topology", "--neutral-colonies", "--generator-version", "--movement-validation", "--report" }, StringComparer.OrdinalIgnoreCase);
 			foreach (var key in values.Keys)
 				if (!known.Contains(key))
 					throw new CommandLineException($"Unknown option: {key}");
 
+			if (values.TryGetValue("--player-settings", out var playerSettingsPath))
+			{
+				var incompatible = new[]
+				{
+					"--seed", "--players", "--tileset", "--size", "--symmetry", "--archetype",
+					"--topology", "--neutral-colonies", "--generator-version"
+				}
+				.Where(values.ContainsKey).ToArray();
+				if (incompatible.Length > 0)
+					throw new CommandLineException($"--player-settings cannot be combined with normalized generator option(s): {string.Join(", ", incompatible)}.");
+
+				var resolution = RmgPlayerSettingsContract.Load(playerSettingsPath);
+				return new Options
+				{
+					OutputPath = args[1],
+					ReportPath = values.TryGetValue("--report", out var playerReport) ? playerReport : null,
+					Overwrite = flags.Contains("--overwrite"),
+					MovementValidationMode = ParseMovementValidation(values.TryGetValue("--movement-validation", out var playerMovementValidation) ? playerMovementValidation : "both"),
+					Settings = resolution.Normalized
+				};
+			}
+
 			if (!values.TryGetValue("--seed", out var seedText) || !ulong.TryParse(seedText, out var seed))
-				throw new CommandLineException("--seed is required and must be an unsigned integer.");
+				throw new CommandLineException("Either --seed or --player-settings is required; --seed must be an unsigned integer.");
 			var players = ParseInt(values, "--players", 2);
 			var colonies = ParseInt(values, "--neutral-colonies", players == 2 ? 10 : 16);
 			var topology = ParseTopology(values.TryGetValue("--topology", out var topologyValue) ? topologyValue : "off");
@@ -119,6 +142,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				RmgTopologyPreset.Mixed => 2,
 				RmgTopologyPreset.Shoreline => 3,
 				RmgTopologyPreset.LandDetails => 4,
+				RmgTopologyPreset.BattlefieldLayout => 6,
 				RmgTopologyPreset.LandCover => 5,
 				_ => 1
 			};
@@ -179,8 +203,9 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			"mixed" => RmgTopologyPreset.Mixed,
 			"shoreline" => RmgTopologyPreset.Shoreline,
 			"land-details" => RmgTopologyPreset.LandDetails,
+			"battlefield-layout" => RmgTopologyPreset.BattlefieldLayout,
 			"land-cover" => RmgTopologyPreset.LandCover,
-			_ => throw new ArgumentException("Topology must be off, mixed, shoreline, land-details, or land-cover.")
+			_ => throw new ArgumentException("Topology must be off, mixed, shoreline, land-details, land-cover, or battlefield-layout.")
 		};
 
 		public static string TopologyName(RmgTopologyPreset value) => value switch
@@ -190,6 +215,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			RmgTopologyPreset.Shoreline => "shoreline",
 			RmgTopologyPreset.LandDetails => "land-details",
 			RmgTopologyPreset.LandCover => "land-cover",
+			RmgTopologyPreset.BattlefieldLayout => "battlefield-layout",
 			_ => throw new ArgumentOutOfRangeException(nameof(value))
 		};
 

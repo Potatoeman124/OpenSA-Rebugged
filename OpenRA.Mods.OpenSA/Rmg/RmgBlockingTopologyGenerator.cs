@@ -42,6 +42,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			GenerateBlockingObstacleStage(map, profile, settings, startingObstacleOrbit);
 			ApplyBlockingRepairs(map, profile);
 			AssignRegions(map);
+			RmgBattlefieldRolePlanner.Plan(map, profile, settings);
 			MaterializeBlockingTerrain(map, profile, settings);
 
 			var validation = ValidateBlockingTopology(map, profile, settings);
@@ -919,6 +920,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				RmgShorelineMaterializer.Materialize(map, profile, settings);
 				RmgLandCoverMaterializer.Materialize(map, profile, settings);
 				RmgClearLandDetailMaterializer.Materialize(map, profile, settings);
+				RmgTerrainDecorationGenerator.Materialize(map, profile, settings);
 				return;
 			}
 
@@ -973,12 +975,13 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				if (profile.UsesShorelineMaterialization && !map.Obstacles[i] && map.ShorelineRoles[i] != RmgShorelineRole.None)
 					Hard("TERRAIN_MATERIALIZATION_OPEN_ROLE", $"OPEN logical cell {i} has shoreline role {map.ShorelineRoles[i]}.");
 				if (profile.UsesClearLandDetails && profile.ClearLandDetailTemplateIds.Contains(map.TemplateIds[i]) &&
-					RmgClearLandDetailMaterializer.IsProtected(map, i))
+					RmgClearLandDetailMaterializer.IsProtected(map, i, profile))
 					Hard("CLEAR_DETAIL_PROTECTED_OVERLAP", $"Clear detail at logical cell {i} overlaps a protected semantic layer.");
 				if (profile.UsesClearLandDetails && profile.ClearLandDetailTemplateIds.Contains(map.TemplateIds[i]) &&
 					Enumerable.Range(0, 4).Any(frame => map.NativeTerrainIntents[4 * i + frame] != RmgNativeTerrainIntent.Clear))
 					Hard("CLEAR_DETAIL_NATIVE_TERRAIN", $"Clear detail at logical cell {i} has a non-Clear native terrain intent.");
-				if (profile.UsesLandCover && RmgClearLandDetailMaterializer.IsProtected(map, i) &&
+				var slowProtected = profile.UsesBattlefieldLayout ? RmgBattlefieldRolePlanner.MustRemainClear(map.BattlefieldRoles[i]) : RmgClearLandDetailMaterializer.IsProtected(map, i);
+				if (profile.UsesLandCover && slowProtected &&
 					Enumerable.Range(0, 4).Any(frame => RmgLandCoverMaterializer.IsSlow(map.NativeTerrainIntents[4 * i + frame])))
 					Hard("LAND_COVER_PROTECTED_OVERLAP", $"Slow terrain at logical cell {i} overlaps a protected Clear layer.");
 				if (profile.UsesLandCover && Enumerable.Range(0, 4).Any(frame =>
@@ -1023,6 +1026,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 						templateSymmetry = map.ShorelineRoles[partnerIndex] == expectedPartnerRole;
 					}
 
+					if (profile.UsesBattlefieldLayout && map.BattlefieldRoles[pointIndex] != map.BattlefieldRoles[partnerIndex])
+						Hard("BATTLEFIELD_ROLE_SYMMETRY", $"Battlefield role at {point} differs from symmetry partner {partner}.");
 					if (map.Obstacles[pointIndex] != map.Obstacles[partnerIndex] || !templateSymmetry || !nativeTerrainSymmetry ||
 						map.RouteMasks[pointIndex] != 0 != (map.RouteMasks[partnerIndex] != 0))
 						Hard("TOPOLOGY_SYMMETRY", $"Semantic topology at {point} differs from symmetry partner {partner}.");
@@ -1126,11 +1131,11 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				var eligible = Enumerable.Range(0, map.TemplateIds.Length)
 					.Count(i => !map.Obstacles[i] && Enumerable.Range(0, 4).All(frame =>
 						map.NativeTerrainIntents[4 * i + frame] == RmgNativeTerrainIntent.Clear) &&
-						!RmgClearLandDetailMaterializer.IsProtected(map, i));
+						!RmgClearLandDetailMaterializer.IsProtected(map, i, profile));
 				var excludedProtected = Enumerable.Range(0, map.TemplateIds.Length)
 					.Count(i => !map.Obstacles[i] && Enumerable.Range(0, 4).All(frame =>
 						map.NativeTerrainIntents[4 * i + frame] == RmgNativeTerrainIntent.Clear) &&
-						RmgClearLandDetailMaterializer.IsProtected(map, i));
+						RmgClearLandDetailMaterializer.IsProtected(map, i, profile));
 				var target = (eligible * profile.ClearLandDetailPercent + 50) / 100;
 				if (selected.Length != target || map.ClearLandDetailSelectedCount != target ||
 					map.ClearLandDetailTargetCount != target || map.ClearLandDetailEligibleCount != eligible)
@@ -1222,6 +1227,120 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					var logical = map.Index(new RmgPoint(x / 2, y / 2));
 					return map.NativeTerrainIntents[4 * logical + 2 * (y & 1) + (x & 1)];
 				}
+			}
+
+			if (profile.UsesBattlefieldLayout)
+			{
+				var noneRoles = map.BattlefieldRoles.Count(role => role == RmgBattlefieldRole.None);
+				var tacticalSlowNative = 0;
+				var centralSlowNative = 0;
+				var roleSlowNative = Enum.GetValues<RmgBattlefieldRole>().ToDictionary(role => role, _ => 0);
+				for (var i = 0; i < map.BattlefieldRoles.Length; i++)
+				{
+					var slow = Enumerable.Range(0, 4).Count(frame =>
+						RmgLandCoverMaterializer.IsSlow(map.NativeTerrainIntents[4 * i + frame]));
+					roleSlowNative[map.BattlefieldRoles[i]] += slow;
+					if (RmgBattlefieldRolePlanner.IsTactical(map.BattlefieldRoles[i]))
+						tacticalSlowNative += slow;
+					if (RmgBattlefieldRolePlanner.IsCentralHalf(map, new RmgPoint(i % map.Width, i / map.Width)))
+						centralSlowNative += slow;
+				}
+
+				if (noneRoles > 0)
+					Hard("BATTLEFIELD_ROLE_UNASSIGNED", $"{noneRoles} logical cells have no battlefield role.");
+				if (tacticalSlowNative == 0)
+					Hard("BATTLEFIELD_TACTICAL_TERRAIN", "No Rock or Vegetation terrain intersects a contest, primary-route, or flank role.");
+				if (centralSlowNative == 0)
+					Hard("BATTLEFIELD_CENTRAL_TERRAIN", "No Rock or Vegetation terrain reaches the central half of the battlefield.");
+				if (map.BattlefieldTacticalAnchorOrbitCount <= 0 || map.BattlefieldTacticalAnchorOrbitCount > profile.TacticalLandAnchorOrbitCount)
+					Hard("BATTLEFIELD_TACTICAL_ANCHORS", $"Materialized {map.BattlefieldTacticalAnchorOrbitCount} tactical anchor orbits; expected a positive capacity-aware count up to target {profile.TacticalLandAnchorOrbitCount}.");
+
+				if (map.TemplateIds.Contains((ushort)93))
+					Hard("VEGETATION_DETAIL_VISUAL_SEAM", "Version 6 used excluded square-border Vegetation detail template 93.");
+
+				var decorations = map.Actors.Where(RmgTerrainDecorationGenerator.IsDecoration).ToArray();
+				var requestedDecorations = (profile.PlayableWidth * profile.PlayableHeight * profile.LandDecorationPerThousand + 500) / 1000;
+				var targetDecorations = requestedDecorations & ~1;
+				var decorationSectors = decorations.Select(actor =>
+				{
+					var native = RmgTerrainDecorationGenerator.NativePoint(actor);
+					var sectorX = Math.Min(3, 4 * native.X / profile.PlayableWidth);
+					var sectorY = Math.Min(3, 4 * native.Y / profile.PlayableHeight);
+					return 4 * sectorY + sectorX;
+				}).Distinct().Count();
+				foreach (var decoration in decorations)
+				{
+					var index = map.Index(decoration.LogicalLocation);
+					if (decoration.NativeFrame < 0 || decoration.NativeFrame > 3)
+					{
+						Hard("LAND_DECORATION_FRAME", $"Decoration {decoration.Type} uses invalid native frame {decoration.NativeFrame}.");
+						continue;
+					}
+
+					var terrain = RmgTerrainDecorationGenerator.TerrainAt(map, decoration);
+					var expectedActors = RmgTerrainDecorationGenerator.ActorsForTerrain(profile, terrain);
+					if (!expectedActors.Contains(decoration.Type))
+						Hard("LAND_DECORATION_TERRAIN", $"Actor {decoration.Type} is not valid on {terrain} at {RmgTerrainDecorationGenerator.NativePoint(decoration)}.");
+					var expectedBlocking = profile.BlockingDecorationActors.Contains(decoration.Type);
+					if (RmgTerrainDecorationGenerator.IsBlocking(decoration) != expectedBlocking)
+						Hard("LAND_DECORATION_FOOTPRINT_ROLE", $"Actor {decoration.Type} has the wrong passable/blocking decoration role.");
+					if (RmgBattlefieldRolePlanner.MustRemainClear(map.BattlefieldRoles[index]) || map.Obstacles[index])
+						Hard("LAND_DECORATION_PROTECTED_OVERLAP", $"Decoration at {decoration.LogicalLocation}/{decoration.NativeFrame} overlaps protected or blocked space.");
+					if (terrain == RmgNativeTerrainIntent.Water)
+						Hard("LAND_DECORATION_WATER", $"Decoration at {decoration.LogicalLocation}/{decoration.NativeFrame} overlaps Water.");
+					var native = RmgTerrainDecorationGenerator.NativePoint(decoration);
+					var partner = Transform(native, settings.Symmetry, profile.PlayableWidth, profile.PlayableHeight);
+					if (!decorations.Any(other => RmgTerrainDecorationGenerator.NativePoint(other) == partner && other.Type == decoration.Type &&
+						other.Role == decoration.Role &&
+						other.EquivalenceGroup == decoration.EquivalenceGroup))
+						Hard("LAND_DECORATION_SYMMETRY", $"Decoration at native {native} has no equivalent partner at {partner}.");
+				}
+
+				var validDecorations = decorations.Where(actor => actor.NativeFrame >= 0 && actor.NativeFrame <= 3).ToArray();
+				foreach (var terrainGroup in validDecorations.GroupBy(actor => RmgTerrainDecorationGenerator.TerrainAt(map, actor)))
+				{
+					var decorationPoints = terrainGroup.Select(RmgTerrainDecorationGenerator.NativePoint).ToArray();
+					for (var i = 0; i < decorationPoints.Length; i++)
+						for (var j = i + 1; j < decorationPoints.Length; j++)
+							if (decorationPoints[i].ChebyshevDistance(decorationPoints[j]) < 4)
+								Hard("LAND_DECORATION_SPACING", $"{terrainGroup.Key} decorations at {decorationPoints[i]} and {decorationPoints[j]} violate four-cell native spacing.");
+				}
+
+				var clearDecorations = validDecorations.Count(actor => RmgTerrainDecorationGenerator.TerrainAt(map, actor) == RmgNativeTerrainIntent.Clear);
+				var rockDecorations = validDecorations.Count(actor => RmgTerrainDecorationGenerator.TerrainAt(map, actor) == RmgNativeTerrainIntent.Rock);
+				var vegetationDecorations = validDecorations.Count(actor => RmgTerrainDecorationGenerator.TerrainAt(map, actor) == RmgNativeTerrainIntent.Vegetation);
+				if (map.LandDecorationRequestedCount != requestedDecorations ||
+					map.LandDecorationTargetCount != targetDecorations ||
+					map.LandDecorationSelectedCount != decorations.Length || decorations.Length != targetDecorations ||
+					map.LandDecorationClearTargetCount != clearDecorations || map.LandDecorationRockTargetCount != rockDecorations ||
+					map.LandDecorationVegetationTargetCount != vegetationDecorations)
+					Hard("LAND_DECORATION_ACCOUNTING", $"Selected {decorations.Length} land decorations ({clearDecorations}/{rockDecorations}/{vegetationDecorations}); exact total is {targetDecorations}.");
+				if (map.LandDecorationSectorCount != decorationSectors || decorationSectors < profile.MinimumLandDecorationSectors)
+					Hard("LAND_DECORATION_COVERAGE", $"Land decorations cover {decorationSectors}/16 sectors; expected at least {profile.MinimumLandDecorationSectors}.");
+				foreach (var actor in profile.SoilDecorationActors.Concat(profile.RockDecorationActors).Concat(profile.VegetationDecorationActors).Distinct())
+					if (decorations.All(decoration => decoration.Type != actor))
+						Hard("LAND_DECORATION_VARIETY", $"Configured terrain decoration actor {actor} was not used.");
+
+				foreach (var role in Enum.GetValues<RmgBattlefieldRole>())
+				{
+					var key = role.ToString().ToLowerInvariant();
+					report.Metrics[$"battlefield_role_{key}_logical_cells"] = map.BattlefieldRoles.Count(value => value == role);
+					report.Metrics[$"battlefield_role_{key}_slow_native_cells"] = roleSlowNative[role];
+				}
+
+				report.Metrics["battlefield_tactical_slow_native_cells"] = tacticalSlowNative;
+				report.Metrics["battlefield_central_half_slow_native_cells"] = centralSlowNative;
+				report.Metrics["battlefield_tactical_anchor_orbits"] = map.BattlefieldTacticalAnchorOrbitCount;
+				report.Metrics["battlefield_tactical_anchor_points"] = map.BattlefieldTacticalAnchors.Count;
+				report.Metrics["land_decoration_requested_count"] = requestedDecorations;
+				report.Metrics["land_decoration_target_count"] = targetDecorations;
+				report.Metrics["land_decoration_selected_count"] = decorations.Length;
+				report.Metrics["land_decoration_sector_count"] = decorationSectors;
+				report.Metrics["land_decoration_clear_count"] = clearDecorations;
+				report.Metrics["land_decoration_rock_count"] = rockDecorations;
+				report.Metrics["land_decoration_vegetation_count"] = vegetationDecorations;
+				report.Metrics["land_decoration_passable_count"] = decorations.Count(actor => !RmgTerrainDecorationGenerator.IsBlocking(actor));
+				report.Metrics["land_decoration_blocking_count"] = decorations.Count(RmgTerrainDecorationGenerator.IsBlocking);
 			}
 
 			return report;
@@ -1397,12 +1516,18 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					text.Append(',').Append(map.ShorelineRoles[i]).Append(',').Append(map.NativeTerrainIntents[4 * i]).Append(',')
 						.Append(map.NativeTerrainIntents[4 * i + 1]).Append(',').Append(map.NativeTerrainIntents[4 * i + 2]).Append(',')
 						.Append(map.NativeTerrainIntents[4 * i + 3]);
+				if (profile.UsesBattlefieldLayout)
+					text.Append(',').Append(map.BattlefieldRoles[i]);
 				text.Append('\n');
 			}
 
 			foreach (var repair in map.Repairs)
 				text.Append("R|").Append(repair.Index).Append('|').Append(repair.Type).Append('|').Append(repair.Reason).Append('|')
 					.Append(repair.TargetId).Append('|').Append(string.Join(';', repair.ChangedCells.Select(p => p.ToString()))).Append('\n');
+
+			if (profile.UsesBattlefieldLayout)
+				text.Append("A|").Append(map.BattlefieldTacticalAnchorOrbitCount).Append('|')
+					.Append(string.Join(';', map.BattlefieldTacticalAnchors.OrderBy(p => p.Y).ThenBy(p => p.X))).Append('\n');
 			return Sha256(text.ToString());
 		}
 
@@ -1429,7 +1554,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					["routes"] = ". none, R reserved, J strategic junction",
 					["clearances"] = ". none, S start, C colony, B both",
 					["chokes_repairs"] = ". none, K choke aperture, X repaired cell",
-					["native_terrain_intent"] = "Per logical cell, four native frames in NW, NE, SW, SE order: C Clear, R Rock, V Vegetation, W Water"
+					["native_terrain_intent"] = "Per logical cell, four native frames in NW, NE, SW, SE order: C Clear, R Rock, V Vegetation, W Water",
+					["battlefield_roles"] = ". none, # blocked, P protected Clear, C contest, R primary route, F flank, Q quiet",
 				},
 				["topology"] = Layer(i => map.Obstacles[i] ? '#' : '.'),
 				["routes"] = Layer(i => map.StrategicRegions[i] ? 'J' : map.RouteMasks[i] != 0 ? 'R' : '.'),
@@ -1437,6 +1563,16 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					new JProperty(edge.Id, Layer(i => (map.RouteMasks[i] & (1UL << edge.RouteId)) != 0 ? 'R' : '.')))),
 				["clearances"] = Layer(i => map.StartReservations[i] && map.StructureReservations[i] ? 'B' : map.StartReservations[i] ? 'S' : map.StructureReservations[i] ? 'C' : '.'),
 				["chokes_repairs"] = Layer(i => map.RepairChanges[i] ? 'X' : map.ChokepointIds[i] >= 0 ? 'K' : '.'),
+				["battlefield_roles"] = Layer(i => map.BattlefieldRoles[i] switch
+				{
+					RmgBattlefieldRole.Blocked => '#',
+					RmgBattlefieldRole.ProtectedClear => 'P',
+					RmgBattlefieldRole.Contest => 'C',
+					RmgBattlefieldRole.PrimaryRoute => 'R',
+					RmgBattlefieldRole.Flank => 'F',
+					RmgBattlefieldRole.Quiet => 'Q',
+					_ => '.'
+				}),
 				["template_ids"] = Values(i => new JValue(map.TemplateIds[i])),
 				["shoreline_roles"] = Values(i => new JValue(map.ShorelineRoles[i].ToString())),
 				["native_terrain_intent"] = Values(i => new JValue(string.Concat(Enumerable.Range(0, 4)

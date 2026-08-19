@@ -253,7 +253,11 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				}
 			}
 
-			foreach (var actor in profile.NeutralColonyActors.Append(profile.SpawnActor))
+			foreach (var actor in profile.NeutralColonyActors.Append(profile.SpawnActor)
+				.Concat(profile.SoilDecorationActors)
+				.Concat(profile.RockDecorationActors)
+				.Concat(profile.VegetationDecorationActors)
+				.Distinct())
 				if (!modData.DefaultRules.Actors.ContainsKey(actor))
 					throw new InvalidDataException($"Configured RMG actor '{actor}' is not defined by the mod rules.");
 		}
@@ -267,9 +271,11 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			using var map = new Map(modData, terrainInfo, storedWidth, storedHeight)
 			{
 				RequiresMod = modData.Manifest.Id,
-				Title = generation.Profile.GeneratorVersion == 1 ?
-					$"OpenSA RMG {ArchetypeName(generation.Settings.Archetype)} {generation.Settings.Seed}" :
-					$"OpenSA RMG {ArchetypeName(generation.Settings.Archetype)} {TopologyName(generation.Settings.TopologyPreset)} {generation.Settings.Seed}",
+				Title = generation.Settings.PlayerSettingsResolution != null ?
+					$"OpenSA RMG {RmgPlayerSettingsContract.PresetDisplayName(generation.Settings.PlayerSettingsResolution.Requested.Preset)} {generation.Settings.Seed}" :
+					generation.Profile.GeneratorVersion == 1 ?
+						$"OpenSA RMG {ArchetypeName(generation.Settings.Archetype)} {generation.Settings.Seed}" :
+						$"OpenSA RMG {ArchetypeName(generation.Settings.Archetype)} {TopologyName(generation.Settings.TopologyPreset)} {generation.Settings.Seed}",
 				Author = $"OpenSA RMG v{generation.Settings.GeneratorVersion}",
 				Visibility = MapVisibility.Lobby,
 				Categories = new[] { "Conquest" }
@@ -293,7 +299,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			map.PlayerDefinitions = new MapPlayers(map.Rules, generation.Settings.PlayerCount).ToMiniYaml();
 			foreach (var plan in generation.Map.Actors)
 			{
-				var location = ToNative(plan.LogicalLocation, profile);
+				var logicalLocation = ToNative(plan.LogicalLocation, profile);
+				var location = new CPos(logicalLocation.X + plan.NativeFrame % 2,
+					logicalLocation.Y + plan.NativeFrame / 2);
 				var actor = new ActorReference(plan.Type)
 				{
 					new LocationInit(location),
@@ -443,7 +451,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var settings = generation.Settings;
 			var report = new JObject
 			{
-				["schema_version"] = generation.Profile.GeneratorVersion >= 5 ? 6 : generation.Profile.GeneratorVersion >= 4 ? 5 : generation.Profile.GeneratorVersion >= 3 ? 4 : generation.Profile.GeneratorVersion >= 2 ? 3 : 2,
+				["schema_version"] = generation.Profile.GeneratorVersion >= 6 ? 8 : generation.Profile.GeneratorVersion >= 5 ? 6 : generation.Profile.GeneratorVersion >= 4 ? 5 : generation.Profile.GeneratorVersion >= 3 ? 4 : generation.Profile.GeneratorVersion >= 2 ? 3 : 2,
 				["generator_version"] = settings.GeneratorVersion,
 				["configuration_id"] = generation.Profile.ProfileId,
 				["configuration_version"] = generation.Profile.ConfigurationVersion,
@@ -454,6 +462,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				["topology_preset"] = TopologyName(settings.TopologyPreset),
 				["neutral_colonies"] = settings.NeutralColonyCount,
 				["output"] = outputPath,
+				["player_settings"] = settings.PlayerSettingsResolution?.ToJson(),
 				["logical_hash_sha256"] = generation.LogicalHash,
 				["actor_hash_sha256"] = generation.ActorHash,
 				["graph_hash_sha256"] = generation.GraphHash,
@@ -465,7 +474,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					2 => "normal-water-blocking-v2",
 					3 => "normal-water-shoreline-v3",
 					4 => "normal-water-shoreline-v3+clear-land-details-v1",
-					_ => "normal-land-cover-v1"
+					5 => "normal-land-cover-v1",
+					_ => "normal-land-cover-v1+battlefield-layout-v1"
 				},
 				["blocking_topology"] = generation.Profile.GeneratorVersion == 1 ? null : new JObject
 				{
@@ -570,6 +580,47 @@ namespace OpenRA.Mods.OpenSA.Rmg
 						.Select(group => new JProperty(group.Key.ToString(), group.Count())))
 				};
 
+			if (generation.Profile.UsesBattlefieldLayout)
+				report["battlefield_layout"] = new JObject
+				{
+					["enabled"] = true,
+					["policy"] = "role-aware-movement-terrain-v1",
+					["protected_clear_policy"] = "start-and-structure-reservations",
+					["role_counts"] = new JObject(Enum.GetValues<RmgBattlefieldRole>().Select(role =>
+						new JProperty(role.ToString(), generation.Map.BattlefieldRoles.Count(value => value == role)))),
+					["role_slow_native_cells"] = new JObject(Enum.GetValues<RmgBattlefieldRole>().Select(role =>
+						new JProperty(role.ToString(), generation.Validation.Metrics[$"battlefield_role_{role.ToString().ToLowerInvariant()}_slow_native_cells"]))),
+					["tactical_slow_native_cells"] = generation.Validation.Metrics["battlefield_tactical_slow_native_cells"],
+					["central_half_slow_native_cells"] = generation.Validation.Metrics["battlefield_central_half_slow_native_cells"],
+					["tactical_anchor_orbits"] = generation.Map.BattlefieldTacticalAnchorOrbitCount,
+					["tactical_anchor_lattice_points"] = new JArray(generation.Map.BattlefieldTacticalAnchors
+						.OrderBy(point => point.Y).ThenBy(point => point.X)
+						.Select(point => new JObject { ["x"] = point.X, ["y"] = point.Y })),
+					["land_decorations"] = new JObject
+					{
+						["policy"] = "terrain-specific-native-symmetry-v2",
+						["soil_actors"] = new JArray(generation.Profile.SoilDecorationActors),
+						["rock_actors"] = new JArray(generation.Profile.RockDecorationActors),
+						["vegetation_actors"] = new JArray(generation.Profile.VegetationDecorationActors),
+						["blocking_actors"] = new JArray(generation.Profile.BlockingDecorationActors),
+						["requested_count"] = generation.Map.LandDecorationRequestedCount,
+						["target_count"] = generation.Map.LandDecorationTargetCount,
+						["selected_count"] = generation.Map.LandDecorationSelectedCount,
+						["covered_sectors"] = generation.Map.LandDecorationSectorCount,
+						["sector_grid"] = "4x4",
+						["minimum_covered_sectors"] = generation.Profile.MinimumLandDecorationSectors,
+						["clear_target_count"] = generation.Map.LandDecorationClearTargetCount,
+						["rock_target_count"] = generation.Map.LandDecorationRockTargetCount,
+						["vegetation_target_count"] = generation.Map.LandDecorationVegetationTargetCount,
+						["passable_selected_count"] = generation.Validation.Metrics["land_decoration_passable_count"],
+						["blocking_selected_count"] = generation.Validation.Metrics["land_decoration_blocking_count"],
+						["selection_sha256"] = RmgTerrainDecorationGenerator.SelectionHash(generation.Map),
+						["actor_usage"] = new JObject(generation.Map.Actors.Where(RmgTerrainDecorationGenerator.IsDecoration)
+							.GroupBy(actor => actor.Type).OrderBy(group => group.Key)
+							.Select(group => new JProperty(group.Key, group.Count())))
+					}
+				};
+
 			return report;
 		}
 
@@ -606,6 +657,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			RmgTopologyPreset.Shoreline => "shoreline",
 			RmgTopologyPreset.LandDetails => "land-details",
 			RmgTopologyPreset.LandCover => "land-cover",
+			RmgTopologyPreset.BattlefieldLayout => "battlefield-layout",
 			_ => throw new ArgumentOutOfRangeException(nameof(topology))
 		};
 	}

@@ -32,7 +32,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var allowedEnvelope = new bool[latticeWidth * latticeHeight];
 			for (var y = 0; y < latticeHeight; y++)
 				for (var x = 0; x < latticeWidth; x++)
-					allowedEnvelope[y * latticeWidth + x] = SlowPointAllowed(map, x, y);
+					allowedEnvelope[y * latticeWidth + x] = SlowPointAllowed(map, profile, x, y);
 
 			EnforceSymmetricCapacity(allowedEnvelope, latticeWidth, latticeHeight, settings.Symmetry);
 			var allowedVegetationCore = new bool[allowedEnvelope.Length];
@@ -44,18 +44,23 @@ namespace OpenRA.Mods.OpenSA.Rmg
 						Clearance(allowedEnvelope, latticeWidth, latticeHeight, new RmgPoint(x, y), 1);
 				}
 
+			var rolePriorities = profile.UsesBattlefieldLayout ? BuildLatticeRolePriorities(map, latticeWidth, latticeHeight) : null;
+
 			var requestedVegetationTarget = RoundedPercent(landNativeCount, profile.VegetationLandPercent);
 			var vegetationCapacity = WeightedCount(allowedVegetationCore, latticeWidth, latticeHeight, map.Width, map.Height);
 			var vegetationTarget = Math.Min(requestedVegetationTarget, vegetationCapacity);
 			var vegetation = GenerateMask(allowedVegetationCore, latticeWidth, latticeHeight, vegetationTarget,
-				settings.Symmetry, DeterministicRandom.ForStream(settings, profile, "terrain-land-cover-vegetation"), 3);
+				settings.Symmetry, DeterministicRandom.ForStream(settings, profile, "terrain-land-cover-vegetation"), 3,
+				rolePriorities);
 			var requiredEnvelope = Dilate(vegetation, allowedEnvelope, latticeWidth, latticeHeight, 1);
+			if (profile.UsesBattlefieldLayout)
+				AddTacticalAnchors(map, profile, settings, requiredEnvelope, allowedEnvelope, rolePriorities, latticeWidth, latticeHeight);
 			var requestedRockTarget = RoundedPercent(landNativeCount, profile.RockLandPercent);
 			var envelopeCapacity = WeightedCount(allowedEnvelope, latticeWidth, latticeHeight, map.Width, map.Height);
 			var combinedTarget = Math.Min(requestedRockTarget + vegetationTarget, envelopeCapacity);
 			var envelope = GenerateMask(allowedEnvelope, latticeWidth, latticeHeight, combinedTarget,
 				settings.Symmetry, DeterministicRandom.ForStream(settings, profile, "terrain-land-cover-rock-envelope"), 3,
-				requiredEnvelope);
+				rolePriorities, requiredEnvelope);
 			var envelopeNativeCount = WeightedCount(envelope, latticeWidth, latticeHeight, map.Width, map.Height);
 			var vegetationNativeCount = WeightedCount(vegetation, latticeWidth, latticeHeight, map.Width, map.Height);
 			var rockNativeCount = envelopeNativeCount - vegetationNativeCount;
@@ -100,8 +105,11 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					if (vegetationMask != 0)
 					{
 						NormalLandTemplate template;
+
+						// Template 93 has homogeneous Vegetation semantics but a square Rock-colored visual border.
+						// Keep the frozen V5 choice, but use seamless Vegetation interior 78 for revised V6 detail stamps.
 						if (vegetationMask == 15 && vegetationDetails.Contains(index))
-							template = Required(93);
+							template = Required((ushort)(profile.UsesBattlefieldLayout ? 78 : 93));
 						else
 						{
 							var candidates = NormalLandTransitionCatalogue.ForMask(RmgLandTemplateBank.RockVegetation, vegetationMask);
@@ -182,11 +190,14 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			return failures;
 		}
 
-		static bool SlowPointAllowed(RmgLogicalMap map, int latticeX, int latticeY)
+		static bool SlowPointAllowed(RmgLogicalMap map, RmgProfile profile, int latticeX, int latticeY)
 		{
 			foreach (var (logicalIndex, frame, nativeX, nativeY) in Occurrences(map, latticeX, latticeY))
 			{
-				if (RmgClearLandDetailMaterializer.IsProtected(map, logicalIndex) ||
+				var protectedClear = profile.UsesBattlefieldLayout ?
+					RmgBattlefieldRolePlanner.MustRemainClear(map.BattlefieldRoles[logicalIndex]) :
+					RmgClearLandDetailMaterializer.IsProtected(map, logicalIndex);
+				if (protectedClear ||
 					map.NativeTerrainIntents[4 * logicalIndex + frame] != RmgNativeTerrainIntent.Clear)
 					return false;
 
@@ -248,8 +259,66 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				}
 		}
 
+		static int[] BuildLatticeRolePriorities(RmgLogicalMap map, int width, int height)
+		{
+			var priorities = new int[width * height];
+			for (var y = 0; y < height; y++)
+				for (var x = 0; x < width; x++)
+				{
+					var rolePriority = Occurrences(map, x, y)
+						.Select(occurrence => RmgBattlefieldRolePlanner.Priority(map.BattlefieldRoles[occurrence.LogicalIndex]))
+						.DefaultIfEmpty(0).Max();
+					var borderDepth = Math.Min(Math.Min(x, width - 1 - x), Math.Min(y, height - 1 - y));
+					priorities[y * width + x] = 100 * rolePriority + borderDepth;
+				}
+
+			return priorities;
+		}
+
+		static void AddTacticalAnchors(RmgLogicalMap map, RmgProfile profile, RmgGenerationSettings settings,
+			bool[] required, bool[] allowed, int[] priorities, int width, int height)
+		{
+			var random = DeterministicRandom.ForStream(settings, profile, "terrain-land-cover-tactical-anchors");
+			var candidates = Enumerable.Range(0, allowed.Length).Where(index => allowed[index] && priorities[index] >= 200)
+				.Select(index => new RmgPoint(index % width, index / width))
+				.Where(point => Canonical(point, TransformLattice(point, settings.Symmetry, width, height), width, strict: false) &&
+					Clearance(allowed, width, height, point, 2)).ToList();
+			Shuffle(candidates, random);
+			candidates = candidates.OrderByDescending(point =>
+				point.X >= width / 4 && point.X < 3 * width / 4 && point.Y >= height / 4 && point.Y < 3 * height / 4)
+				.ThenByDescending(point => priorities[point.Y * width + point.X]).ToList();
+
+			var selectedOrbits = 0;
+			foreach (var minimumDistance in new[] { 8, 6, 4, 2 })
+			{
+				if (selectedOrbits >= profile.TacticalLandAnchorOrbitCount)
+					break;
+				foreach (var candidate in candidates)
+				{
+					if (selectedOrbits >= profile.TacticalLandAnchorOrbitCount)
+						break;
+					var partner = TransformLattice(candidate, settings.Symmetry, width, height);
+					if (map.BattlefieldTacticalAnchors.Any(anchor =>
+						anchor.ChebyshevDistance(candidate) < minimumDistance || anchor.ChebyshevDistance(partner) < minimumDistance))
+						continue;
+					var addition = new[] { candidate, partner }.Distinct()
+						.Where(point => !required[point.Y * width + point.X]).ToArray();
+					if (addition.Length > 0 && !TryAdd(required, allowed, addition, width, height, settings.Symmetry, out _))
+						continue;
+					map.BattlefieldTacticalAnchors.AddRange(new[] { candidate, partner }.Distinct());
+					selectedOrbits++;
+				}
+			}
+
+			map.BattlefieldTacticalAnchorOrbitCount = selectedOrbits;
+
+			if (selectedOrbits == 0)
+				throw new RmgGenerationRejectedException("LAND_COVER_TACTICAL_ANCHORS",
+					$"No tactical slow-terrain anchor orbit fits the protected-clear and Water-separation constraints; target is {profile.TacticalLandAnchorOrbitCount}.");
+		}
+
 		static bool[] GenerateMask(bool[] allowed, int width, int height, int targetWeight, RmgSymmetry symmetry,
-			DeterministicRandom random, int seedOrbitCount, bool[] requiredMask = null)
+			DeterministicRandom random, int seedOrbitCount, int[] priorityScores = null, bool[] requiredMask = null)
 		{
 			var selected = requiredMask == null ? new bool[allowed.Length] : requiredMask.ToArray();
 			if (selected.Length != allowed.Length || selected.Where((value, index) => value && !allowed[index]).Any() ||
@@ -265,11 +334,15 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					Clearance(allowed, width, height, point, 2))
 				.ToList();
 			Shuffle(candidates, random);
+			if (priorityScores != null)
+				candidates = candidates.OrderByDescending(point => priorityScores[point.Y * width + point.X]).ToList();
 			var reseedCandidates = Enumerable.Range(0, allowed.Length)
 				.Where(index => allowed[index])
 				.Select(index => new RmgPoint(index % width, index / width))
 				.Where(point => Canonical(point, TransformLattice(point, symmetry, width, height), width, strict: false)).ToList();
 			Shuffle(reseedCandidates, random);
+			if (priorityScores != null)
+				reseedCandidates = reseedCandidates.OrderByDescending(point => priorityScores[point.Y * width + point.X]).ToList();
 			foreach (var candidate in candidates)
 			{
 				if (seeds.Count >= 2 * seedOrbitCount)
@@ -317,8 +390,13 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 				var ordered = frontier.ToList();
 				Shuffle(ordered, random);
-				ordered = ordered.OrderByDescending(point => NeighborScore(selected, width, height, point,
-					TransformLattice(point, symmetry, width, height))).ToList();
+				if (priorityScores == null)
+					ordered = ordered.OrderByDescending(point => NeighborScore(selected, width, height, point,
+						TransformLattice(point, symmetry, width, height))).ToList();
+				else
+					ordered = ordered.OrderByDescending(point => priorityScores[point.Y * width + point.X])
+						.ThenByDescending(point => NeighborScore(selected, width, height, point,
+							TransformLattice(point, symmetry, width, height))).ToList();
 				var progressed = false;
 				foreach (var candidate in ordered)
 				{
