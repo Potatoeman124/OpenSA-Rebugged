@@ -85,6 +85,32 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (profile.UsesBattlefieldLayout)
 			{
 				failures.AddRange(RmgPlayerSettingsContract.RunSelfTests());
+				try
+				{
+					var reportedSeedSettings = new RmgGenerationSettings
+					{
+						Seed = 5058340853825067450,
+						PlayerCount = 4,
+						NeutralColonyCount = 24,
+						Symmetry = RmgSymmetry.Rotate180,
+						Archetype = RmgArchetype.Open,
+						GeneratorVersion = 6,
+						TopologyPreset = RmgTopologyPreset.BattlefieldLayout
+					};
+					var reportedFirst = Generate(profile, reportedSeedSettings);
+					var reportedRepeat = Generate(profile, reportedSeedSettings);
+					if (!reportedFirst.Validation.Accepted)
+						failures.Add("Reported UI seed regression did not pass hard topology validation.");
+					if (reportedFirst.LogicalHash != reportedRepeat.LogicalHash ||
+						reportedFirst.ActorHash != reportedRepeat.ActorHash ||
+						reportedFirst.GraphHash != reportedRepeat.GraphHash)
+						failures.Add("Reported UI seed regression is not deterministic.");
+				}
+				catch (Exception e)
+				{
+					failures.Add($"Reported UI seed regression was rejected: {e.Message}");
+				}
+
 				if (first.Map.BattlefieldRoles.Any(role => role == RmgBattlefieldRole.None))
 					failures.Add("Battlefield-role planner left unclassified logical cells.");
 				for (var i = 0; i < first.Map.BattlefieldRoles.Length; i++)

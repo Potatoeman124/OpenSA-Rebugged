@@ -25,8 +25,10 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 {
 	public sealed class RmgLobbyLogic : ChromeLogic
 	{
+		const int NormalLobbyWidth = 900;
+		const int NormalLobbyHeight = 600;
 		const int RmgLobbyWidth = 1182;
-		const int RmgLobbyHeight = 763;
+		const int RmgLobbyHeight = 372;
 
 		enum TerrainChoice { Normal, Desert, Swamp, Candy }
 		enum SizeChoice { Small, Standard, Large }
@@ -49,6 +51,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		readonly DropDownButtonWidget sizeButton;
 		readonly DropDownButtonWidget layoutButton;
 		readonly DropDownButtonWidget colonyButton;
+		readonly ButtonWidget rmgToggleButton;
 
 		RmgPlayerPreset preset = RmgPlayerPreset.Balanced;
 		TerrainChoice terrain = TerrainChoice.Normal;
@@ -58,10 +61,12 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		int playerCount = 4;
 		bool presetCustomized;
 		bool stale;
+		bool rmgView;
 		bool rmgMode;
 		bool generating;
 		bool generationQueued;
 		long generationQueuedAt;
+		bool visibilityComposed;
 		bool startGuardComposed;
 		string generatedUid;
 		string lastObservedMapUid;
@@ -77,11 +82,13 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			this.orderManager = orderManager;
 
 			var rmgPanel = lobby.Get("RMG_PANEL");
-			rmgPanel.IsVisible = () => skirmishMode;
+			var toggleButton = lobby.Get<ButtonWidget>("RMG_TOGGLE_BUTTON");
+			rmgPanel.IsVisible = () => skirmishMode && rmgView;
+			toggleButton.IsVisible = () => skirmishMode;
 			if (!skirmishMode)
 				return;
 
-			ApplySkirmishLayout();
+			rmgToggleButton = toggleButton;
 			startGameButton = lobby.Get<ButtonWidget>("START_GAME_BUTTON");
 			generateButton = lobby.Get<ButtonWidget>("RMG_GENERATE_BUTTON");
 			seedField = lobby.Get<TextFieldWidget>("RMG_SEED");
@@ -95,38 +102,87 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			colonyButton = lobby.Get<DropDownButtonWidget>("RMG_COLONY_DENSITY");
 
 			BindControls();
+			rmgToggleButton.GetText = () => rmgView ? "Return to Skirmish" : "Random Map Generator";
+			rmgToggleButton.IsDisabled = () => generating;
+			rmgToggleButton.OnClick = ToggleRmgView;
+			ApplyNormalLayout();
 			lastObservedMapUid = CurrentMapUid();
 		}
 
-		void ApplySkirmishLayout()
+		void ApplyNormalLayout()
+		{
+			SetLobbyBounds(NormalLobbyWidth, NormalLobbyHeight);
+			SetBounds("SERVER_NAME", 0, 16, 900, 25);
+			SetBounds("RMG_TOGGLE_BUTTON", 20, 16, 200, 25);
+			SetBounds("MAP_PREVIEW_ROOT", 706, 67, 174, 250);
+			SetBounds("SLOTS_DROPDOWNBUTTON", 20, 291, 185, 25);
+			SetBounds("CHANGEMAP_BUTTON", 706, 291, 174, 25);
+
+			var tabs = lobby.Get("SKIRMISH_TABS");
+			tabs.Bounds = new Rectangle(209, 0, 486, 600);
+			tabs.Get<ButtonWidget>("PLAYERS_TAB").Bounds = new Rectangle(0, 285, 162, 31);
+			tabs.Get<ButtonWidget>("OPTIONS_TAB").Bounds = new Rectangle(162, 285, 162, 31);
+			tabs.Get<ButtonWidget>("MUSIC_TAB").Bounds = new Rectangle(324, 285, 162, 31);
+
+			SetBounds("TOP_PANELS_ROOT", 20, 67, 675, 219);
+			var chat = lobby.Get("LOBBYCHAT");
+			chat.Bounds = new Rectangle(20, 321, 860, 259);
+			chat.Get<ScrollPanelWidget>("CHAT_DISPLAY").Bounds = new Rectangle(0, 0, 860, 229);
+			chat.Get<ButtonWidget>("CHAT_MODE").Bounds = new Rectangle(0, 234, 50, 25);
+			chat.Get<TextFieldWidget>("CHAT_TEXTFIELD").Bounds = new Rectangle(55, 234, 545, 25);
+			SetBounds("START_GAME_BUTTON", 630, 555, 120, 25);
+			SetBounds("DISCONNECT_BUTTON", 760, 555, 120, 25);
+		}
+
+		void ApplyRmgLayout()
+		{
+			SetLobbyBounds(RmgLobbyWidth, RmgLobbyHeight);
+			SetBounds("SERVER_NAME", 0, 8, 1182, 25);
+			SetBounds("RMG_TOGGLE_BUTTON", 20, 8, 200, 25);
+			SetBounds("RMG_PANEL", 20, 42, 1142, 310);
+			SetBounds("MAP_PREVIEW_ROOT", 875, 55, 270, 250);
+		}
+
+		void SetLobbyBounds(int width, int height)
 		{
 			var resolution = Game.Renderer.Resolution;
 			lobby.Bounds = new Rectangle(
-				Math.Max(0, (resolution.Width - RmgLobbyWidth) / 2),
-				Math.Max(0, (resolution.Height - RmgLobbyHeight) / 2),
-				RmgLobbyWidth,
-				RmgLobbyHeight);
+				Math.Max(0, (resolution.Width - width) / 2),
+				Math.Max(0, (resolution.Height - height) / 2),
+				width,
+				height);
+		}
 
-			SetBounds("SERVER_NAME", 20, 8, 1142, 25);
-			SetBounds("RMG_PANEL", 20, 42, 1142, 310);
-			SetBounds("MAP_PREVIEW_ROOT", 875, 55, 270, 250);
-			SetBounds("SLOTS_DROPDOWNBUTTON", 20, 365, 205, 28);
-			SetBounds("CHANGEMAP_BUTTON", 987, 365, 175, 28);
+		void ToggleRmgView()
+		{
+			if (generating)
+				return;
 
-			var tabs = lobby.Get("SKIRMISH_TABS");
-			tabs.Bounds = new Rectangle(235, 365, 742, 31);
-			tabs.Get<ButtonWidget>("PLAYERS_TAB").Bounds = new Rectangle(0, 0, 247, 31);
-			tabs.Get<ButtonWidget>("OPTIONS_TAB").Bounds = new Rectangle(247, 0, 248, 31);
-			tabs.Get<ButtonWidget>("MUSIC_TAB").Bounds = new Rectangle(495, 0, 247, 31);
+			rmgView = !rmgView;
+			if (rmgView)
+				ApplyRmgLayout();
+			else
+				ApplyNormalLayout();
+		}
 
-			SetBounds("TOP_PANELS_ROOT", 20, 420, 1142, 145);
-			var chat = lobby.Get("LOBBYCHAT");
-			chat.Bounds = new Rectangle(20, 577, 1142, 166);
-			chat.Get<ScrollPanelWidget>("CHAT_DISPLAY").Bounds = new Rectangle(0, 0, 1142, 136);
-			chat.Get<ButtonWidget>("CHAT_MODE").Bounds = new Rectangle(0, 141, 50, 25);
-			chat.Get<TextFieldWidget>("CHAT_TEXTFIELD").Bounds = new Rectangle(55, 141, 795, 25);
-			SetBounds("START_GAME_BUTTON", 870, 718, 132, 25);
-			SetBounds("DISCONNECT_BUTTON", 1012, 718, 150, 25);
+		void ComposeViewVisibility()
+		{
+			foreach (var id in new[]
+			{
+				"SLOTS_DROPDOWNBUTTON",
+				"SKIRMISH_TABS",
+				"TOP_PANELS_ROOT",
+				"CHANGEMAP_BUTTON",
+				"LOBBYCHAT",
+				"START_GAME_BUTTON",
+				"DISCONNECT_BUTTON",
+				"FACTION_DROPDOWN_PANEL_ROOT"
+			})
+			{
+				var widget = lobby.Get(id);
+				var originalVisibility = widget.IsVisible;
+				widget.IsVisible = () => !rmgView && originalVisibility();
+			}
 		}
 
 		void SetBounds(string id, int x, int y, int width, int height) =>
@@ -301,7 +357,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 
 		void MarkStale()
 		{
-			rmgMode = true;
+			rmgMode = generatedUid != null && CurrentMapUid() == generatedUid;
 			stale = true;
 			var unsupported = UnsupportedReason();
 			if (unsupported != null)
@@ -320,7 +376,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			generationQueued = true;
 			generationQueuedAt = Game.RunTime;
 			generating = true;
-			rmgMode = true;
+			rmgMode = generatedUid != null && CurrentMapUid() == generatedUid;
 			stale = true;
 			SetStatus("Generating and validating the map...", StatusKind.Info);
 		}
@@ -424,6 +480,12 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		{
 			if (startGameButton == null)
 				return;
+
+			if (!visibilityComposed)
+			{
+				visibilityComposed = true;
+				ComposeViewVisibility();
+			}
 
 			if (!startGuardComposed)
 			{

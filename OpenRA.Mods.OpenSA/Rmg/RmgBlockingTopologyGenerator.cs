@@ -666,9 +666,120 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					}
 
 			var density = 100D * map.Obstacles.Count(x => x) / map.Obstacles.Length;
+			if (profile.UsesShorelineMaterialization && density < minimum)
+			{
+				CompleteShorelineDensityByExtendingRegions(map, profile, settings, minimumTarget);
+				density = 100D * map.Obstacles.Count(x => x) / map.Obstacles.Length;
+			}
+
 			if (density < minimum || density > maximum)
 				throw new InvalidOperationException($"Attempt {attempt} produced obstacle density {density:F3}%, outside {minimum}-{maximum}%; " +
 					$"initially-eligible={initiallyEligibleCells}, minimum-target={minimumTarget}.");
+		}
+
+		static void CompleteShorelineDensityByExtendingRegions(RmgLogicalMap map, RmgProfile profile,
+			RmgGenerationSettings settings, int minimumTarget)
+		{
+			var (_, maximumPercent) = profile.ObstacleDensityRange(settings.Archetype);
+			var maximumTarget = (int)Math.Floor(map.Obstacles.Length * maximumPercent / 100D);
+			while (map.Obstacles.Count(x => x) < minimumTarget)
+			{
+				var extended = false;
+				var orbits = map.ObstacleRegions.Where(region => region.SymmetryOrbit >= 0)
+					.GroupBy(region => region.SymmetryOrbit)
+					.OrderBy(group => group.Key)
+					.ToArray();
+				foreach (var orbit in orbits)
+				{
+					var pair = orbit.OrderBy(region => region.Id).ToArray();
+					if (pair.Length != 2)
+						continue;
+
+					var first = pair[0];
+					var second = pair[1];
+					var firstCells = Enumerable.Range(0, map.ObstacleRegionIds.Length)
+						.Where(index => map.ObstacleRegionIds[index] == first.Id)
+						.Select(index => new RmgPoint(index % map.Width, index / map.Width))
+						.ToHashSet();
+					var secondCells = Enumerable.Range(0, map.ObstacleRegionIds.Length)
+						.Where(index => map.ObstacleRegionIds[index] == second.Id)
+						.Select(index => new RmgPoint(index % map.Width, index / map.Width))
+						.ToHashSet();
+					if (!firstCells.Select(point => Transform(point, settings.Symmetry, map.Width, map.Height))
+						.ToHashSet().SetEquals(secondCells))
+						continue;
+
+					var topLeftCandidates = firstCells.SelectMany(point => new[]
+					{
+						new RmgPoint(point.X - 1, point.Y - 1),
+						new RmgPoint(point.X - 1, point.Y),
+						new RmgPoint(point.X, point.Y - 1),
+						point
+					}).Distinct().OrderBy(point => point.Y).ThenBy(point => point.X);
+					foreach (var topLeft in topLeftCandidates)
+					{
+						var block = new[]
+						{
+							new RmgPoint(topLeft.X, topLeft.Y),
+							new RmgPoint(topLeft.X + 1, topLeft.Y),
+							new RmgPoint(topLeft.X, topLeft.Y + 1),
+							new RmgPoint(topLeft.X + 1, topLeft.Y + 1)
+						};
+						var candidateFirst = firstCells.Concat(block).ToHashSet();
+						if (candidateFirst.Count == firstCells.Count ||
+							candidateFirst.Count > profile.ObstacleRegionMaximumLogical)
+							continue;
+
+						var candidateSecond = candidateFirst
+							.Select(point => Transform(point, settings.Symmetry, map.Width, map.Height)).ToHashSet();
+						var addedFirst = candidateFirst.Except(firstCells).ToArray();
+						var addedSecond = candidateSecond.Except(secondCells).ToArray();
+						if (map.Obstacles.Count(x => x) + addedFirst.Length + addedSecond.Length > maximumTarget ||
+							candidateFirst.Overlaps(candidateSecond) || MinimumDistance(candidateFirst, candidateSecond) < 3 ||
+							!ShorelineShapeIsSupported(candidateFirst) || !ShorelineShapeIsSupported(candidateSecond) ||
+							addedFirst.Any(point => !ObstacleExtensionCellEligible(map, point, first.Id)) ||
+							addedSecond.Any(point => !ObstacleExtensionCellEligible(map, point, second.Id)))
+							continue;
+
+						foreach (var point in addedFirst)
+						{
+							var index = map.Index(point);
+							map.Obstacles[index] = true;
+							map.ObstacleRegionIds[index] = first.Id;
+						}
+
+						foreach (var point in addedSecond)
+						{
+							var index = map.Index(point);
+							map.Obstacles[index] = true;
+							map.ObstacleRegionIds[index] = second.Id;
+						}
+
+						if (ConnectedComponents(map, blocked: false).Count != 1)
+						{
+							foreach (var point in addedFirst.Concat(addedSecond))
+							{
+								var index = map.Index(point);
+								map.Obstacles[index] = false;
+								map.ObstacleRegionIds[index] = -1;
+							}
+
+							continue;
+						}
+
+						map.ObstacleRegions[first.Id] = first with { CellCount = candidateFirst.Count };
+						map.ObstacleRegions[second.Id] = second with { CellCount = candidateSecond.Count };
+						extended = true;
+						break;
+					}
+
+					if (extended)
+						break;
+				}
+
+				if (!extended)
+					break;
+			}
 		}
 
 		static HashSet<RmgPoint> GrowShorelineRegion(RmgLogicalMap map, RmgGenerationSettings settings,
@@ -860,6 +971,28 @@ namespace OpenRA.Mods.OpenSA.Rmg
 						if (map.ObstacleRegionIds[map.Index(new RmgPoint(x, y))] == nearby.Id)
 							return false;
 			}
+
+			return true;
+		}
+
+		static bool ObstacleExtensionCellEligible(RmgLogicalMap map, RmgPoint point, int ownRegionId)
+		{
+			if (!map.Contains(point))
+				return false;
+
+			var index = map.Index(point);
+			if (point.X < 2 || point.Y < 2 || point.X >= map.Width - 2 || point.Y >= map.Height - 2 ||
+				map.StartReservations[index] || map.StructureReservations[index] || map.StrategicRegions[index] ||
+				map.RouteMasks[index] != 0 || map.ChokepointIds[index] >= 0 || map.Obstacles[index])
+				return false;
+
+			for (var y = Math.Max(0, point.Y - 2); y <= Math.Min(map.Height - 1, point.Y + 2); y++)
+				for (var x = Math.Max(0, point.X - 2); x <= Math.Min(map.Width - 1, point.X + 2); x++)
+				{
+					var nearbyRegion = map.ObstacleRegionIds[map.Index(new RmgPoint(x, y))];
+					if (nearbyRegion >= 0 && nearbyRegion != ownRegionId)
+						return false;
+				}
 
 			return true;
 		}
