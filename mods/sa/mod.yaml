@@ -128,7 +128,7 @@ ChromeLayout:
 	common|chrome/settings-hotkeys.yaml
 	common|chrome/settings-advanced.yaml
 	common|chrome/credits.yaml
-	common|chrome/lobby.yaml
+	sa|chrome/lobby.yaml
 	common|chrome/lobby-mappreview.yaml
 	common|chrome/playerprofile.yaml
 	sa|chrome/lobby-players.yaml

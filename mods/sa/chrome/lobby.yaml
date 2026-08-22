@@ -1,0 +1,367 @@
+Background@SERVER_LOBBY:
+	Logic: RmgLobbyLogic, LobbyLogic
+		ChatTemplates:
+			Chat: CHAT_LINE_TEMPLATE
+			System: SYSTEM_LINE_TEMPLATE
+			Mission: CHAT_LINE_TEMPLATE
+			Feedback: TRANSIENT_LINE_TEMPLATE
+	X: (WINDOW_RIGHT - WIDTH) / 2
+	Y: (WINDOW_BOTTOM - HEIGHT) / 2
+	Width: 900
+	Height: 600
+	Children:
+		Label@SERVER_NAME:
+			Y: 16
+			Align: Center
+			Width: PARENT_RIGHT
+			Height: 25
+			Font: Bold
+		Container@RMG_PANEL:
+			Width: 1142
+			Height: 310
+			Visible: False
+			Children:
+				Background@RMG_SETTINGS_BACKGROUND:
+					Width: 820
+					Height: 310
+					Background: dialog3
+				Background@RMG_PREVIEW_BACKGROUND:
+					X: 835
+					Width: 307
+					Height: 310
+					Background: dialog3
+				Label@RMG_TITLE:
+					X: 20
+					Y: 2
+					Width: 780
+					Height: 25
+					Align: Center
+					Font: Bold
+					Text: Random Map Generator
+				Label@RMG_PRESET_LABEL:
+					X: 20
+					Y: 35
+					Width: 130
+					Height: 28
+					Text: Preset
+				DropDownButton@RMG_PRESET:
+					X: 155
+					Y: 35
+					Width: 220
+					Height: 28
+					TooltipContainer: TOOLTIP_CONTAINER
+					TooltipText: Select a Phase 7C preset. Changing an individual setting creates a custom variant.
+				Label@RMG_TERRAIN_LABEL:
+					X: 20
+					Y: 75
+					Width: 130
+					Height: 28
+					Text: Terrain
+				DropDownButton@RMG_TERRAIN:
+					X: 155
+					Y: 75
+					Width: 220
+					Height: 28
+					TooltipContainer: TOOLTIP_CONTAINER
+					TooltipText: NORMAL is implemented. Other terrain themes are visible placeholders.
+				Label@RMG_SIZE_LABEL:
+					X: 20
+					Y: 115
+					Width: 130
+					Height: 28
+					Text: Size
+				DropDownButton@RMG_SIZE:
+					X: 155
+					Y: 115
+					Width: 220
+					Height: 28
+					TooltipContainer: TOOLTIP_CONTAINER
+					TooltipText: 128 x 128 is implemented. Other sizes are visible placeholders.
+				Label@RMG_PLAYERS_LABEL:
+					X: 20
+					Y: 155
+					Width: 130
+					Height: 28
+					Text: Players
+				Slider@RMG_PLAYERS:
+					X: 155
+					Y: 157
+					Width: 175
+					Height: 24
+					MinimumValue: 1
+					MaximumValue: 8
+					Value: 4
+					Ticks: 8
+				Label@RMG_PLAYERS_VALUE:
+					X: 338
+					Y: 155
+					Width: 37
+					Height: 28
+					Align: Center
+					Font: Bold
+				Label@RMG_PLAYERS_MIN:
+					X: 155
+					Y: 179
+					Width: 20
+					Height: 14
+					Font: Tiny
+					Text: 1
+				Label@RMG_PLAYERS_MAX:
+					X: 310
+					Y: 179
+					Width: 20
+					Height: 14
+					Align: Right
+					Font: Tiny
+					Text: 8
+				Label@RMG_LAYOUT_LABEL:
+					X: 20
+					Y: 195
+					Width: 130
+					Height: 28
+					Text: Layout
+				DropDownButton@RMG_LAYOUT:
+					X: 155
+					Y: 195
+					Width: 220
+					Height: 28
+					TooltipContainer: TOOLTIP_CONTAINER
+					TooltipText: Open Fields and Contested Center are implemented. Other layouts are placeholders.
+				Label@RMG_TERRAIN_COMPLEXITY_LABEL:
+					X: 20
+					Y: 235
+					Width: 130
+					Height: 28
+					Text: Terrain Complexity
+				DropDownButton@RMG_TERRAIN_COMPLEXITY:
+					X: 155
+					Y: 235
+					Width: 220
+					Height: 28
+					Text: Standard (planned)
+					TooltipContainer: TOOLTIP_CONTAINER
+					TooltipText: Placeholder only. Terrain complexity is not connected to the current generator contract.
+				Label@RMG_WATER_LABEL:
+					X: 410
+					Y: 35
+					Width: 155
+					Height: 28
+					Text: Water Amount
+				DropDownButton@RMG_WATER_AMOUNT:
+					X: 570
+					Y: 35
+					Width: 220
+					Height: 28
+					Text: Standard (planned)
+					TooltipContainer: TOOLTIP_CONTAINER
+					TooltipText: Placeholder only. Water amount is not connected to the current generator contract.
+				Label@RMG_COLONY_LABEL:
+					X: 410
+					Y: 75
+					Width: 155
+					Height: 28
+					Text: Neutral Colony Density
+				DropDownButton@RMG_COLONY_DENSITY:
+					X: 570
+					Y: 75
+					Width: 220
+					Height: 28
+					TooltipContainer: TOOLTIP_CONTAINER
+					TooltipText: Select Sparse, Standard, or Dense neutral colony placement.
+				Label@RMG_CHOKEPOINTS_LABEL:
+					X: 410
+					Y: 115
+					Width: 155
+					Height: 28
+					Text: Chokepoints
+				DropDownButton@RMG_CHOKEPOINTS:
+					X: 570
+					Y: 115
+					Width: 220
+					Height: 28
+					Text: Standard (planned)
+					TooltipContainer: TOOLTIP_CONTAINER
+					TooltipText: Placeholder only. Chokepoint amount is not connected to the current generator contract.
+				Label@RMG_HOSTILES_LABEL:
+					X: 410
+					Y: 155
+					Width: 155
+					Height: 28
+					Text: Amount of Hostiles
+				DropDownButton@RMG_HOSTILES:
+					X: 570
+					Y: 155
+					Width: 220
+					Height: 28
+					Text: Standard (planned)
+					TooltipContainer: TOOLTIP_CONTAINER
+					TooltipText: Placeholder only. Hostile amount is not connected to the current generator contract.
+				Label@RMG_SEED_LABEL:
+					X: 410
+					Y: 195
+					Width: 155
+					Height: 28
+					Text: Seed
+				TextField@RMG_SEED:
+					X: 570
+					Y: 195
+					Width: 150
+					Height: 28
+					Type: Integer
+					MaxLength: 20
+				Button@RMG_RANDOMIZE_BUTTON:
+					X: 730
+					Y: 195
+					Width: 60
+					Height: 28
+					Text: Random
+					TooltipContainer: TOOLTIP_CONTAINER
+					TooltipText: Generate a new unsigned seed.
+				Button@RMG_GENERATE_BUTTON:
+					X: 570
+					Y: 235
+					Width: 220
+					Height: 28
+					Font: Bold
+					Text: Generate Preview
+					TooltipContainer: TOOLTIP_CONTAINER
+					TooltipText: Generate, validate, install, and select this map candidate.
+				Label@RMG_STATUS:
+					X: 20
+					Y: 268
+					Width: 770
+					Height: 38
+					Font: Regular
+					Align: Center
+					VAlign: Top
+					WordWrap: True
+				Label@RMG_PREVIEW_CAPTION:
+					X: 845
+					Y: 278
+					Width: 287
+					Height: 25
+					Font: Bold
+					Align: Center
+					Text: Generated Map Preview
+		Container@MAP_PREVIEW_ROOT:
+			X: PARENT_RIGHT - 20 - WIDTH
+			Y: 67
+			Width: 174
+			Height: 250
+		DropDownButton@SLOTS_DROPDOWNBUTTON:
+			X: 20
+			Y: 291
+			Width: 185
+			Height: 25
+			Font: Bold
+			Text: Slot Admin
+		Container@SKIRMISH_TABS:
+			X: 695 - WIDTH
+			Width: 486
+			Visible: False
+			Children:
+				Button@PLAYERS_TAB:
+					Y: 285
+					Width: 162
+					Height: 31
+					Font: Bold
+					Text: Players
+				Button@OPTIONS_TAB:
+					X: 162
+					Y: 285
+					Width: 162
+					Height: 31
+					Font: Bold
+					Text: Options
+				Button@MUSIC_TAB:
+					X: 2 * 162
+					Y: 285
+					Width: 162
+					Height: 31
+					Font: Bold
+					Text: Music
+		Container@MULTIPLAYER_TABS:
+			X: 695 - WIDTH
+			Width: 486
+			Visible: False
+			Children:
+				Button@PLAYERS_TAB:
+					Y: 285
+					Width: 121
+					Height: 31
+					Font: Bold
+					Text: Players
+				Button@OPTIONS_TAB:
+					X: 121
+					Y: 285
+					Width: 122
+					Height: 31
+					Font: Bold
+					Text: Options
+				Button@MUSIC_TAB:
+					X: 243
+					Y: 285
+					Width: 121
+					Height: 31
+					Font: Bold
+					Text: Music
+				Button@SERVERS_TAB:
+					X: 364
+					Y: 285
+					Width: 122
+					Height: 31
+					Font: Bold
+					Text: Servers
+		Container@TOP_PANELS_ROOT:
+			X: 20
+			Y: 67
+			Width: 675
+			Height: 219
+		Button@CHANGEMAP_BUTTON:
+			X: PARENT_RIGHT - WIDTH - 20
+			Y: 291
+			Width: 174
+			Height: 25
+			Text: Change Map
+			Font: Bold
+		Container@LOBBYCHAT:
+			X: 20
+			Y: PARENT_BOTTOM - HEIGHT - 20
+			Width: PARENT_RIGHT - 40
+			Height: 259
+			Children:
+				ScrollPanel@CHAT_DISPLAY:
+					Width: PARENT_RIGHT
+					Height: PARENT_BOTTOM - 30
+					TopBottomSpacing: 2
+					ItemSpacing: 2
+				Button@CHAT_MODE:
+					Y: PARENT_BOTTOM - HEIGHT
+					Width: 50
+					Height: 25
+					Text: Team
+					Font: Bold
+					Key: ToggleChatMode
+					TooltipText: Toggle chat mode
+					TooltipContainer: TOOLTIP_CONTAINER
+				TextField@CHAT_TEXTFIELD:
+					X: 55
+					Y: PARENT_BOTTOM - HEIGHT
+					Width: PARENT_RIGHT - 260 - 55
+					Height: 25
+		Button@START_GAME_BUTTON:
+			X: PARENT_RIGHT - WIDTH - 150
+			Y: PARENT_BOTTOM - HEIGHT - 20
+			Width: 120
+			Height: 25
+			Text: Start Game
+			Font: Bold
+		Button@DISCONNECT_BUTTON:
+			X: PARENT_RIGHT - WIDTH - 20
+			Y: PARENT_BOTTOM - HEIGHT - 20
+			Width: 120
+			Height: 25
+			Text: Leave Game
+			Font: Bold
+		Container@FACTION_DROPDOWN_PANEL_ROOT:
+		TooltipContainer@TOOLTIP_CONTAINER:
