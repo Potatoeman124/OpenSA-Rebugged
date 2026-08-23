@@ -60,6 +60,8 @@ Explicit layout and colony-density choices override the corresponding preset val
 | Standard | 10 | 16 |
 | Dense | 20 | 24 |
 
+These values are requested targets. Version 6 may reduce an infeasible target in complete player-symmetric groups, never below the Sparse value for the selected player count. The achieved count is authoritative for the generated package and is reported separately from the requested count.
+
 `automatic` symmetry deterministically selects one legal symmetry from the schema version, seed, preset, and player count. Repeating the same settings therefore resolves to the same symmetry and canonical map.
 
 The preset name is descriptive metadata. Random generation consumes only the normalized low-level settings, so selecting a preset that normalizes to an existing Version 6 tuple produces the same logical map as the low-level command.
@@ -92,9 +94,18 @@ Version 6 reports use report schema version 8 and contain `player_settings` with
 - a list of explicit preset overrides; and
 - a reserved warnings array.
 
-Player-generated map titles use `OpenSA RMG <Preset> <Seed>`. The report remains the authoritative record of resolved symmetry, layout archetype, and neutral colony count.
+The report also records:
 
-Generator validation is unchanged. A seed that cannot satisfy a frozen placement envelope fails with a diagnostic and must be retried with a new seed; it never silently changes the seed or relaxes safety.
+- `neutral_colonies_requested`, the normalized target;
+- `neutral_colonies`, the achieved package count;
+- validation metrics for the requested and achieved colony counts, colony-search work, obstacle density, and whether the density target was met; and
+- `COLONY_TARGET_REDUCED` or `OBSTACLE_DENSITY_TARGET_MISSED` warnings when capacity prevents an exact soft target.
+
+Player-generated map titles use `OpenSA RMG <Preset> <Seed>`. The report remains the authoritative record of resolved symmetry, layout archetype, requested neutral-colony target, and achieved neutral-colony count.
+
+Version 6 makes two capacity-sensitive quality settings adaptive. Obstacle density remains a best-effort target across four deterministic topology attempts, and neutral colonies may reduce as described above after a bounded search. Neither fallback changes the seed.
+
+Connectivity, route width, symmetry, shoreline semantics, spawn and production safety, colony combat space, movement validation, package reload, and map lint remain hard gates. A seed that cannot satisfy any of those gates still fails with a diagnostic; adaptive quality behavior never relaxes safety.
 
 ## Automated gate
 

@@ -85,6 +85,80 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (profile.UsesBattlefieldLayout)
 			{
 				failures.AddRange(RmgPlayerSettingsContract.RunSelfTests());
+				try
+				{
+					var reportedSeedSettings = new RmgGenerationSettings
+					{
+						Seed = 5058340853825067450,
+						PlayerCount = 4,
+						NeutralColonyCount = 24,
+						Symmetry = RmgSymmetry.Rotate180,
+						Archetype = RmgArchetype.Open,
+						GeneratorVersion = 6,
+						TopologyPreset = RmgTopologyPreset.BattlefieldLayout
+					};
+					var reportedFirst = Generate(profile, reportedSeedSettings);
+					var reportedRepeat = Generate(profile, reportedSeedSettings);
+					if (!reportedFirst.Validation.Accepted)
+						failures.Add("Reported UI seed regression did not pass hard topology validation.");
+					if (reportedFirst.LogicalHash != reportedRepeat.LogicalHash ||
+						reportedFirst.ActorHash != reportedRepeat.ActorHash ||
+						reportedFirst.GraphHash != reportedRepeat.GraphHash)
+						failures.Add("Reported UI seed regression is not deterministic.");
+				}
+				catch (Exception e)
+				{
+					failures.Add($"Reported UI seed regression was rejected: {e.Message}");
+				}
+
+				var adaptiveRegressions = new[]
+				{
+					(
+						Name: "density-6385527573119186284",
+						Settings: new RmgGenerationSettings
+						{
+							Seed = 6385527573119186284,
+							PlayerCount = 4,
+							NeutralColonyCount = 16,
+							Symmetry = RmgSymmetry.MirrorVertical,
+							Archetype = RmgArchetype.CentralContest,
+							GeneratorVersion = 6,
+							TopologyPreset = RmgTopologyPreset.BattlefieldLayout
+						},
+						Warning: "OBSTACLE_DENSITY_TARGET_MISSED",
+						ExpectedColonies: 16),
+					(
+						Name: "density-16385527573119186284",
+						Settings: new RmgGenerationSettings
+						{
+							Seed = 16385527573119186284,
+							PlayerCount = 4,
+							NeutralColonyCount = 24,
+							Symmetry = RmgSymmetry.Rotate180,
+							Archetype = RmgArchetype.CentralContest,
+							GeneratorVersion = 6,
+							TopologyPreset = RmgTopologyPreset.BattlefieldLayout
+						},
+						Warning: "OBSTACLE_DENSITY_TARGET_MISSED",
+						ExpectedColonies: 24),
+					(
+						Name: "colonies-15782917902311806871",
+						Settings: new RmgGenerationSettings
+						{
+							Seed = 15782917902311806871,
+							PlayerCount = 4,
+							NeutralColonyCount = 24,
+							Symmetry = RmgSymmetry.MirrorVertical,
+							Archetype = RmgArchetype.CentralContest,
+							GeneratorVersion = 6,
+							TopologyPreset = RmgTopologyPreset.BattlefieldLayout
+						},
+						Warning: "COLONY_TARGET_REDUCED",
+						ExpectedColonies: 16)
+				};
+				foreach (var regression in adaptiveRegressions)
+					ValidateAdaptiveRegression(regression.Name, regression.Settings, regression.Warning, regression.ExpectedColonies);
+
 				if (first.Map.BattlefieldRoles.Any(role => role == RmgBattlefieldRole.None))
 					failures.Add("Battlefield-role planner left unclassified logical cells.");
 				for (var i = 0; i < first.Map.BattlefieldRoles.Length; i++)
@@ -111,6 +185,31 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					failures.Add("Version 6 materialized a blocking RMG land decoration.");
 				if (first.Map.TemplateIds.Contains((ushort)93))
 					failures.Add("Version 6 materialized defective square-edged Vegetation detail template 93.");
+			}
+
+			void ValidateAdaptiveRegression(string name, RmgGenerationSettings regressionSettings,
+				string expectedWarning, int expectedColonies)
+			{
+				try
+				{
+					var regressionFirst = Generate(profile, regressionSettings);
+					var regressionRepeat = Generate(profile, regressionSettings);
+					if (!regressionFirst.Validation.Accepted)
+						failures.Add($"{name} did not pass hard topology validation.");
+					if (!regressionFirst.Validation.Warnings.Any(warning => warning.Code == expectedWarning))
+						failures.Add($"{name} did not report expected warning {expectedWarning}.");
+					var colonies = regressionFirst.Map.Actors.Count(actor => actor.Owner == profile.ColonyOwner);
+					if (colonies != expectedColonies)
+						failures.Add($"{name} placed {colonies} neutral colonies; expected {expectedColonies}.");
+					if (regressionFirst.LogicalHash != regressionRepeat.LogicalHash ||
+						regressionFirst.ActorHash != regressionRepeat.ActorHash ||
+						regressionFirst.GraphHash != regressionRepeat.GraphHash)
+						failures.Add($"{name} is not deterministic.");
+				}
+				catch (Exception e)
+				{
+					failures.Add($"{name} was rejected: {e.Message}");
+				}
 			}
 
 			first.Map.TemplateIds[0] = ushort.MaxValue;
@@ -378,9 +477,12 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		static void PlaceColonies(RmgLogicalMap map, RmgProfile profile, RmgGenerationSettings settings,
 			bool allowCentralRouteOverlap = true, int routeClearanceRadius = 2, bool allowAnyRouteOverlap = false)
 		{
-			const int MaximumSearchNodes = 10000;
+			var allowTargetReduction = profile.GeneratorVersion >= 6;
+			var maximumSearchNodes = allowTargetReduction ? 256 : 10000;
 			const int CandidateLimitPerRequest = 64;
 			var initialActorCount = map.Actors.Count;
+			var minimumColonyCount = settings.PlayerCount == 2 ? 8 : 12;
+			var bestFallback = Array.Empty<RmgActorPlan>();
 			var searchNodes = 0;
 			var exhaustedBudget = false;
 			var requests = BuildColonyRequests(map, settings);
@@ -402,16 +504,22 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (!TryPlaceRequest(0))
 			{
 				map.Actors.RemoveRange(initialActorCount, map.Actors.Count - initialActorCount);
-				throw new RmgGenerationRejectedException("COLONY_PLACEMENT",
-					exhaustedBudget ? $"Unable to place the colony layout within the bounded {MaximumSearchNodes}-node search." :
-					"No combat-safe colony layout satisfies the requested roles and symmetry.");
+				if (!allowTargetReduction || bestFallback.Length < minimumColonyCount)
+					throw new RmgGenerationRejectedException("COLONY_PLACEMENT",
+						exhaustedBudget ? $"Unable to place the colony layout within the bounded {maximumSearchNodes}-node search." :
+						"No combat-safe colony layout satisfies the requested roles and symmetry.");
+
+				map.Actors.AddRange(bestFallback);
 			}
+
+			map.ColonySearchNodes = searchNodes;
 
 			foreach (var actor in map.Actors.Skip(initialActorCount))
 				ReserveSquare(map.StructureReservations, map, actor.LogicalLocation, 2);
 
 			bool TryPlaceRequest(int requestIndex)
 			{
+				CaptureFallback();
 				if (requestIndex == requests.Count)
 					return true;
 
@@ -421,7 +529,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					allowCentralRouteOverlap, routeClearanceRadius, allowAnyRouteOverlap, CandidateLimitPerRequest);
 				foreach (var orbit in candidates)
 				{
-					if (++searchNodes > MaximumSearchNodes)
+					if (++searchNodes > maximumSearchNodes)
 					{
 						exhaustedBudget = true;
 						return false;
@@ -437,6 +545,19 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				}
 
 				return false;
+			}
+
+			void CaptureFallback()
+			{
+				if (!allowTargetReduction)
+					return;
+
+				var placed = map.Actors.Count - initialActorCount;
+				if (placed < minimumColonyCount || placed >= settings.NeutralColonyCount ||
+					placed % settings.PlayerCount != 0 || placed <= bestFallback.Length)
+					return;
+
+				bestFallback = map.Actors.Skip(initialActorCount).ToArray();
 			}
 		}
 

@@ -21,6 +21,12 @@ namespace OpenRA.Mods.OpenSA.Rmg
 	{
 		sealed record BlockingRoutePlan(int RouteId, RmgPoint[] Centerline);
 
+		sealed class ObstacleDensityTargetMissException : InvalidOperationException
+		{
+			public ObstacleDensityTargetMissException(string message)
+				: base(message) { }
+		}
+
 		static RmgGenerationResult GenerateBlockingTopology(RmgProfile profile, RmgGenerationSettings settings)
 		{
 			var map = new RmgLogicalMap(profile.LogicalWidth, profile.LogicalHeight);
@@ -422,6 +428,15 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					map.RetryCount = attempt;
 					return;
 				}
+				catch (ObstacleDensityTargetMissException e) when (
+					profile.GeneratorVersion >= 6 && attempt == profile.MaximumTopologyAttempts - 1)
+				{
+					// Version 6 treats the density envelope as a quality target. The final
+					// deterministic topology still proceeds through every hard playability gate.
+					lastFailure = e;
+					map.RetryCount = attempt;
+					return;
+				}
 				catch (InvalidOperationException e)
 				{
 					lastFailure = e;
@@ -666,9 +681,120 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					}
 
 			var density = 100D * map.Obstacles.Count(x => x) / map.Obstacles.Length;
+			if (profile.UsesShorelineMaterialization && density < minimum)
+			{
+				CompleteShorelineDensityByExtendingRegions(map, profile, settings, minimumTarget);
+				density = 100D * map.Obstacles.Count(x => x) / map.Obstacles.Length;
+			}
+
 			if (density < minimum || density > maximum)
-				throw new InvalidOperationException($"Attempt {attempt} produced obstacle density {density:F3}%, outside {minimum}-{maximum}%; " +
+				throw new ObstacleDensityTargetMissException($"Attempt {attempt} produced obstacle density {density:F3}%, outside {minimum}-{maximum}%; " +
 					$"initially-eligible={initiallyEligibleCells}, minimum-target={minimumTarget}.");
+		}
+
+		static void CompleteShorelineDensityByExtendingRegions(RmgLogicalMap map, RmgProfile profile,
+			RmgGenerationSettings settings, int minimumTarget)
+		{
+			var (_, maximumPercent) = profile.ObstacleDensityRange(settings.Archetype);
+			var maximumTarget = (int)Math.Floor(map.Obstacles.Length * maximumPercent / 100D);
+			while (map.Obstacles.Count(x => x) < minimumTarget)
+			{
+				var extended = false;
+				var orbits = map.ObstacleRegions.Where(region => region.SymmetryOrbit >= 0)
+					.GroupBy(region => region.SymmetryOrbit)
+					.OrderBy(group => group.Key)
+					.ToArray();
+				foreach (var orbit in orbits)
+				{
+					var pair = orbit.OrderBy(region => region.Id).ToArray();
+					if (pair.Length != 2)
+						continue;
+
+					var first = pair[0];
+					var second = pair[1];
+					var firstCells = Enumerable.Range(0, map.ObstacleRegionIds.Length)
+						.Where(index => map.ObstacleRegionIds[index] == first.Id)
+						.Select(index => new RmgPoint(index % map.Width, index / map.Width))
+						.ToHashSet();
+					var secondCells = Enumerable.Range(0, map.ObstacleRegionIds.Length)
+						.Where(index => map.ObstacleRegionIds[index] == second.Id)
+						.Select(index => new RmgPoint(index % map.Width, index / map.Width))
+						.ToHashSet();
+					if (!firstCells.Select(point => Transform(point, settings.Symmetry, map.Width, map.Height))
+						.ToHashSet().SetEquals(secondCells))
+						continue;
+
+					var topLeftCandidates = firstCells.SelectMany(point => new[]
+					{
+						new RmgPoint(point.X - 1, point.Y - 1),
+						new RmgPoint(point.X - 1, point.Y),
+						new RmgPoint(point.X, point.Y - 1),
+						point
+					}).Distinct().OrderBy(point => point.Y).ThenBy(point => point.X);
+					foreach (var topLeft in topLeftCandidates)
+					{
+						var block = new[]
+						{
+							new RmgPoint(topLeft.X, topLeft.Y),
+							new RmgPoint(topLeft.X + 1, topLeft.Y),
+							new RmgPoint(topLeft.X, topLeft.Y + 1),
+							new RmgPoint(topLeft.X + 1, topLeft.Y + 1)
+						};
+						var candidateFirst = firstCells.Concat(block).ToHashSet();
+						if (candidateFirst.Count == firstCells.Count ||
+							candidateFirst.Count > profile.ObstacleRegionMaximumLogical)
+							continue;
+
+						var candidateSecond = candidateFirst
+							.Select(point => Transform(point, settings.Symmetry, map.Width, map.Height)).ToHashSet();
+						var addedFirst = candidateFirst.Except(firstCells).ToArray();
+						var addedSecond = candidateSecond.Except(secondCells).ToArray();
+						if (map.Obstacles.Count(x => x) + addedFirst.Length + addedSecond.Length > maximumTarget ||
+							candidateFirst.Overlaps(candidateSecond) || MinimumDistance(candidateFirst, candidateSecond) < 3 ||
+							!ShorelineShapeIsSupported(candidateFirst) || !ShorelineShapeIsSupported(candidateSecond) ||
+							addedFirst.Any(point => !ObstacleExtensionCellEligible(map, point, first.Id)) ||
+							addedSecond.Any(point => !ObstacleExtensionCellEligible(map, point, second.Id)))
+							continue;
+
+						foreach (var point in addedFirst)
+						{
+							var index = map.Index(point);
+							map.Obstacles[index] = true;
+							map.ObstacleRegionIds[index] = first.Id;
+						}
+
+						foreach (var point in addedSecond)
+						{
+							var index = map.Index(point);
+							map.Obstacles[index] = true;
+							map.ObstacleRegionIds[index] = second.Id;
+						}
+
+						if (ConnectedComponents(map, blocked: false).Count != 1)
+						{
+							foreach (var point in addedFirst.Concat(addedSecond))
+							{
+								var index = map.Index(point);
+								map.Obstacles[index] = false;
+								map.ObstacleRegionIds[index] = -1;
+							}
+
+							continue;
+						}
+
+						map.ObstacleRegions[first.Id] = first with { CellCount = candidateFirst.Count };
+						map.ObstacleRegions[second.Id] = second with { CellCount = candidateSecond.Count };
+						extended = true;
+						break;
+					}
+
+					if (extended)
+						break;
+				}
+
+				if (!extended)
+					break;
+			}
 		}
 
 		static HashSet<RmgPoint> GrowShorelineRegion(RmgLogicalMap map, RmgGenerationSettings settings,
@@ -864,6 +990,28 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			return true;
 		}
 
+		static bool ObstacleExtensionCellEligible(RmgLogicalMap map, RmgPoint point, int ownRegionId)
+		{
+			if (!map.Contains(point))
+				return false;
+
+			var index = map.Index(point);
+			if (point.X < 2 || point.Y < 2 || point.X >= map.Width - 2 || point.Y >= map.Height - 2 ||
+				map.StartReservations[index] || map.StructureReservations[index] || map.StrategicRegions[index] ||
+				map.RouteMasks[index] != 0 || map.ChokepointIds[index] >= 0 || map.Obstacles[index])
+				return false;
+
+			for (var y = Math.Max(0, point.Y - 2); y <= Math.Min(map.Height - 1, point.Y + 2); y++)
+				for (var x = Math.Max(0, point.X - 2); x <= Math.Min(map.Width - 1, point.X + 2); x++)
+				{
+					var nearbyRegion = map.ObstacleRegionIds[map.Index(new RmgPoint(x, y))];
+					if (nearbyRegion >= 0 && nearbyRegion != ownRegionId)
+						return false;
+				}
+
+			return true;
+		}
+
 		internal static void ApplyBlockingRepairs(RmgLogicalMap map, RmgProfile profile)
 		{
 			var groups = new[]
@@ -1047,8 +1195,16 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				Hard("OPEN_COMPONENTS", $"Terrain-only OPEN mask has {openComponents.Count} connected components; expected one.");
 			if (map.Starts.Count != settings.PlayerCount || map.Actors.Count(a => a.Type == profile.SpawnActor) != settings.PlayerCount)
 				Hard("START_COUNT", "Start anchors or mpspawn actors do not match the requested player count.");
-			if (map.Actors.Count(a => a.Owner == profile.ColonyOwner) != settings.NeutralColonyCount)
+			var placedColonyCount = map.Actors.Count(a => a.Owner == profile.ColonyOwner);
+			var minimumColonyCount = settings.PlayerCount == 2 ? 8 : 12;
+			if (profile.GeneratorVersion < 6 && placedColonyCount != settings.NeutralColonyCount)
 				Hard("COLONY_COUNT", "Neutral-colony count differs from the requested setting.");
+			else if (profile.GeneratorVersion >= 6 && (placedColonyCount < minimumColonyCount ||
+				placedColonyCount > settings.NeutralColonyCount || placedColonyCount % settings.PlayerCount != 0))
+				Hard("COLONY_COUNT", $"Placed {placedColonyCount} neutral colonies; the safe adaptive range is {minimumColonyCount}-{settings.NeutralColonyCount} in complete player-symmetric groups.");
+			else if (placedColonyCount < settings.NeutralColonyCount)
+				report.Warnings.Add(new RmgValidationIssue("COLONY_TARGET_REDUCED",
+					$"Placed {placedColonyCount} of {settings.NeutralColonyCount} requested neutral colonies after the bounded combat-safe search."));
 			foreach (var start in map.Starts)
 			{
 				var outgoing = map.GraphEdges.Count(e => map.GraphNodes.Single(n => n.Id == e.From).Location == start);
@@ -1075,7 +1231,14 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var density = 100D * map.Obstacles.Count(x => x) / map.Obstacles.Length;
 			var (minimum, maximum) = profile.ObstacleDensityRange(settings.Archetype);
 			if (density < minimum || density > maximum)
-				Hard("OBSTACLE_DENSITY", $"Obstacle density {density:F3}% is outside {minimum}-{maximum}%.");
+			{
+				if (profile.GeneratorVersion >= 6)
+					report.Warnings.Add(new RmgValidationIssue("OBSTACLE_DENSITY_TARGET_MISSED",
+						$"Obstacle density {density:F3}% is outside the {minimum}-{maximum}% quality target; hard topology and movement validation remain authoritative."));
+				else
+					Hard("OBSTACLE_DENSITY", $"Obstacle density {density:F3}% is outside {minimum}-{maximum}%.");
+			}
+
 			if (map.Repairs.Count > profile.MaximumRepairOperations || map.RepairChanges.Count(x => x) > profile.MaximumRepairCellsLogical)
 				Hard("REPAIR_BUDGET", "Bounded repairs exceeded the frozen operation or changed-cell budget.");
 
@@ -1093,12 +1256,16 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				Hard("NATIVE_CONNECTIVITY_PROXY", $"The obstacle-aware 3x3 proxy reaches {reachableStarts}/{map.Starts.Count} starts.");
 			report.Metrics["player_count"] = settings.PlayerCount;
 			report.Metrics["neutral_colony_count"] = colonies.Length;
+			report.Metrics["neutral_colony_requested_count"] = settings.NeutralColonyCount;
+			report.Metrics["neutral_colony_target_reduced"] = colonies.Length < settings.NeutralColonyCount ? 1 : 0;
+			report.Metrics["neutral_colony_search_nodes"] = map.ColonySearchNodes;
 			report.Metrics["colony_assignment_spread"] = assignments.Max() - assignments.Min();
 			report.Metrics["minimum_colony_separation_logical"] = colonies.Length < 2 ? 0 :
 				colonies.SelectMany((a, i) => colonies.Skip(i + 1).Select(b => a.LogicalLocation.ChebyshevDistance(b.LogicalLocation))).Min();
 			report.Metrics["route_cell_count"] = map.RouteMasks.Count(r => r != 0);
 			report.Metrics["obstacle_cell_count"] = map.Obstacles.Count(x => x);
 			report.Metrics["obstacle_density_percent"] = density;
+			report.Metrics["obstacle_density_target_met"] = density >= minimum && density <= maximum ? 1 : 0;
 			report.Metrics["obstacle_region_count"] = components.Count;
 			report.Metrics["chokepoint_segment_count"] = map.Chokepoints.Count;
 			report.Metrics["chokepoint_orbit_count"] = map.Chokepoints.Select(c => c.SymmetryOrbit).Distinct().Count();

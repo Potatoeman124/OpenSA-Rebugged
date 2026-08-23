@@ -366,6 +366,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public List<RmgRepairRecord> Repairs { get; } = new();
 		public int RepairCount { get; set; }
 		public int RetryCount { get; set; }
+		public int ColonySearchNodes { get; set; }
 
 		public RmgLogicalMap(int width, int height)
 		{
