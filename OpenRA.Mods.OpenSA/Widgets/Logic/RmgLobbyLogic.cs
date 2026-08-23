@@ -425,7 +425,11 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 				generatedUid = result.EngineUid;
 				stale = false;
 				rmgMode = true;
-				SetStatus($"Ready: {candidate.Title} ({result.Performance.TotalMilliseconds / 1000d:0.0}s)", StatusKind.Success);
+				var placedColonies = result.Generation.Map.Actors.Count(actor => actor.Owner == result.Generation.Profile.ColonyOwner);
+				var colonySuffix = placedColonies < settingsResolution.Normalized.NeutralColonyCount ?
+					$"; colonies {placedColonies}/{settingsResolution.Normalized.NeutralColonyCount}, reduced safely" : string.Empty;
+				SetStatus($"Ready: {candidate.Title} ({result.Performance.TotalMilliseconds / 1000d:0.0}s{colonySuffix})",
+					placedColonies < settingsResolution.Normalized.NeutralColonyCount ? StatusKind.Warning : StatusKind.Success);
 				orderManager.IssueOrder(Order.Command("map " + generatedUid));
 				Game.Settings.Server.Map = generatedUid;
 				Game.Settings.Save();
@@ -470,8 +474,8 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 
 			var lineBreak = text.IndexOfAny(new[] { '\r', '\n' });
 			var line = lineBreak < 0 ? text : text[..lineBreak];
-			const int maximumLength = 120;
-			return line.Length <= maximumLength ? line : line[..(maximumLength - 3)] + "...";
+			const int MaximumLength = 120;
+			return line.Length <= MaximumLength ? line : line[..(MaximumLength - 3)] + "...";
 		}
 
 		string CurrentMapUid() => orderManager.LobbyInfo?.GlobalSettings?.Map;

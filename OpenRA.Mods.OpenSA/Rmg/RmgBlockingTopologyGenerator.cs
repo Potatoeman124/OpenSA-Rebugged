@@ -21,6 +21,12 @@ namespace OpenRA.Mods.OpenSA.Rmg
 	{
 		sealed record BlockingRoutePlan(int RouteId, RmgPoint[] Centerline);
 
+		sealed class ObstacleDensityTargetMissException : InvalidOperationException
+		{
+			public ObstacleDensityTargetMissException(string message)
+				: base(message) { }
+		}
+
 		static RmgGenerationResult GenerateBlockingTopology(RmgProfile profile, RmgGenerationSettings settings)
 		{
 			var map = new RmgLogicalMap(profile.LogicalWidth, profile.LogicalHeight);
@@ -422,6 +428,15 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					map.RetryCount = attempt;
 					return;
 				}
+				catch (ObstacleDensityTargetMissException e) when (
+					profile.GeneratorVersion >= 6 && attempt == profile.MaximumTopologyAttempts - 1)
+				{
+					// Version 6 treats the density envelope as a quality target. The final
+					// deterministic topology still proceeds through every hard playability gate.
+					lastFailure = e;
+					map.RetryCount = attempt;
+					return;
+				}
 				catch (InvalidOperationException e)
 				{
 					lastFailure = e;
@@ -673,7 +688,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			}
 
 			if (density < minimum || density > maximum)
-				throw new InvalidOperationException($"Attempt {attempt} produced obstacle density {density:F3}%, outside {minimum}-{maximum}%; " +
+				throw new ObstacleDensityTargetMissException($"Attempt {attempt} produced obstacle density {density:F3}%, outside {minimum}-{maximum}%; " +
 					$"initially-eligible={initiallyEligibleCells}, minimum-target={minimumTarget}.");
 		}
 
@@ -1180,8 +1195,16 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				Hard("OPEN_COMPONENTS", $"Terrain-only OPEN mask has {openComponents.Count} connected components; expected one.");
 			if (map.Starts.Count != settings.PlayerCount || map.Actors.Count(a => a.Type == profile.SpawnActor) != settings.PlayerCount)
 				Hard("START_COUNT", "Start anchors or mpspawn actors do not match the requested player count.");
-			if (map.Actors.Count(a => a.Owner == profile.ColonyOwner) != settings.NeutralColonyCount)
+			var placedColonyCount = map.Actors.Count(a => a.Owner == profile.ColonyOwner);
+			var minimumColonyCount = settings.PlayerCount == 2 ? 8 : 12;
+			if (profile.GeneratorVersion < 6 && placedColonyCount != settings.NeutralColonyCount)
 				Hard("COLONY_COUNT", "Neutral-colony count differs from the requested setting.");
+			else if (profile.GeneratorVersion >= 6 && (placedColonyCount < minimumColonyCount ||
+				placedColonyCount > settings.NeutralColonyCount || placedColonyCount % settings.PlayerCount != 0))
+				Hard("COLONY_COUNT", $"Placed {placedColonyCount} neutral colonies; the safe adaptive range is {minimumColonyCount}-{settings.NeutralColonyCount} in complete player-symmetric groups.");
+			else if (placedColonyCount < settings.NeutralColonyCount)
+				report.Warnings.Add(new RmgValidationIssue("COLONY_TARGET_REDUCED",
+					$"Placed {placedColonyCount} of {settings.NeutralColonyCount} requested neutral colonies after the bounded combat-safe search."));
 			foreach (var start in map.Starts)
 			{
 				var outgoing = map.GraphEdges.Count(e => map.GraphNodes.Single(n => n.Id == e.From).Location == start);
@@ -1208,7 +1231,14 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var density = 100D * map.Obstacles.Count(x => x) / map.Obstacles.Length;
 			var (minimum, maximum) = profile.ObstacleDensityRange(settings.Archetype);
 			if (density < minimum || density > maximum)
-				Hard("OBSTACLE_DENSITY", $"Obstacle density {density:F3}% is outside {minimum}-{maximum}%.");
+			{
+				if (profile.GeneratorVersion >= 6)
+					report.Warnings.Add(new RmgValidationIssue("OBSTACLE_DENSITY_TARGET_MISSED",
+						$"Obstacle density {density:F3}% is outside the {minimum}-{maximum}% quality target; hard topology and movement validation remain authoritative."));
+				else
+					Hard("OBSTACLE_DENSITY", $"Obstacle density {density:F3}% is outside {minimum}-{maximum}%.");
+			}
+
 			if (map.Repairs.Count > profile.MaximumRepairOperations || map.RepairChanges.Count(x => x) > profile.MaximumRepairCellsLogical)
 				Hard("REPAIR_BUDGET", "Bounded repairs exceeded the frozen operation or changed-cell budget.");
 
@@ -1226,12 +1256,16 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				Hard("NATIVE_CONNECTIVITY_PROXY", $"The obstacle-aware 3x3 proxy reaches {reachableStarts}/{map.Starts.Count} starts.");
 			report.Metrics["player_count"] = settings.PlayerCount;
 			report.Metrics["neutral_colony_count"] = colonies.Length;
+			report.Metrics["neutral_colony_requested_count"] = settings.NeutralColonyCount;
+			report.Metrics["neutral_colony_target_reduced"] = colonies.Length < settings.NeutralColonyCount ? 1 : 0;
+			report.Metrics["neutral_colony_search_nodes"] = map.ColonySearchNodes;
 			report.Metrics["colony_assignment_spread"] = assignments.Max() - assignments.Min();
 			report.Metrics["minimum_colony_separation_logical"] = colonies.Length < 2 ? 0 :
 				colonies.SelectMany((a, i) => colonies.Skip(i + 1).Select(b => a.LogicalLocation.ChebyshevDistance(b.LogicalLocation))).Min();
 			report.Metrics["route_cell_count"] = map.RouteMasks.Count(r => r != 0);
 			report.Metrics["obstacle_cell_count"] = map.Obstacles.Count(x => x);
 			report.Metrics["obstacle_density_percent"] = density;
+			report.Metrics["obstacle_density_target_met"] = density >= minimum && density <= maximum ? 1 : 0;
 			report.Metrics["obstacle_region_count"] = components.Count;
 			report.Metrics["chokepoint_segment_count"] = map.Chokepoints.Count;
 			report.Metrics["chokepoint_orbit_count"] = map.Chokepoints.Select(c => c.SymmetryOrbit).Distinct().Count();

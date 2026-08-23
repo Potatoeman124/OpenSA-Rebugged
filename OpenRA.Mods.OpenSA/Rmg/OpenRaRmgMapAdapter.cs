@@ -341,7 +341,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (!actorCounts.TryGetValue(profile.SpawnActor, out var spawnCount) || spawnCount != generation.Settings.PlayerCount)
 				throw new InvalidDataException("Reloaded map does not contain exactly one mpspawn per player.");
 			var colonyCount = profile.NeutralColonyActors.Sum(type => actorCounts.TryGetValue(type, out var count) ? count : 0);
-			if (colonyCount != generation.Settings.NeutralColonyCount)
+			var plannedColonyCount = generation.Map.Actors.Count(actor => actor.Owner == profile.ColonyOwner);
+			if (colonyCount != plannedColonyCount)
 				throw new InvalidDataException("Reloaded map neutral-colony count differs from the generation plan.");
 
 			for (var logicalY = 0; logicalY < profile.LogicalHeight; logicalY++)
@@ -460,7 +461,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				["symmetry"] = SymmetryName(settings.Symmetry),
 				["archetype"] = ArchetypeName(settings.Archetype),
 				["topology_preset"] = TopologyName(settings.TopologyPreset),
-				["neutral_colonies"] = settings.NeutralColonyCount,
+				["neutral_colonies"] = generation.Map.Actors.Count(actor => actor.Owner == generation.Profile.ColonyOwner),
+				["neutral_colonies_requested"] = settings.NeutralColonyCount,
 				["output"] = outputPath,
 				["player_settings"] = settings.PlayerSettingsResolution?.ToJson(),
 				["logical_hash_sha256"] = generation.LogicalHash,
