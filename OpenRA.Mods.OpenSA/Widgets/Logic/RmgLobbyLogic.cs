@@ -28,7 +28,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		const int NormalLobbyWidth = 900;
 		const int NormalLobbyHeight = 600;
 		const int RmgLobbyWidth = 1182;
-		const int RmgLobbyHeight = 372;
+		const int RmgLobbyHeight = 412;
 
 		enum TerrainChoice { Normal, Desert, Swamp, Candy }
 		enum SizeChoice { Small, Standard, Large }
@@ -50,14 +50,20 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		readonly DropDownButtonWidget terrainButton;
 		readonly DropDownButtonWidget sizeButton;
 		readonly DropDownButtonWidget layoutButton;
+		readonly DropDownButtonWidget layoutFamilyButton;
 		readonly DropDownButtonWidget colonyButton;
+		readonly DropDownButtonWidget waterButton;
+		readonly DropDownButtonWidget tacticalTerrainButton;
 		readonly ButtonWidget rmgToggleButton;
 
 		RmgPlayerPreset preset = RmgPlayerPreset.Balanced;
 		TerrainChoice terrain = TerrainChoice.Normal;
 		SizeChoice size = SizeChoice.Standard;
 		LayoutChoice layout = LayoutChoice.ContestedCenter;
+		RmgPlayerLayoutFamily layoutFamily = RmgPlayerLayoutFamily.StructuredCompetitive;
 		RmgPlayerColonyDensity colonyDensity = RmgPlayerColonyDensity.Standard;
+		RmgPlayerParameterLevel waterAmount = RmgPlayerParameterLevel.Standard;
+		RmgPlayerParameterLevel tacticalTerrain = RmgPlayerParameterLevel.Standard;
 		int playerCount = 4;
 		bool presetCustomized;
 		bool stale;
@@ -99,7 +105,10 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			terrainButton = lobby.Get<DropDownButtonWidget>("RMG_TERRAIN");
 			sizeButton = lobby.Get<DropDownButtonWidget>("RMG_SIZE");
 			layoutButton = lobby.Get<DropDownButtonWidget>("RMG_LAYOUT");
+			layoutFamilyButton = lobby.Get<DropDownButtonWidget>("RMG_LAYOUT_FAMILY");
 			colonyButton = lobby.Get<DropDownButtonWidget>("RMG_COLONY_DENSITY");
+			waterButton = lobby.Get<DropDownButtonWidget>("RMG_WATER_AMOUNT");
+			tacticalTerrainButton = lobby.Get<DropDownButtonWidget>("RMG_TERRAIN_COMPLEXITY");
 
 			BindControls();
 			rmgToggleButton.GetText = () => rmgView ? "Return to Skirmish" : "Random Map Generator";
@@ -139,7 +148,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			SetLobbyBounds(RmgLobbyWidth, RmgLobbyHeight);
 			SetBounds("SERVER_NAME", 0, 8, 1182, 25);
 			SetBounds("RMG_TOGGLE_BUTTON", 20, 8, 200, 25);
-			SetBounds("RMG_PANEL", 20, 42, 1142, 310);
+			SetBounds("RMG_PANEL", 20, 42, 1142, 350);
 			SetBounds("MAP_PREVIEW_ROOT", 875, 55, 270, 250);
 		}
 
@@ -220,6 +229,20 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					new Choice<SizeChoice>(SizeChoice.Large, "256 x 256 (planned)")
 				}, () => size, value => { size = value; MarkStale(); });
 
+			layoutFamilyButton.GetText = () => LayoutFamilyDisplayName(layoutFamily);
+			BindDropDown(layoutFamilyButton,
+				new[]
+				{
+					new Choice<RmgPlayerLayoutFamily>(RmgPlayerLayoutFamily.NaturalLandscape, "Natural Landscape (planned)"),
+					new Choice<RmgPlayerLayoutFamily>(RmgPlayerLayoutFamily.StructuredCompetitive, "Structured Competitive"),
+					new Choice<RmgPlayerLayoutFamily>(RmgPlayerLayoutFamily.ArtificialBattlefield, "Artificial Battlefield")
+				}, () => layoutFamily, value =>
+				{
+					layoutFamily = value;
+					presetCustomized = true;
+					MarkStale();
+				});
+
 			layoutButton.GetText = () => LayoutDisplayName(layout);
 			BindDropDown(layoutButton,
 				new[]
@@ -246,6 +269,34 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 				}, () => colonyDensity, value =>
 				{
 					colonyDensity = value;
+					presetCustomized = true;
+					MarkStale();
+				});
+
+			waterButton.GetText = () => ParameterLevelDisplayName(waterAmount);
+			BindDropDown(waterButton,
+				new[]
+				{
+					new Choice<RmgPlayerParameterLevel>(RmgPlayerParameterLevel.Low, "Low"),
+					new Choice<RmgPlayerParameterLevel>(RmgPlayerParameterLevel.Standard, "Standard"),
+					new Choice<RmgPlayerParameterLevel>(RmgPlayerParameterLevel.High, "High")
+				}, () => waterAmount, value =>
+				{
+					waterAmount = value;
+					presetCustomized = true;
+					MarkStale();
+				});
+
+			tacticalTerrainButton.GetText = () => ParameterLevelDisplayName(tacticalTerrain);
+			BindDropDown(tacticalTerrainButton,
+				new[]
+				{
+					new Choice<RmgPlayerParameterLevel>(RmgPlayerParameterLevel.Low, "Low"),
+					new Choice<RmgPlayerParameterLevel>(RmgPlayerParameterLevel.Standard, "Standard"),
+					new Choice<RmgPlayerParameterLevel>(RmgPlayerParameterLevel.High, "High")
+				}, () => tacticalTerrain, value =>
+				{
+					tacticalTerrain = value;
 					presetCustomized = true;
 					MarkStale();
 				});
@@ -284,7 +335,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			generateButton.IsDisabled = () => !CanConfigure() || UnsupportedReason() != null || !TryGetSeed();
 			generateButton.OnClick = QueueGeneration;
 
-			foreach (var id in new[] { "RMG_TERRAIN_COMPLEXITY", "RMG_WATER_AMOUNT", "RMG_CHOKEPOINTS", "RMG_HOSTILES" })
+			foreach (var id in new[] { "RMG_CHOKEPOINTS", "RMG_HOSTILES" })
 				lobby.Get<DropDownButtonWidget>(id).IsDisabled = () => true;
 
 			statusLabel.GetText = () => statusText;
@@ -323,16 +374,25 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			switch (selected)
 			{
 				case RmgPlayerPreset.OpenConflict:
+					layoutFamily = RmgPlayerLayoutFamily.ArtificialBattlefield;
 					layout = LayoutChoice.OpenFields;
 					colonyDensity = RmgPlayerColonyDensity.Sparse;
+					waterAmount = RmgPlayerParameterLevel.Low;
+					tacticalTerrain = RmgPlayerParameterLevel.Low;
 					break;
 				case RmgPlayerPreset.TacticalCrossroads:
+					layoutFamily = RmgPlayerLayoutFamily.ArtificialBattlefield;
 					layout = LayoutChoice.ContestedCenter;
 					colonyDensity = RmgPlayerColonyDensity.Dense;
+					waterAmount = RmgPlayerParameterLevel.Standard;
+					tacticalTerrain = RmgPlayerParameterLevel.High;
 					break;
 				default:
+					layoutFamily = RmgPlayerLayoutFamily.StructuredCompetitive;
 					layout = LayoutChoice.ContestedCenter;
 					colonyDensity = RmgPlayerColonyDensity.Standard;
+					waterAmount = RmgPlayerParameterLevel.Standard;
+					tacticalTerrain = RmgPlayerParameterLevel.Standard;
 					break;
 			}
 
@@ -344,6 +404,8 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 
 		string UnsupportedReason()
 		{
+			if (layoutFamily == RmgPlayerLayoutFamily.NaturalLandscape)
+				return "Natural Landscape is planned until a genuinely organic terrain-generation contract is implemented.";
 			if (terrain != TerrainChoice.Normal)
 				return $"{TerrainDisplayName(terrain)} terrain is a planned placeholder; NORMAL is currently supported.";
 			if (size != SizeChoice.Standard)
@@ -401,7 +463,10 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					PlayerCount = playerCount,
 					Symmetry = RmgPlayerSymmetry.Automatic,
 					Layout = layout == LayoutChoice.OpenFields ? RmgPlayerLayout.OpenFields : RmgPlayerLayout.ContestedCenter,
-					NeutralColonyDensity = colonyDensity
+					LayoutFamily = layoutFamily,
+					NeutralColonyDensity = colonyDensity,
+					WaterAmount = waterAmount,
+					TacticalTerrain = tacticalTerrain
 				};
 				var settingsResolution = RmgPlayerSettingsContract.Resolve(playerSettings);
 				var profile = RmgProfile.Load(modData, settingsResolution.Normalized.TopologyPreset);
@@ -426,10 +491,20 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 				stale = false;
 				rmgMode = true;
 				var placedColonies = result.Generation.Map.Actors.Count(actor => actor.Owner == result.Generation.Profile.ColonyOwner);
-				var colonySuffix = placedColonies < settingsResolution.Normalized.NeutralColonyCount ?
-					$"; colonies {placedColonies}/{settingsResolution.Normalized.NeutralColonyCount}, reduced safely" : string.Empty;
-				SetStatus($"Ready: {candidate.Title} ({result.Performance.TotalMilliseconds / 1000d:0.0}s{colonySuffix})",
-					placedColonies < settingsResolution.Normalized.NeutralColonyCount ? StatusKind.Warning : StatusKind.Success);
+				var obstaclePercent = result.Generation.Validation.Metrics["obstacle_density_percent"];
+				var interiorWaterPercent = result.Generation.Validation.Metrics["water_interior_density_percent"];
+				var waterBodyCount = result.Generation.Validation.Metrics["water_body_count"];
+				var largestWaterBodyShare = result.Generation.Validation.Metrics["water_largest_body_share_percent"];
+				var rockPercent = result.Generation.Validation.Metrics["rock_land_achieved_percent"];
+				var vegetationPercent = result.Generation.Validation.Metrics["vegetation_land_achieved_percent"];
+				var colonySummary = placedColonies < settingsResolution.Normalized.NeutralColonyCount ?
+					$"; colonies {placedColonies}/{settingsResolution.Normalized.NeutralColonyCount}" : string.Empty;
+				var adjusted = result.Generation.Validation.Warnings.Count > 0 ? "; adjusted safely" : string.Empty;
+				SetStatus($"Ready: {candidate.Title} ({result.Performance.TotalMilliseconds / 1000d:0.0}s; " +
+					$"Water {obstaclePercent:0.0}% total/{interiorWaterPercent:0.0}% interior, " +
+					$"{waterBodyCount:0} bodies/{largestWaterBodyShare:0}% largest; " +
+					$"Rock/Vegetation {rockPercent:0.0}/{vegetationPercent:0.0}%{colonySummary}{adjusted})",
+					result.Generation.Validation.Warnings.Count > 0 ? StatusKind.Warning : StatusKind.Success);
 				orderManager.IssueOrder(Order.Command("map " + generatedUid));
 				Game.Settings.Server.Map = generatedUid;
 				Game.Settings.Save();
@@ -536,6 +611,14 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			_ => "256 x 256 (planned)"
 		};
 
+		static string LayoutFamilyDisplayName(RmgPlayerLayoutFamily value) => value switch
+		{
+			RmgPlayerLayoutFamily.NaturalLandscape => "Natural Landscape (planned)",
+			RmgPlayerLayoutFamily.StructuredCompetitive => "Structured Competitive",
+			RmgPlayerLayoutFamily.ArtificialBattlefield => "Artificial Battlefield",
+			_ => "Preset"
+		};
+
 		static string LayoutDisplayName(LayoutChoice value) => value switch
 		{
 			LayoutChoice.OpenFields => "Open Fields",
@@ -543,6 +626,13 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			LayoutChoice.MixedFronts => "Mixed Fronts (planned)",
 			LayoutChoice.NarrowPassages => "Narrow Passages (planned)",
 			_ => "Chaos (planned)"
+		};
+
+		static string ParameterLevelDisplayName(RmgPlayerParameterLevel value) => value switch
+		{
+			RmgPlayerParameterLevel.Low => "Low",
+			RmgPlayerParameterLevel.High => "High",
+			_ => "Standard"
 		};
 
 		static string ColonyDisplayName(RmgPlayerColonyDensity value) => value switch

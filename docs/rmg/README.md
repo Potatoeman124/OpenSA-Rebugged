@@ -37,11 +37,19 @@ The [Phase 6A NORMAL land-surface audit and contract](PHASE_6A_NORMAL_LAND_SURFA
 
 [Phase 6C](PHASE_6C_WEIGHTED_LAND_COVER.md) implements opt-in Generator Version 5 with nested Clear-to-Rock-to-Vegetation fields, capacity-aware coverage targets, exact semantic symmetry, and native weighted-path parity. The full protected-Clear contract takes precedence over the nominal 14-percent Rock and 8-percent Vegetation targets. The [manual Phase 6C corpus](PHASE_6C_MANUAL_PLAYTEST_SEEDS.md) reuses the same eight comparison seeds and records the achieved coverage on each map.
 
-The proposed [player-facing random map parameters](PLAYER_FACING_RANDOM_MAP_PARAMETERS.md) separate meaningful gameplay choices from mandatory generator safety and fairness invariants, and define the future `Generate Map...` workflow without treating the current test layouts as UI-ready.
+The [player-facing random map parameters](PLAYER_FACING_RANDOM_MAP_PARAMETERS.md) separate meaningful gameplay choices from mandatory safety and fairness invariants. Phase 8A implements Water Amount and Tactical Terrain through the separate in-game RMG panel; deferred controls remain visibly disabled until their own generator contracts exist.
 
 The [Phase 7A battlefield-layout audit](PHASE_7A_BATTLEFIELD_LAYOUT_AUDIT.md) covers all 100 campaign maps, 13 custom/challenge scenarios, 11 skirmish references, one unclassified shipped map, and the eight Phase 6 generated comparisons. It confirms that the prototype's Rock and Vegetation are almost entirely edge-biased while cosmetic detail is too sparse, and freezes the separation between role-aware movement terrain, passable cosmetic detail, and blocking decorations for Phase 7B.
 
 [Phase 7B](PHASE_7B_ROLE_AWARE_BATTLEFIELD_LAYOUT.md) implements opt-in Generator Version 6. It classifies passable land as protected Clear, contest, primary-route, flank, or quiet space before materialization; prioritizes Rock and Vegetation according to those roles; and independently spreads passable cosmetic decoration across a 4x4 coverage grid. The [manual Phase 7B corpus](PHASE_7B_MANUAL_PLAYTEST_SEEDS.md) preserves the eight Phase 6 comparison seeds, including the empty-center regression seed `3100026` and the dense capacity case `3100047`.
+
+[Phase 8A](PHASE_8A_PARAMETERIZED_BATTLEFIELD.md) adds opt-in Generator Version 7 and player-settings schema version 2. Water Amount selects Low/Standard/High deterministic obstacle-density targets; Tactical Terrain selects Low/Standard/High Rock, Vegetation, and tactical-anchor targets. Both controls preserve hard safety gates, report requested versus achieved outcomes, and remain compatible with schema-version-1 documents normalized to frozen Version 6.
+
+The [Phase 8B Water-morphology and layout-algorithm audit](PHASE_8B_WATER_MORPHOLOGY_AND_LAYOUT_ALGORITHM_AUDIT.md) compares all 125 shipped maps with 14 Version 7 examples. It confirms that Version 7 reaches its Water-area target but fragments that budget into many small bodies. The durable taxonomy is Natural Landscape, Structured Competitive, and Artificial Battlefield, with theme independent. Later visual review corrected the implementation mapping: Version 7 is Artificial Battlefield, Version 8 is Structured Competitive, and Natural Landscape remains planned.
+
+[Phase 8C](PHASE_8C_STRUCTURED_COMPETITIVE_COHERENT_WATER.md) implements Generator Version 8 and player-settings schema version 3 with corrected terminology. Structured Competitive uses coherent Water fields while retaining the route-first exact-symmetry scaffold; Artificial Battlefield is frozen Version 7; Natural Landscape is a non-generating planned option. The [paired manual corpus](PHASE_8C_LAYOUT_FAMILY_MANUAL_PLAYTEST_SEEDS.md) compares both implemented families under identical settings.
+
+[Phase 9.0](PHASE_9_0_V7_V8_PRESERVATION_BASELINE.md) freezes that corrected V7/V8 state before Natural Landscape V9 work. Its committed fixture records twelve representative five-hash identities, and the preservation wrapper regenerates every case in two independent processes while proving that Natural Landscape cannot fall back to V7 or V8.
 
 ## Movement validation architecture
 
@@ -194,24 +202,29 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\rmg\Prepare-Phase7
 
 The replacement option deletes only matching `OpenSA-RMG-*.oramap` files from the OpenRA development user-map directory. See the [Phase 7B implementation contract](PHASE_7B_ROLE_AWARE_BATTLEFIELD_LAYOUT.md) and [manual playtest corpus](PHASE_7B_MANUAL_PLAYTEST_SEEDS.md).
 
-## Phase 7C player-settings usage
+## Player-settings and Version 7 usage
 
-Generate through the serializable player-facing settings layer with:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\rmg\Invoke-PlayerMapGenerator.ps1 -Seed 3100009 -Preset balanced -Players 2 -Symmetry automatic -InstallForPlay -Overwrite
-```
-
-Available presets are `balanced`, `open-conflict`, and `tactical-crossroads`. Optional constrained overrides are `-Layout preset|open-fields|contested-center`, `-NeutralColonyDensity preset|sparse|standard|dense`, and explicit symmetry. Every accepted request normalizes to Generator Version 6, `battlefield-layout`, NORMAL, and 128 by 128.
-
-Install the complete eight-map settings corpus with:
+The player-facing wrapper now creates schema-version-2 settings and selects Generator Version 7:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\rmg\Prepare-Phase7cManualCorpus.ps1 -InstallForPlay -ReplaceInstalledRmgCorpus -Overwrite
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\rmg\Invoke-PlayerMapGenerator.ps1 `
+    -Seed 8100001 -Preset balanced -Players 2 -Symmetry automatic `
+    -WaterAmount high -TacticalTerrain low -InstallForPlay -Overwrite
 ```
 
-The generated settings, reports, and local examples remain ignored under `artifacts/rmg/phase-7c-player-settings/`. Reports record both requested and normalized settings. See the [Phase 7C contract](PHASE_7C_PLAYER_SETTINGS_CONTRACT.md) and [manual corpus](PHASE_7C_MANUAL_PLAYTEST_SEEDS.md).
+Presets are `balanced`, `open-conflict`, and `tactical-crossroads`. Optional overrides include `-Layout`, `-NeutralColonyDensity`, `-WaterAmount`, `-TacticalTerrain`, and explicit symmetry. Existing schema-version-1 documents remain accepted and normalize to frozen Version 6; schema version 2 normalizes to Version 7 `parameterized-battlefield`.
 
+For low-level regression work, select Version 7 explicitly:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\rmg\Invoke-MapGenerator.ps1 `
+    -Seed 8100001 -Players 2 -NeutralColonies 10 -Symmetry rotational `
+    -Archetype central-contest -Topology parameterized-battlefield `
+    -WaterAmount high -TacticalTerrain low -MovementValidation both `
+    -InstallForPlay -Overwrite
+```
+
+The generated settings, reports, and examples remain ignored under `artifacts/rmg/phase-8a-parameterized-battlefield/`. Reports record requested, normalized, effective-target, and achieved values. See the [Phase 8A contract](PHASE_8A_PARAMETERIZED_BATTLEFIELD.md) and [nine-map manual corpus](PHASE_8A_MANUAL_PLAYTEST_SEEDS.md); [Phase 7C](PHASE_7C_PLAYER_SETTINGS_CONTRACT.md) remains the schema-version-1 compatibility contract.
 ## Current implementation boundary
 
 Generator Version 1 implements deterministic settings, independent random streams, symmetry-aware starts, a strategic graph with two start-to-hub routes, widened route reservations, role-scored neutral colonies, symmetric Clear-template materialization, proxy and engine-grounded static movement validation, map lint, quality metrics, repeatability hashes, and repeated save/reload package validation. Its obstacle stage remains a validated zero-density no-op.
@@ -224,4 +237,8 @@ Phase 7A quantifies the placement problem across the complete shipped corpus and
 
 Phase 7B maps soil to flowers and high grass, gravel to brown mushrooms, and moss to red mushrooms. High grass and mushrooms use RMG-only passable aliases with the stock artwork, preserving official-map blocking behavior while preventing generated-route narrowing. Version 6 also rejects square-edged moss detail template `93` and uses seamless interior template `78`.
 
-Phase 7C adds strict JSON schema version 1 and player-facing presets over Version 6. Unsupported fields and deferred options are rejected; validation behavior is unchanged. The in-game dialog, progress/cancellation, preview, map-cache refresh, and multiplayer lifecycle remain a separate audited integration phase.
+Phase 7C adds strict JSON schema version 1 and player-facing presets over Version 6. Unsupported fields remain rejected, and schema-version-1 normalization is preserved unchanged.
+
+Phase 8A adds schema version 2 and opt-in Generator Version 7. The separate in-game RMG panel, modal progress state, preview, and map-cache refresh are integrated. Water Amount and Tactical Terrain are functional Low/Standard/High controls with requested-versus-achieved diagnostics; Chokepoints and Amount of Hostiles remain disabled placeholders.
+
+Phase 8B adds Water-component morphology to the complete-corpus audit. Phase 8C adds a first-class Layout Family control and Version 8 coherent Water morphology. Visual review corrected the labels: Version 8 is Structured Competitive, Version 7 is Artificial Battlefield, and Natural Landscape remains a disabled placeholder until a terrain-first organic generator exists.

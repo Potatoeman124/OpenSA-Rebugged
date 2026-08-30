@@ -46,16 +46,43 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 			var rolePriorities = profile.UsesBattlefieldLayout ? BuildLatticeRolePriorities(map, latticeWidth, latticeHeight) : null;
 
-			var requestedVegetationTarget = RoundedPercent(landNativeCount, profile.VegetationLandPercent);
+			var requestedVegetationTarget = RoundedPercent(landNativeCount, profile.VegetationLandPercentFor(settings.TacticalTerrain));
 			var vegetationCapacity = WeightedCount(allowedVegetationCore, latticeWidth, latticeHeight, map.Width, map.Height);
 			var vegetationTarget = Math.Min(requestedVegetationTarget, vegetationCapacity);
-			var vegetation = GenerateMask(allowedVegetationCore, latticeWidth, latticeHeight, vegetationTarget,
-				settings.Symmetry, DeterministicRandom.ForStream(settings, profile, "terrain-land-cover-vegetation"), 3,
-				rolePriorities);
-			var requiredEnvelope = Dilate(vegetation, allowedEnvelope, latticeWidth, latticeHeight, 1);
+			var vegetationAttempt = 0;
+
+			bool[] vegetation;
+			bool[] requiredEnvelope;
+			while (true)
+			{
+				var stream = vegetationAttempt == 0 ? "terrain-land-cover-vegetation" :
+					$"terrain-land-cover-vegetation-retry-{vegetationAttempt}";
+				vegetation = GenerateMask(allowedVegetationCore, latticeWidth, latticeHeight, vegetationTarget,
+					settings.Symmetry, DeterministicRandom.ForStream(settings, profile, stream), 3, rolePriorities);
+				try
+				{
+					requiredEnvelope = Dilate(vegetation, allowedEnvelope, latticeWidth, latticeHeight, 1,
+						settings.Symmetry, profile.UsesParameterizedBattlefield);
+					if (profile.UsesParameterizedBattlefield)
+						vegetationTarget = Math.Min(vegetationTarget, WeightedCount(vegetation, latticeWidth, latticeHeight, map.Width, map.Height));
+					break;
+				}
+				catch (RmgGenerationRejectedException e) when (profile.UsesParameterizedBattlefield &&
+					e.RejectionCode == "LAND_COVER_UNSUPPORTED_MASK" && vegetationAttempt < 31)
+				{
+					vegetationAttempt++;
+				}
+				catch (RmgGenerationRejectedException e) when (profile.UsesParameterizedBattlefield &&
+					e.RejectionCode == "LAND_COVER_UNSUPPORTED_MASK" && vegetationTarget > 0)
+				{
+					vegetationTarget = Math.Max(0, vegetationTarget - Math.Max(8, RoundedPercent(landNativeCount, 1)));
+					vegetationAttempt = 0;
+				}
+			}
+
 			if (profile.UsesBattlefieldLayout)
 				AddTacticalAnchors(map, profile, settings, requiredEnvelope, allowedEnvelope, rolePriorities, latticeWidth, latticeHeight);
-			var requestedRockTarget = RoundedPercent(landNativeCount, profile.RockLandPercent);
+			var requestedRockTarget = RoundedPercent(landNativeCount, profile.RockLandPercentFor(settings.TacticalTerrain));
 			var envelopeCapacity = WeightedCount(allowedEnvelope, latticeWidth, latticeHeight, map.Width, map.Height);
 			var combinedTarget = Math.Min(requestedRockTarget + vegetationTarget, envelopeCapacity);
 			var envelope = GenerateMask(allowedEnvelope, latticeWidth, latticeHeight, combinedTarget,
@@ -291,11 +318,11 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var selectedOrbits = 0;
 			foreach (var minimumDistance in new[] { 8, 6, 4, 2 })
 			{
-				if (selectedOrbits >= profile.TacticalLandAnchorOrbitCount)
+				if (selectedOrbits >= profile.TacticalLandAnchorOrbitCountFor(settings.TacticalTerrain))
 					break;
 				foreach (var candidate in candidates)
 				{
-					if (selectedOrbits >= profile.TacticalLandAnchorOrbitCount)
+					if (selectedOrbits >= profile.TacticalLandAnchorOrbitCountFor(settings.TacticalTerrain))
 						break;
 					var partner = TransformLattice(candidate, settings.Symmetry, width, height);
 					if (map.BattlefieldTacticalAnchors.Any(anchor =>
@@ -314,7 +341,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 			if (selectedOrbits == 0)
 				throw new RmgGenerationRejectedException("LAND_COVER_TACTICAL_ANCHORS",
-					$"No tactical slow-terrain anchor orbit fits the protected-clear and Water-separation constraints; target is {profile.TacticalLandAnchorOrbitCount}.");
+					$"No tactical slow-terrain anchor orbit fits the protected-clear and Water-separation constraints; target is {profile.TacticalLandAnchorOrbitCountFor(settings.TacticalTerrain)}.");
 		}
 
 		static bool[] GenerateMask(bool[] allowed, int width, int height, int targetWeight, RmgSymmetry symmetry,
@@ -325,6 +352,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				!MasksSupported(selected, width, height))
 				throw new RmgGenerationRejectedException("LAND_COVER_REQUIRED_MASK",
 					"The required nested land-cover mask is outside capacity or contains an unsupported diagonal transition.");
+			if (targetWeight <= 0)
+				return selected;
 			var seeds = Enumerable.Range(0, selected.Length).Where(index => selected[index])
 				.Select(index => new RmgPoint(index % width, index / width)).ToList();
 			var candidates = Enumerable.Range(0, allowed.Length)
@@ -511,6 +540,135 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			return true;
 		}
 
+		static bool PruneSourceForSupportedDilation(bool[] source, bool[] allowed, int width, int height,
+			int radius, RmgSymmetry symmetry, out bool[] result)
+		{
+			for (var repair = 0; repair < width * height; repair++)
+			{
+				if (!TryBuildDilation(source, allowed, width, height, radius, out result))
+					return false;
+				var unsupported = FirstUnsupportedStamp(result, width, height);
+				if (unsupported == null)
+					return true;
+
+				var stampPoint = unsupported.Value.Point;
+				var trueCorners = unsupported.Value.Mask == 6 ?
+					new[] { new RmgPoint(stampPoint.X + 1, stampPoint.Y), new RmgPoint(stampPoint.X, stampPoint.Y + 1) } :
+					new[] { stampPoint, new RmgPoint(stampPoint.X + 1, stampPoint.Y + 1) };
+				var removal = trueCorners.Select(corner => new
+				{
+					Corner = corner,
+					Sources = Enumerable.Range(0, source.Length).Where(index => source[index])
+						.Select(index => new RmgPoint(index % width, index / width))
+						.Where(point => point.ChebyshevDistance(corner) <= radius)
+						.SelectMany(point => new[] { point, TransformLattice(point, symmetry, width, height) })
+						.Distinct().ToArray()
+				}).Where(candidate => candidate.Sources.Length > 0)
+					.OrderBy(candidate => candidate.Sources.Sum(point => PointWeight(point, width - 1, height - 1)))
+					.ThenBy(candidate => candidate.Corner.Y).ThenBy(candidate => candidate.Corner.X)
+					.FirstOrDefault();
+				if (removal == null)
+					return false;
+				foreach (var point in removal.Sources)
+					source[point.Y * width + point.X] = false;
+				if (!RepairUnsupportedMasksByRemoval(source, width, height, symmetry))
+					return false;
+			}
+
+			result = null;
+			return false;
+		}
+
+		static bool TryBuildDilation(bool[] source, bool[] allowed, int width, int height, int radius, out bool[] result)
+		{
+			result = new bool[source.Length];
+			for (var index = 0; index < source.Length; index++)
+			{
+				if (!source[index])
+					continue;
+				var center = new RmgPoint(index % width, index / width);
+				for (var dy = -radius; dy <= radius; dy++)
+					for (var dx = -radius; dx <= radius; dx++)
+					{
+						var x = center.X + dx;
+						var y = center.Y + dy;
+						if (x < 0 || x >= width || y < 0 || y >= height || !allowed[y * width + x])
+							return false;
+						result[y * width + x] = true;
+					}
+			}
+
+			return true;
+		}
+
+		static bool RepairUnsupportedMasksByRemoval(bool[] selected, int width, int height, RmgSymmetry symmetry)
+		{
+			for (var repair = 0; repair < width * height; repair++)
+			{
+				var unsupported = FirstUnsupportedStamp(selected, width, height);
+				if (unsupported == null)
+					return true;
+				var point = unsupported.Value.Point;
+				var trueCorners = unsupported.Value.Mask == 6 ?
+					new[] { new RmgPoint(point.X + 1, point.Y), new RmgPoint(point.X, point.Y + 1) } :
+					new[] { point, new RmgPoint(point.X + 1, point.Y + 1) };
+				var selectedCorner = trueCorners.OrderBy(corner => NeighborScore(selected, width, height, corner))
+					.ThenBy(corner => corner.Y).ThenBy(corner => corner.X).First();
+				foreach (var corner in new[] { selectedCorner, TransformLattice(selectedCorner, symmetry, width, height) }.Distinct())
+					selected[corner.Y * width + corner.X] = false;
+			}
+
+			return MasksSupported(selected, width, height);
+		}
+
+		static (RmgPoint Point, int Mask)? FirstUnsupportedStamp(bool[] mask, int width, int height)
+		{
+			for (var y = 0; y < height - 1; y++)
+				for (var x = 0; x < width - 1; x++)
+				{
+					var stamp = StampMask(mask, width, x, y);
+					if (stamp == 6 || stamp == 9)
+						return (new RmgPoint(x, y), stamp);
+				}
+
+			return null;
+		}
+
+		static bool RepairUnsupportedMasks(bool[] selected, bool[] allowed, int width, int height, RmgSymmetry symmetry)
+		{
+			for (var repair = 0; repair < width * height; repair++)
+			{
+				var found = false;
+				var stampPoint = default(RmgPoint);
+				var stamp = 0;
+				for (var y = 0; y < height - 1 && !found; y++)
+					for (var x = 0; x < width - 1; x++)
+					{
+						stamp = StampMask(selected, width, x, y);
+						if (stamp != 6 && stamp != 9)
+							continue;
+						stampPoint = new RmgPoint(x, y);
+						found = true;
+						break;
+					}
+
+				if (!found)
+					return true;
+
+				var fillOptions = stamp == 6 ?
+					new[] { stampPoint, new RmgPoint(stampPoint.X + 1, stampPoint.Y + 1) } :
+					new[] { new RmgPoint(stampPoint.X + 1, stampPoint.Y), new RmgPoint(stampPoint.X, stampPoint.Y + 1) };
+				var repaired = fillOptions
+					.OrderByDescending(point => NeighborScore(selected, width, height, point))
+					.ThenBy(point => point.Y).ThenBy(point => point.X)
+					.Any(point => TryAdd(selected, allowed, new[] { point }, width, height, symmetry, out _));
+				if (!repaired)
+					return false;
+			}
+
+			return MasksSupported(selected, width, height);
+		}
+
 		static bool MasksSupported(bool[] mask, int width, int height)
 		{
 			for (var y = 0; y < height - 1; y++)
@@ -530,7 +688,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			(mask[(y + 1) * width + x] ? 4 : 0) |
 			(mask[(y + 1) * width + x + 1] ? 8 : 0);
 
-		static bool[] Dilate(bool[] source, bool[] allowed, int width, int height, int radius)
+		static bool[] Dilate(bool[] source, bool[] allowed, int width, int height, int radius, RmgSymmetry symmetry, bool repairUnsupportedMasks)
 		{
 			var result = new bool[source.Length];
 			for (var index = 0; index < source.Length; index++)
@@ -551,7 +709,13 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			}
 
 			if (!MasksSupported(result, width, height))
-				throw new RmgGenerationRejectedException("LAND_COVER_UNSUPPORTED_MASK", "Rock-envelope dilation produced an unsupported diagonal mask.");
+			{
+				var repaired = repairUnsupportedMasks && (RepairUnsupportedMasks(result, allowed, width, height, symmetry) ||
+					PruneSourceForSupportedDilation(source, allowed, width, height, radius, symmetry, out result));
+				if (!repaired)
+					throw new RmgGenerationRejectedException("LAND_COVER_UNSUPPORTED_MASK", "Rock-envelope dilation produced an unsupported diagonal mask.");
+			}
+
 			return result;
 		}
 

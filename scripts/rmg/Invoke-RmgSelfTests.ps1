@@ -39,4 +39,4 @@ finally
     Pop-Location
 }
 
-Write-Host "Focused V1-V6, inherited-baseline, terrain-catalogue, materializer, and native-validator RMG self-tests passed." -ForegroundColor Green
+Write-Host "Focused V1-V8, inherited-baseline, parameter-matrix, terrain-catalogue, materializer, and native-validator RMG self-tests passed." -ForegroundColor Green

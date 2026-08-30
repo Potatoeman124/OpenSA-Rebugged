@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [string]$OutputDirectory,
-    [string]$GeneratedMapDirectory
+    [string]$GeneratedMapDirectory,
+    [string]$GeneratedMapPattern = "*.oramap"
 )
 
 $ErrorActionPreference = "Stop"
@@ -31,7 +32,7 @@ elseif (![System.IO.Path]::IsPathRooted($GeneratedMapDirectory))
 $generatedMaps = @()
 if (Test-Path -LiteralPath $GeneratedMapDirectory -PathType Container)
 {
-    $generatedMaps = @(Get-ChildItem -LiteralPath $GeneratedMapDirectory -Filter "manual-310*.oramap" -File | Sort-Object Name | ForEach-Object FullName)
+    $generatedMaps = @(Get-ChildItem -LiteralPath $GeneratedMapDirectory -Filter $GeneratedMapPattern -File | Sort-Object Name | ForEach-Object FullName)
 }
 
 if (!(Test-Path -LiteralPath $utility -PathType Leaf))
@@ -67,4 +68,4 @@ finally
     Pop-Location
 }
 
-Write-Host "RMG Phase 7A battlefield-layout audit written to $OutputDirectory" -ForegroundColor Green
+Write-Host "RMG battlefield-layout and Water-morphology audit written to $OutputDirectory" -ForegroundColor Green

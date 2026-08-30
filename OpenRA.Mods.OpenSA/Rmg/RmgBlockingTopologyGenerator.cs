@@ -35,17 +35,74 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				ReserveSquare(map.StartReservations, map, start, profile.StartRegionRadiusNative / 2);
 
 			var routes = ReserveBlockingRoutes(map, settings);
-			MarkStrategicRegions(map);
+			MarkStrategicRegions(map, profile.UsesCoherentWaterMorphology);
 			ClearBlockingStage(map);
-			var startingObstacleOrbit = settings.Archetype == RmgArchetype.CentralContest ?
-				CreateChokepointOrbit(map, profile, settings, routes, 0) : 0;
-			PlaceColonies(map, profile, settings, true, 3, true);
-			ExpandColonyJunctions(map, profile, settings);
-			EnforceChokepointRouteCuts(map);
-			foreach (var colony in map.Actors.Where(a => a.Owner == profile.ColonyOwner))
-				ReserveNeutralColonyBlockingClearance(map, colony.LogicalLocation);
-			MarkStrategicRegions(map);
-			GenerateBlockingObstacleStage(map, profile, settings, startingObstacleOrbit);
+			var startingObstacleOrbit = 0;
+			if (settings.Archetype == RmgArchetype.CentralContest)
+				try
+				{
+					startingObstacleOrbit = CreateChokepointOrbit(map, profile, settings, routes, 0);
+				}
+				catch (RmgGenerationRejectedException e) when (profile.UsesParameterizedBattlefield && e.RejectionCode == "CHOKEPOINT_PLACEMENT")
+				{
+					map.ChokepointTargetReduced = true;
+				}
+
+			if (profile.UsesParameterizedBattlefield)
+			{
+				EnforceChokepointRouteCuts(map);
+				if (profile.UsesCoherentWaterMorphology)
+				{
+					// Structured Competitive treats colonies as gameplay anchors. Water is projected
+					// afterwards and must adapt around their combat-safe reservations.
+					var colonyProjectionSettings = NaturalColonyProjectionSettings(settings);
+					PlaceColonies(map, profile, colonyProjectionSettings, true, 3, true);
+					ExpandColonyJunctions(map, profile, settings);
+					EnforceChokepointRouteCuts(map);
+					foreach (var colony in map.Actors.Where(a => a.Owner == profile.ColonyOwner))
+						ReserveNeutralColonyBlockingClearance(map, colony.LogicalLocation);
+					MarkStrategicRegions(map, profile.UsesCoherentWaterMorphology);
+					var waterTarget = map.Obstacles.Length *
+						profile.ObstacleDensityTarget(settings.Archetype, settings.WaterAmount) / 100;
+					startingObstacleOrbit = SeedCoherentWaterRegions(map, profile, settings,
+						waterTarget, startingObstacleOrbit);
+					GenerateBlockingObstacleStage(map, profile, settings, startingObstacleOrbit);
+				}
+				else
+				{
+					// Artificial Battlefield reserves sector-distributed interior Water.
+					// Low and Standard reserve their minimum quota before colonies; High
+					// reserves its full selected target so optional colonies yield first.
+					var (interiorMinimumDensity, _) = WaterInteriorMinimum(settings.WaterAmount);
+					var interiorArea = (map.Width - 2 * WaterInteriorMarginLogical) *
+						(map.Height - 2 * WaterInteriorMarginLogical);
+					var waterAnchorTarget = map.Obstacles.Count(value => value) +
+						(int)Math.Ceiling(interiorArea * (interiorMinimumDensity + 0.5D) / 100D);
+					if (settings.WaterAmount == RmgParameterLevel.High)
+						waterAnchorTarget = map.Obstacles.Length *
+							profile.ObstacleDensityTarget(settings.Archetype, settings.WaterAmount) / 100;
+					startingObstacleOrbit = SeedInteriorWaterRegions(map, profile, settings, 0,
+						waterAnchorTarget, startingObstacleOrbit);
+					PlaceColonies(map, profile, settings, true, 3, true);
+					ExpandColonyJunctions(map, profile, settings);
+					EnforceChokepointRouteCuts(map);
+					foreach (var colony in map.Actors.Where(a => a.Owner == profile.ColonyOwner))
+						ReserveNeutralColonyBlockingClearance(map, colony.LogicalLocation);
+					MarkStrategicRegions(map, profile.UsesCoherentWaterMorphology);
+					GenerateBlockingObstacleStage(map, profile, settings, startingObstacleOrbit);
+				}
+			}
+			else
+			{
+				PlaceColonies(map, profile, settings, true, 3, true);
+				ExpandColonyJunctions(map, profile, settings);
+				EnforceChokepointRouteCuts(map);
+				foreach (var colony in map.Actors.Where(a => a.Owner == profile.ColonyOwner))
+					ReserveNeutralColonyBlockingClearance(map, colony.LogicalLocation);
+				MarkStrategicRegions(map, profile.UsesCoherentWaterMorphology);
+				GenerateBlockingObstacleStage(map, profile, settings, startingObstacleOrbit);
+			}
+
 			ApplyBlockingRepairs(map, profile);
 			AssignRegions(map);
 			RmgBattlefieldRolePlanner.Plan(map, profile, settings);
@@ -288,10 +345,11 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			return map.GraphEdges.Single(candidate => nodes[candidate.From].Location == from && nodes[candidate.To].Location == to);
 		}
 
-		static void MarkStrategicRegions(RmgLogicalMap map)
+		static void MarkStrategicRegions(RmgLogicalMap map, bool naturalLandscape)
 		{
+			var hubRadius = naturalLandscape ? 3 : 6;
 			foreach (var hub in map.GraphNodes.Where(n => n.Role == "hub"))
-				ReserveSquare(map.StrategicRegions, map, hub.Location, 6);
+				ReserveSquare(map.StrategicRegions, map, hub.Location, hubRadius);
 			for (var i = 0; i < map.RouteMasks.Length; i++)
 				if (BitCount(map.RouteMasks[i]) > 1)
 					map.StrategicRegions[i] = true;
@@ -406,6 +464,25 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			}
 		}
 
+		static RmgGenerationSettings NaturalColonyProjectionSettings(RmgGenerationSettings settings)
+		{
+			var protectedAnchorCount = Math.Min(settings.NeutralColonyCount, settings.PlayerCount * 2);
+			return new RmgGenerationSettings
+			{
+				Seed = settings.Seed,
+				PlayerCount = settings.PlayerCount,
+				Symmetry = settings.Symmetry,
+				Archetype = settings.Archetype,
+				NeutralColonyCount = protectedAnchorCount,
+				GeneratorVersion = settings.GeneratorVersion,
+				TopologyPreset = settings.TopologyPreset,
+				WaterAmount = settings.WaterAmount,
+				TacticalTerrain = settings.TacticalTerrain,
+				LayoutFamily = settings.LayoutFamily,
+				PlayerSettingsResolution = settings.PlayerSettingsResolution
+			};
+		}
+
 		static void GenerateBlockingObstacleStage(RmgLogicalMap map, RmgProfile profile, RmgGenerationSettings settings,
 			int startingObstacleOrbit)
 		{
@@ -429,7 +506,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					return;
 				}
 				catch (ObstacleDensityTargetMissException e) when (
-					profile.GeneratorVersion >= 6 && attempt == profile.MaximumTopologyAttempts - 1)
+					profile.GeneratorVersion == 6 && attempt == profile.MaximumTopologyAttempts - 1)
 				{
 					// Version 6 treats the density envelope as a quality target. The final
 					// deterministic topology still proceeds through every hard playability gate.
@@ -612,8 +689,14 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		static void GenerateSymmetricObstacleRegions(RmgLogicalMap map, RmgProfile profile, RmgGenerationSettings settings,
 			int attempt, int startingOrbit)
 		{
+			if (profile.UsesCoherentWaterMorphology)
+			{
+				ValidateCoherentWaterAttempt(map, profile, settings, attempt);
+				return;
+			}
+
 			var random = DeterministicRandom.ForStream(settings, profile, $"topology-attempt-{attempt}");
-			var target = map.Obstacles.Length * profile.ObstacleDensityTarget(settings.Archetype) / 100;
+			var target = map.Obstacles.Length * profile.ObstacleDensityTarget(settings.Archetype, settings.WaterAmount) / 100;
 			var orbit = startingOrbit;
 			var initiallyEligibleCells = Enumerable.Range(0, map.Obstacles.Length)
 				.Count(index => ObstacleCellEligible(map, new RmgPoint(index % map.Width, index / map.Width)));
@@ -645,40 +728,41 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				}
 			}
 
-			var (minimum, maximum) = profile.ObstacleDensityRange(settings.Archetype);
+			var (minimum, maximum) = profile.ObstacleDensityRange(settings.Archetype, settings.WaterAmount);
 			var minimumTarget = (int)Math.Ceiling(map.Obstacles.Length * minimum / 100D);
 			var fillRandom = DeterministicRandom.ForStream(settings, profile, $"topology-fill-{attempt}");
+			var fillSeeds = WaterFillSeedOrder(map, profile, settings, attempt);
 			for (var pass = 0; pass < 4 && map.Obstacles.Count(x => x) < minimumTarget; pass++)
-				for (var y = 2; y < map.Height - 2 && map.Obstacles.Count(x => x) < minimumTarget; y++)
-					for (var x = 2; x < map.Width - 2 && map.Obstacles.Count(x => x) < minimumTarget; x++)
+				foreach (var seed in fillSeeds)
+				{
+					if (map.Obstacles.Count(x => x) >= minimumTarget)
+						break;
+					var partner = Transform(seed, settings.Symmetry, map.Width, map.Height);
+					if (!IsCanonical(seed, partner, map.Width) || !ObstacleCellEligible(map, seed) ||
+						!ObstacleCellEligible(map, partner))
+						continue;
+
+					var remaining = minimumTarget - map.Obstacles.Count(x => x);
+					var desired = Math.Max(profile.ObstacleRegionMinimumLogical,
+						Math.Min(compactFallback ? profile.ObstacleRegionMaximumLogical : 16, (remaining + 1) / 2));
+					var region = profile.UsesShorelineMaterialization ?
+						GrowShorelineRegion(map, settings, fillRandom, seed, desired) :
+						compactFallback ?
+							GrowCompactRegion(map, settings, seed, desired) :
+							GrowRegion(map, settings, fillRandom, seed, desired);
+					if (region.Count < profile.ObstacleRegionMinimumLogical)
+						continue;
+
+					try
 					{
-						var seed = new RmgPoint(x, y);
-						var partner = Transform(seed, settings.Symmetry, map.Width, map.Height);
-						if (!IsCanonical(seed, partner, map.Width) || !ObstacleCellEligible(map, seed) ||
-							!ObstacleCellEligible(map, partner))
-							continue;
-
-						var remaining = minimumTarget - map.Obstacles.Count(x => x);
-						var desired = Math.Max(profile.ObstacleRegionMinimumLogical,
-							Math.Min(compactFallback ? profile.ObstacleRegionMaximumLogical : 16, (remaining + 1) / 2));
-						var region = profile.UsesShorelineMaterialization ?
-							GrowShorelineRegion(map, settings, fillRandom, seed, desired) :
-							compactFallback ?
-								GrowCompactRegion(map, settings, seed, desired) :
-								GrowRegion(map, settings, fillRandom, seed, desired);
-						if (region.Count < profile.ObstacleRegionMinimumLogical)
-							continue;
-
-						try
-						{
-							orbit = AddSymmetricRegion(map, settings, region, orbit);
-						}
-						catch (InvalidOperationException)
-						{
-							// Continue the stable scan; all frozen eligibility and connectivity
-							// checks still apply to every deterministic fill candidate.
-						}
+						orbit = AddSymmetricRegion(map, settings, region, orbit);
 					}
+					catch (InvalidOperationException)
+					{
+						// Continue the stable scan; all frozen eligibility and connectivity
+						// checks still apply to every deterministic fill candidate.
+					}
+				}
 
 			var density = 100D * map.Obstacles.Count(x => x) / map.Obstacles.Length;
 			if (profile.UsesShorelineMaterialization && density < minimum)
@@ -687,23 +771,210 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				density = 100D * map.Obstacles.Count(x => x) / map.Obstacles.Length;
 			}
 
+			var (interiorDensity, _, interiorCoveredSectors, _) = WaterInteriorMetrics(map);
+			var (interiorMinimumDensity, interiorMinimumSectors) = WaterInteriorMinimum(settings.WaterAmount, profile.UsesCoherentWaterMorphology);
+			if (profile.UsesParameterizedBattlefield &&
+				(interiorDensity < interiorMinimumDensity || interiorCoveredSectors < interiorMinimumSectors))
+				throw new ObstacleDensityTargetMissException($"Attempt {attempt} produced battlefield-interior Water " +
+					$"{interiorDensity:F3}% across {interiorCoveredSectors}/16 sectors; " +
+					$"{settings.WaterAmount} requires at least {interiorMinimumDensity}% across " +
+					$"{interiorMinimumSectors}/16 sectors.");
+
 			if (density < minimum || density > maximum)
 				throw new ObstacleDensityTargetMissException($"Attempt {attempt} produced obstacle density {density:F3}%, outside {minimum}-{maximum}%; " +
 					$"initially-eligible={initiallyEligibleCells}, minimum-target={minimumTarget}.");
 		}
 
+		const int WaterInteriorMarginLogical = 8;
+		const int WaterInteriorSectorGrid = 4;
+		const int WaterInteriorSectorMinimumCells = 4;
+
+		static int SeedInteriorWaterRegions(RmgLogicalMap map, RmgProfile profile, RmgGenerationSettings settings,
+			int attempt, int target, int orbit)
+		{
+			var requestedOrbits = settings.WaterAmount switch
+			{
+				RmgParameterLevel.Low => 2,
+				RmgParameterLevel.Standard => 4,
+				_ => 6
+			};
+			var random = DeterministicRandom.ForStream(settings, profile, $"topology-interior-water-{attempt}");
+			var candidates = Enumerable.Range(WaterInteriorMarginLogical,
+					map.Height - 2 * WaterInteriorMarginLogical - 1)
+				.SelectMany(y => Enumerable.Range(WaterInteriorMarginLogical,
+					map.Width - 2 * WaterInteriorMarginLogical - 1).Select(x => new RmgPoint(x, y)))
+				.Where(point =>
+				{
+					var partner = Transform(point, settings.Symmetry, map.Width, map.Height);
+					return IsCanonical(point, partner, map.Width) &&
+						ObstacleCellEligible(map, point) && ObstacleCellEligible(map, partner);
+				})
+				.Select(point => (Point: point, Tie: random.NextUInt64()))
+				.ToList();
+			var coveredSectors = new HashSet<int>();
+			var placedOrbits = 0;
+			while (placedOrbits < requestedOrbits && candidates.Count > 0 && map.Obstacles.Count(x => x) < target)
+			{
+				var candidate = candidates.OrderByDescending(entry => NewSectorCount(entry.Point))
+					.ThenByDescending(entry => Math.Min(
+						Math.Min(entry.Point.X, map.Width - 1 - entry.Point.X),
+						Math.Min(entry.Point.Y, map.Height - 1 - entry.Point.Y)))
+					.ThenBy(entry => entry.Tie)
+					.First();
+				candidates.Remove(candidate);
+				var remainingOrbitCount = Math.Max(1, requestedOrbits - placedOrbits);
+				var desired = Math.Clamp((target - map.Obstacles.Count(x => x) + 2 * remainingOrbitCount - 1) /
+					(2 * remainingOrbitCount), profile.ObstacleRegionMinimumLogical, settings.WaterAmount == RmgParameterLevel.High ?
+					(settings.Archetype == RmgArchetype.Open ? 48 : 32) : 24);
+				if (settings.WaterAmount == RmgParameterLevel.High)
+					desired = Math.Max(profile.ObstacleRegionMinimumLogical, desired - random.NextInt(5));
+				var region = GrowShorelineRegion(map, settings, random, candidate.Point, desired);
+				if (region.Count < profile.ObstacleRegionMinimumLogical)
+					continue;
+
+				try
+				{
+					orbit = AddSymmetricRegion(map, settings, region, orbit);
+				}
+				catch (InvalidOperationException)
+				{
+					continue;
+				}
+
+				foreach (var point in region.Concat(region.Select(point =>
+					Transform(point, settings.Symmetry, map.Width, map.Height))))
+				{
+					var sector = WaterInteriorSector(map, point);
+					if (sector >= 0)
+						coveredSectors.Add(sector);
+				}
+
+				placedOrbits++;
+			}
+
+			return orbit;
+
+			int NewSectorCount(RmgPoint point) => new[] { point, Transform(point, settings.Symmetry, map.Width, map.Height) }
+				.Select(candidate => WaterInteriorSector(map, candidate))
+				.Where(sector => sector >= 0)
+				.Distinct()
+				.Count(sector => !coveredSectors.Contains(sector));
+		}
+
+		static IReadOnlyList<RmgPoint> WaterFillSeedOrder(RmgLogicalMap map, RmgProfile profile,
+			RmgGenerationSettings settings, int attempt)
+		{
+			var candidates = Enumerable.Range(2, map.Height - 4)
+				.SelectMany(y => Enumerable.Range(2, map.Width - 4).Select(x => new RmgPoint(x, y)))
+				.ToArray();
+			if (!profile.UsesParameterizedBattlefield)
+				return candidates;
+
+			var random = DeterministicRandom.ForStream(settings, profile, $"topology-fill-order-{attempt}");
+			var queues = candidates.Where(point => WaterInteriorSector(map, point) >= 0)
+				.GroupBy(point => WaterInteriorSector(map, point))
+				.ToDictionary(group => group.Key, group => new Queue<RmgPoint>(group
+					.Select(point => (Point: point, Tie: random.NextUInt64()))
+					.OrderBy(entry => entry.Tie).Select(entry => entry.Point)));
+			var sectors = Enumerable.Range(0, WaterInteriorSectorGrid * WaterInteriorSectorGrid)
+				.Select(sector => (Sector: sector, Tie: random.NextUInt64()))
+				.OrderBy(entry => entry.Tie).Select(entry => entry.Sector).ToArray();
+			var ordered = new List<RmgPoint>(candidates.Length);
+			var added = true;
+			while (added)
+			{
+				added = false;
+				foreach (var sector in sectors)
+					if (queues.TryGetValue(sector, out var queue) && queue.Count > 0)
+					{
+						ordered.Add(queue.Dequeue());
+						added = true;
+					}
+			}
+
+			ordered.AddRange(candidates.Where(point => WaterInteriorSector(map, point) < 0)
+				.Select(point => (Point: point, Tie: random.NextUInt64()))
+				.OrderBy(entry => entry.Tie).Select(entry => entry.Point));
+			return ordered;
+		}
+
+		internal static (double DensityPercent, double SharePercent, int CoveredSectors, int CellCount)
+			WaterInteriorMetrics(RmgLogicalMap map)
+		{
+			var sectorCounts = new int[WaterInteriorSectorGrid * WaterInteriorSectorGrid];
+			var interiorWater = 0;
+			for (var index = 0; index < map.Obstacles.Length; index++)
+			{
+				if (!map.Obstacles[index])
+					continue;
+				var sector = WaterInteriorSector(map, new RmgPoint(index % map.Width, index / map.Width));
+				if (sector < 0)
+					continue;
+				interiorWater++;
+				sectorCounts[sector]++;
+			}
+
+			var interiorWidth = map.Width - 2 * WaterInteriorMarginLogical;
+			var interiorHeight = map.Height - 2 * WaterInteriorMarginLogical;
+			var totalWater = map.Obstacles.Count(value => value);
+			return (
+				100D * interiorWater / (interiorWidth * interiorHeight),
+				totalWater == 0 ? 0D : 100D * interiorWater / totalWater,
+				sectorCounts.Count(count => count >= WaterInteriorSectorMinimumCells),
+				interiorWater);
+		}
+
+		internal static (double DensityPercent, int CoveredSectors) WaterInteriorMinimum(
+			RmgParameterLevel level, bool naturalLandscape = false) =>
+			naturalLandscape ? level switch
+			{
+				RmgParameterLevel.Low => (2D, 2),
+				RmgParameterLevel.Standard => (3D, 4),
+				_ => (6D, 6)
+			} : level switch
+			{
+				RmgParameterLevel.Low => (3D, 4),
+				RmgParameterLevel.Standard => (6D, 8),
+				_ => (10D, 12)
+			};
+
+		static int WaterInteriorSector(RmgLogicalMap map, RmgPoint point)
+		{
+			var interiorWidth = map.Width - 2 * WaterInteriorMarginLogical;
+			var interiorHeight = map.Height - 2 * WaterInteriorMarginLogical;
+			if (point.X < WaterInteriorMarginLogical || point.X >= map.Width - WaterInteriorMarginLogical ||
+				point.Y < WaterInteriorMarginLogical || point.Y >= map.Height - WaterInteriorMarginLogical)
+				return -1;
+			var sectorX = Math.Min(WaterInteriorSectorGrid - 1,
+				(point.X - WaterInteriorMarginLogical) * WaterInteriorSectorGrid / interiorWidth);
+			var sectorY = Math.Min(WaterInteriorSectorGrid - 1,
+				(point.Y - WaterInteriorMarginLogical) * WaterInteriorSectorGrid / interiorHeight);
+			return sectorY * WaterInteriorSectorGrid + sectorX;
+		}
+
 		static void CompleteShorelineDensityByExtendingRegions(RmgLogicalMap map, RmgProfile profile,
 			RmgGenerationSettings settings, int minimumTarget)
 		{
-			var (_, maximumPercent) = profile.ObstacleDensityRange(settings.Archetype);
+			var (_, maximumPercent) = profile.ObstacleDensityRange(settings.Archetype, settings.WaterAmount);
 			var maximumTarget = (int)Math.Floor(map.Obstacles.Length * maximumPercent / 100D);
 			while (map.Obstacles.Count(x => x) < minimumTarget)
 			{
 				var extended = false;
 				var orbits = map.ObstacleRegions.Where(region => region.SymmetryOrbit >= 0)
 					.GroupBy(region => region.SymmetryOrbit)
-					.OrderBy(group => group.Key)
 					.ToArray();
+				if (profile.UsesParameterizedBattlefield)
+					orbits = orbits.OrderByDescending(group =>
+						{
+							var regionIds = group.Select(region => region.Id).ToHashSet();
+							return Enumerable.Range(0, map.ObstacleRegionIds.Length).Count(index =>
+								regionIds.Contains(map.ObstacleRegionIds[index]) &&
+								WaterInteriorSector(map, new RmgPoint(index % map.Width, index / map.Width)) >= 0);
+						})
+						.ThenBy(group => group.Key)
+						.ToArray();
+				else
+					orbits = orbits.OrderBy(group => group.Key).ToArray();
 				foreach (var orbit in orbits)
 				{
 					var pair = orbit.OrderBy(region => region.Id).ToArray();
@@ -1182,6 +1453,18 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				}
 
 			var components = ConnectedComponents(map, blocked: true);
+			var totalWaterComponentCells = components.Sum(component => component.Count);
+			var largestWaterBodyShare = totalWaterComponentCells == 0 ? 0D :
+				100D * components.Max(component => component.Count) / totalWaterComponentCells;
+			var smallWaterBodyThreshold = (int)Math.Ceiling(map.Obstacles.Length * 0.005D);
+			var smallWaterBodyShare = totalWaterComponentCells == 0 ? 0D :
+				100D * components.Where(component => component.Count < smallWaterBodyThreshold)
+					.Sum(component => component.Count) / totalWaterComponentCells;
+			if (profile.UsesCoherentWaterMorphology &&
+				(components.Count > 12 || largestWaterBodyShare < 20D || smallWaterBodyShare > 15D))
+				Hard("NATURAL_WATER_MORPHOLOGY",
+					$"Structured Competitive produced {components.Count} Water bodies, " +
+					$"{largestWaterBodyShare:F2}% largest-body share, and {smallWaterBodyShare:F2}% small-body share.");
 			foreach (var component in components)
 				if (component.Count < profile.ObstacleRegionMinimumLogical || component.Count > profile.ObstacleRegionMaximumLogical)
 					Hard("OBSTACLE_REGION_SIZE", $"Obstacle region has {component.Count} cells; expected {profile.ObstacleRegionMinimumLogical}-{profile.ObstacleRegionMaximumLogical}.");
@@ -1196,7 +1479,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (map.Starts.Count != settings.PlayerCount || map.Actors.Count(a => a.Type == profile.SpawnActor) != settings.PlayerCount)
 				Hard("START_COUNT", "Start anchors or mpspawn actors do not match the requested player count.");
 			var placedColonyCount = map.Actors.Count(a => a.Owner == profile.ColonyOwner);
-			var minimumColonyCount = settings.PlayerCount == 2 ? 8 : 12;
+			var minimumColonyCount = MinimumAdaptiveColonyCount(profile, settings);
 			if (profile.GeneratorVersion < 6 && placedColonyCount != settings.NeutralColonyCount)
 				Hard("COLONY_COUNT", "Neutral-colony count differs from the requested setting.");
 			else if (profile.GeneratorVersion >= 6 && (placedColonyCount < minimumColonyCount ||
@@ -1212,9 +1495,16 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					Hard("START_ROUTE_EXITS", $"Start {start} has only {outgoing} named strategic exits.");
 			}
 
-			var expectedChokes = settings.Archetype == RmgArchetype.CentralContest ? 2 : 0;
-			if (map.Chokepoints.Count != expectedChokes)
-				Hard("CHOKEPOINT_ORBIT", $"Expected {expectedChokes} chokepoint segments but found {map.Chokepoints.Count}.");
+			var requestedChokes = settings.Archetype == RmgArchetype.CentralContest ? 2 : 0;
+			if (!map.ChokepointTargetReduced && map.Chokepoints.Count != requestedChokes)
+				Hard("CHOKEPOINT_ORBIT", $"Expected {requestedChokes} chokepoint segments but found {map.Chokepoints.Count}.");
+			else if (map.ChokepointTargetReduced && map.Chokepoints.Count != 0)
+				Hard("CHOKEPOINT_ADAPTIVE_ACCOUNTING", "An adaptively omitted chokepoint orbit still materialized chokepoint segments.");
+			else if (map.ChokepointTargetReduced)
+				report.Warnings.Add(new RmgValidationIssue("CHOKEPOINT_TARGET_REDUCED",
+					"No route segment satisfied the frozen safety envelope; the requested chokepoint orbit was safely omitted."));
+			report.Metrics["chokepoint_segments_requested"] = requestedChokes;
+			report.Metrics["chokepoint_segments_achieved"] = map.Chokepoints.Count;
 			foreach (var choke in map.Chokepoints)
 			{
 				if (choke.WidthNative != profile.ChokepointWidthNative || choke.LengthNative < profile.ChokepointLengthMinimumNative ||
@@ -1229,15 +1519,41 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					Hard("CHOKEPOINT_COLONY_DISTANCE", $"A chokepoint is less than 10 native cells from colony coverage at {colony.LogicalLocation}.");
 
 			var density = 100D * map.Obstacles.Count(x => x) / map.Obstacles.Length;
-			var (minimum, maximum) = profile.ObstacleDensityRange(settings.Archetype);
+			var (minimum, maximum) = profile.ObstacleDensityRange(settings.Archetype, settings.WaterAmount);
 			if (density < minimum || density > maximum)
 			{
-				if (profile.GeneratorVersion >= 6)
+				if (profile.GeneratorVersion == 6)
 					report.Warnings.Add(new RmgValidationIssue("OBSTACLE_DENSITY_TARGET_MISSED",
 						$"Obstacle density {density:F3}% is outside the {minimum}-{maximum}% quality target; hard topology and movement validation remain authoritative."));
+				else if (profile.UsesCoherentWaterMorphology && density >= 6D && density <= maximum)
+					report.Warnings.Add(new RmgValidationIssue("WATER_DENSITY_TARGET_REDUCED",
+						$"Structured Competitive Water density {density:F3}% is below the selected {minimum}-{maximum}% quality target, " +
+						"but remains above the absolute floor and passed interior, morphology, connectivity, movement, and symmetry validation."));
 				else
 					Hard("OBSTACLE_DENSITY", $"Obstacle density {density:F3}% is outside {minimum}-{maximum}%.");
 			}
+
+			var (interiorWaterDensity, interiorWaterShare, interiorWaterCoveredSectors, interiorWaterCellCount) = WaterInteriorMetrics(map);
+			var (interiorWaterMinimumDensity, interiorWaterMinimumSectors) = WaterInteriorMinimum(settings.WaterAmount, profile.UsesCoherentWaterMorphology);
+			if (profile.UsesParameterizedBattlefield &&
+				(interiorWaterDensity < interiorWaterMinimumDensity ||
+				interiorWaterCoveredSectors < interiorWaterMinimumSectors))
+				Hard("WATER_BATTLEFIELD_PRESENCE",
+					$"Battlefield-interior Water {interiorWaterDensity:F3}% across " +
+					$"{interiorWaterCoveredSectors}/16 sectors is below the {settings.WaterAmount} minimum " +
+					$"{interiorWaterMinimumDensity}% across {interiorWaterMinimumSectors}/16 sectors.");
+
+			var coherentInteriorQualityTarget = settings.WaterAmount switch
+			{
+				RmgParameterLevel.Low => 3D,
+				RmgParameterLevel.Standard => 6D,
+				_ => 10D
+			};
+			if (profile.UsesCoherentWaterMorphology && interiorWaterDensity < coherentInteriorQualityTarget)
+				report.Warnings.Add(new RmgValidationIssue("WATER_INTERIOR_TARGET_REDUCED",
+					$"{settings.WaterAmount} Water achieved {interiorWaterDensity:F3}% battlefield-interior coverage instead of " +
+					$"the {coherentInteriorQualityTarget}% quality target; the {interiorWaterMinimumDensity}% hard floor, sector coverage, " +
+					"morphology, connectivity, movement, and symmetry gates passed."));
 
 			if (map.Repairs.Count > profile.MaximumRepairOperations || map.RepairChanges.Count(x => x) > profile.MaximumRepairCellsLogical)
 				Hard("REPAIR_BUDGET", "Bounded repairs exceeded the frozen operation or changed-cell budget.");
@@ -1266,7 +1582,17 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			report.Metrics["obstacle_cell_count"] = map.Obstacles.Count(x => x);
 			report.Metrics["obstacle_density_percent"] = density;
 			report.Metrics["obstacle_density_target_met"] = density >= minimum && density <= maximum ? 1 : 0;
+			report.Metrics["water_interior_cell_count"] = interiorWaterCellCount;
+			report.Metrics["water_interior_density_percent"] = interiorWaterDensity;
+			report.Metrics["water_interior_share_percent"] = interiorWaterShare;
+			report.Metrics["water_interior_covered_sector_count"] = interiorWaterCoveredSectors;
+			report.Metrics["water_interior_minimum_density_percent"] = interiorWaterMinimumDensity;
+			report.Metrics["water_interior_minimum_sector_count"] = interiorWaterMinimumSectors;
 			report.Metrics["obstacle_region_count"] = components.Count;
+			report.Metrics["water_body_count"] = components.Count;
+			report.Metrics["water_largest_body_share_percent"] = largestWaterBodyShare;
+			report.Metrics["water_small_body_share_percent"] = smallWaterBodyShare;
+			report.Metrics["water_small_body_threshold_logical"] = smallWaterBodyThreshold;
 			report.Metrics["chokepoint_segment_count"] = map.Chokepoints.Count;
 			report.Metrics["chokepoint_orbit_count"] = map.Chokepoints.Select(c => c.SymmetryOrbit).Distinct().Count();
 			report.Metrics["minimum_reserved_route_width_native"] = settings.Archetype == RmgArchetype.Open ? profile.MajorRouteWidthNative : profile.MinimumRouteWidthNative;
@@ -1327,8 +1653,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				var land = map.NativeTerrainIntents.Count(intent => intent != RmgNativeTerrainIntent.Water);
 				var rock = map.NativeTerrainIntents.Count(intent => intent == RmgNativeTerrainIntent.Rock);
 				var vegetation = map.NativeTerrainIntents.Count(intent => intent == RmgNativeTerrainIntent.Vegetation);
-				var requestedRockTarget = (land * profile.RockLandPercent + 50) / 100;
-				var requestedVegetationTarget = (land * profile.VegetationLandPercent + 50) / 100;
+				var requestedRockTarget = (land * profile.RockLandPercentFor(settings.TacticalTerrain) + 50) / 100;
+				var requestedVegetationTarget = (land * profile.VegetationLandPercentFor(settings.TacticalTerrain) + 50) / 100;
 				var rockTarget = map.LandCoverRockTargetNativeCount;
 				var vegetationTarget = map.LandCoverVegetationTargetNativeCount;
 				var tolerance = Math.Max(8, (land * profile.LandCoverTolerancePercent + 50) / 100);
@@ -1339,6 +1665,10 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					rockTarget + vegetationTarget > map.LandCoverEnvelopeCapacityNativeCount ||
 					vegetationTarget > map.LandCoverVegetationCapacityNativeCount)
 					Hard("LAND_COVER_TARGET_ACCOUNTING", "Effective land-cover targets exceed their requested target or protected-zone capacity.");
+				if (profile.UsesParameterizedBattlefield && (rockTarget < requestedRockTarget || vegetationTarget < requestedVegetationTarget))
+					report.Warnings.Add(new RmgValidationIssue("TACTICAL_TERRAIN_TARGET_REDUCED",
+						$"Protected Clear zones reduced Rock/Vegetation targets from {requestedRockTarget}/{requestedVegetationTarget} to {rockTarget}/{vegetationTarget} native cells."));
+
 				if (Math.Abs(rock - rockTarget) > tolerance || Math.Abs(vegetation - vegetationTarget) > tolerance)
 					Hard("LAND_COVER_RATE", $"Rock/Vegetation counts {rock}/{vegetation} exceed tolerance {tolerance} around effective targets {rockTarget}/{vegetationTarget}.");
 
@@ -1419,8 +1749,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					Hard("BATTLEFIELD_TACTICAL_TERRAIN", "No Rock or Vegetation terrain intersects a contest, primary-route, or flank role.");
 				if (centralSlowNative == 0)
 					Hard("BATTLEFIELD_CENTRAL_TERRAIN", "No Rock or Vegetation terrain reaches the central half of the battlefield.");
-				if (map.BattlefieldTacticalAnchorOrbitCount <= 0 || map.BattlefieldTacticalAnchorOrbitCount > profile.TacticalLandAnchorOrbitCount)
-					Hard("BATTLEFIELD_TACTICAL_ANCHORS", $"Materialized {map.BattlefieldTacticalAnchorOrbitCount} tactical anchor orbits; expected a positive capacity-aware count up to target {profile.TacticalLandAnchorOrbitCount}.");
+				if (map.BattlefieldTacticalAnchorOrbitCount <= 0 || map.BattlefieldTacticalAnchorOrbitCount > profile.TacticalLandAnchorOrbitCountFor(settings.TacticalTerrain))
+					Hard("BATTLEFIELD_TACTICAL_ANCHORS", $"Materialized {map.BattlefieldTacticalAnchorOrbitCount} tactical anchor orbits; expected a positive capacity-aware count up to target {profile.TacticalLandAnchorOrbitCountFor(settings.TacticalTerrain)}.");
 
 				if (map.TemplateIds.Contains((ushort)93))
 					Hard("VEGETATION_DETAIL_VISUAL_SEAM", "Version 6 used excluded square-border Vegetation detail template 93.");

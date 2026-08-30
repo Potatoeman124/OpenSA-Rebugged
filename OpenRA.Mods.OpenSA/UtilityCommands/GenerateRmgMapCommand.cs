@@ -23,7 +23,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 		string IUtilityCommand.Name => "--generate-sa-map";
 		bool IUtilityCommand.ValidateArguments(string[] args) => args.Length >= 1;
 
-		[Desc("OUTPUT.oramap", "--seed N | --player-settings FILE", "[--players 2|4]", "[--symmetry horizontal|vertical|rotational]", "[--archetype open|central-contest]", "[--topology off|mixed|shoreline|land-details|land-cover|battlefield-layout]", "[--neutral-colonies N]", "[--movement-validation proxy|native|both]", "[--report FILE]", "[--overwrite]", "Generate a deterministic OpenSA skirmish map. Player settings normalize to the accepted Version 6 battlefield-layout profile.")]
+		[Desc("OUTPUT.oramap", "--seed N | --player-settings FILE", "[--players 2|4]", "[--symmetry horizontal|vertical|rotational]", "[--archetype open|central-contest]", "[--topology off|mixed|shoreline|land-details|land-cover|battlefield-layout|parameterized-battlefield|coherent-water]", "[--neutral-colonies N]", "[--water-amount low|standard|high]", "[--tactical-terrain low|standard|high]", "[--movement-validation proxy|native|both]", "[--report FILE]", "[--overwrite]", "Generate a deterministic OpenSA skirmish map. Schema 3 player settings select Version 8 Structured Competitive or frozen Version 7 Artificial Battlefield; Natural Landscape is planned.")]
 		void IUtilityCommand.Run(Utility utility, string[] args)
 		{
 			try
@@ -105,7 +105,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				values[args[i]] = args[++i];
 			}
 
-			var known = new HashSet<string>(new[] { "--seed", "--player-settings", "--players", "--tileset", "--size", "--symmetry", "--archetype", "--topology", "--neutral-colonies", "--generator-version", "--movement-validation", "--report" }, StringComparer.OrdinalIgnoreCase);
+			var known = new HashSet<string>(new[] { "--seed", "--player-settings", "--players", "--tileset", "--size", "--symmetry", "--archetype", "--topology", "--neutral-colonies", "--water-amount", "--tactical-terrain", "--generator-version", "--movement-validation", "--report" }, StringComparer.OrdinalIgnoreCase);
 			foreach (var key in values.Keys)
 				if (!known.Contains(key))
 					throw new CommandLineException($"Unknown option: {key}");
@@ -115,7 +115,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				var incompatible = new[]
 				{
 					"--seed", "--players", "--tileset", "--size", "--symmetry", "--archetype",
-					"--topology", "--neutral-colonies", "--generator-version"
+					"--topology", "--neutral-colonies", "--water-amount", "--tactical-terrain", "--generator-version"
 				}
 				.Where(values.ContainsKey).ToArray();
 				if (incompatible.Length > 0)
@@ -143,6 +143,8 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				RmgTopologyPreset.Shoreline => 3,
 				RmgTopologyPreset.LandDetails => 4,
 				RmgTopologyPreset.BattlefieldLayout => 6,
+				RmgTopologyPreset.ParameterizedBattlefield => 7,
+				RmgTopologyPreset.CoherentWater => 8,
 				RmgTopologyPreset.LandCover => 5,
 				_ => 1
 			};
@@ -168,7 +170,11 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 					GeneratorVersion = generatorVersion,
 					TopologyPreset = topology,
 					Symmetry = ParseSymmetry(values.TryGetValue("--symmetry", out var symmetry) ? symmetry : "horizontal"),
-					Archetype = ParseArchetype(values.TryGetValue("--archetype", out var archetype) ? archetype : "open")
+					Archetype = ParseArchetype(values.TryGetValue("--archetype", out var archetype) ? archetype : "open"),
+					WaterAmount = ParseParameterLevel(values.TryGetValue("--water-amount", out var waterAmount) ? waterAmount : "standard"),
+					TacticalTerrain = ParseParameterLevel(values.TryGetValue("--tactical-terrain", out var tacticalTerrain) ? tacticalTerrain : "standard"),
+					LayoutFamily = topology == RmgTopologyPreset.CoherentWater ?
+						RmgLayoutFamily.StructuredCompetitive : RmgLayoutFamily.ArtificialBattlefield
 				}
 			};
 		}
@@ -197,6 +203,14 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			_ => throw new ArgumentException("Archetype must be open or central-contest.")
 		};
 
+		public static RmgParameterLevel ParseParameterLevel(string value) => value.ToLowerInvariant() switch
+		{
+			"low" => RmgParameterLevel.Low,
+			"standard" => RmgParameterLevel.Standard,
+			"high" => RmgParameterLevel.High,
+			_ => throw new ArgumentException("Parameter level must be low, standard, or high.")
+		};
+
 		public static RmgTopologyPreset ParseTopology(string value) => value.ToLowerInvariant() switch
 		{
 			"off" => RmgTopologyPreset.Off,
@@ -204,8 +218,10 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			"shoreline" => RmgTopologyPreset.Shoreline,
 			"land-details" => RmgTopologyPreset.LandDetails,
 			"battlefield-layout" => RmgTopologyPreset.BattlefieldLayout,
+			"parameterized-battlefield" => RmgTopologyPreset.ParameterizedBattlefield,
+			"coherent-water" => RmgTopologyPreset.CoherentWater,
 			"land-cover" => RmgTopologyPreset.LandCover,
-			_ => throw new ArgumentException("Topology must be off, mixed, shoreline, land-details, land-cover, or battlefield-layout.")
+			_ => throw new ArgumentException("Topology must be off, mixed, shoreline, land-details, land-cover, battlefield-layout, parameterized-battlefield, or coherent-water.")
 		};
 
 		public static string TopologyName(RmgTopologyPreset value) => value switch
@@ -216,6 +232,8 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			RmgTopologyPreset.LandDetails => "land-details",
 			RmgTopologyPreset.LandCover => "land-cover",
 			RmgTopologyPreset.BattlefieldLayout => "battlefield-layout",
+			RmgTopologyPreset.ParameterizedBattlefield => "parameterized-battlefield",
+			RmgTopologyPreset.CoherentWater => "coherent-water",
 			_ => throw new ArgumentOutOfRangeException(nameof(value))
 		};
 

@@ -272,7 +272,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			{
 				RequiresMod = modData.Manifest.Id,
 				Title = generation.Settings.PlayerSettingsResolution != null ?
-					$"OpenSA RMG {RmgPlayerSettingsContract.PresetDisplayName(generation.Settings.PlayerSettingsResolution.Requested.Preset)} {generation.Settings.Seed}" :
+					generation.Settings.GeneratorVersion >= 7 ?
+						$"OpenSA RMG {RmgPlayerSettingsContract.PresetDisplayName(generation.Settings.PlayerSettingsResolution.Requested.Preset)} {RmgPlayerSettingsContract.LayoutFamilyDisplayName(generation.Settings.LayoutFamily)} W-{generation.Settings.WaterAmount} T-{generation.Settings.TacticalTerrain} {generation.Settings.Seed}" :
+						$"OpenSA RMG {RmgPlayerSettingsContract.PresetDisplayName(generation.Settings.PlayerSettingsResolution.Requested.Preset)} {generation.Settings.Seed}" :
 					generation.Profile.GeneratorVersion == 1 ?
 						$"OpenSA RMG {ArchetypeName(generation.Settings.Archetype)} {generation.Settings.Seed}" :
 						$"OpenSA RMG {ArchetypeName(generation.Settings.Archetype)} {TopologyName(generation.Settings.TopologyPreset)} {generation.Settings.Seed}",
@@ -452,7 +454,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var settings = generation.Settings;
 			var report = new JObject
 			{
-				["schema_version"] = generation.Profile.GeneratorVersion >= 6 ? 8 : generation.Profile.GeneratorVersion >= 5 ? 6 : generation.Profile.GeneratorVersion >= 4 ? 5 : generation.Profile.GeneratorVersion >= 3 ? 4 : generation.Profile.GeneratorVersion >= 2 ? 3 : 2,
+				["schema_version"] = generation.Profile.GeneratorVersion >= 8 ? 10 : generation.Profile.GeneratorVersion >= 7 ? 9 : generation.Profile.GeneratorVersion >= 6 ? 8 : generation.Profile.GeneratorVersion >= 5 ? 6 : generation.Profile.GeneratorVersion >= 4 ? 5 : generation.Profile.GeneratorVersion >= 3 ? 4 : generation.Profile.GeneratorVersion >= 2 ? 3 : 2,
 				["generator_version"] = settings.GeneratorVersion,
 				["configuration_id"] = generation.Profile.ProfileId,
 				["configuration_version"] = generation.Profile.ConfigurationVersion,
@@ -461,6 +463,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				["symmetry"] = SymmetryName(settings.Symmetry),
 				["archetype"] = ArchetypeName(settings.Archetype),
 				["topology_preset"] = TopologyName(settings.TopologyPreset),
+				["layout_family"] = RmgPlayerSettingsContract.LayoutFamilyName(settings.LayoutFamily),
 				["neutral_colonies"] = generation.Map.Actors.Count(actor => actor.Owner == generation.Profile.ColonyOwner),
 				["neutral_colonies_requested"] = settings.NeutralColonyCount,
 				["output"] = outputPath,
@@ -477,13 +480,31 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					3 => "normal-water-shoreline-v3",
 					4 => "normal-water-shoreline-v3+clear-land-details-v1",
 					5 => "normal-land-cover-v1",
-					_ => "normal-land-cover-v1+battlefield-layout-v1"
+					6 => "normal-land-cover-v1+battlefield-layout-v1",
+					7 => "normal-land-cover-v1+parameterized-battlefield-v1",
+					_ => "normal-land-cover-v1+coherent-water-v1"
 				},
 				["blocking_topology"] = generation.Profile.GeneratorVersion == 1 ? null : new JObject
 				{
 					["enabled"] = true,
+					["water_amount"] = RmgPlayerSettingsContract.ParameterLevelName(settings.WaterAmount),
+					["layout_family"] = RmgPlayerSettingsContract.LayoutFamilyName(settings.LayoutFamily),
+					["water_body_count"] = generation.Validation.Metrics["water_body_count"],
+					["largest_body_share_percent"] = generation.Validation.Metrics["water_largest_body_share_percent"],
+					["small_body_share_percent"] = generation.Validation.Metrics["water_small_body_share_percent"],
+					["obstacle_density_target_percent"] = generation.Profile.ObstacleDensityTarget(settings.Archetype, settings.WaterAmount),
+					["obstacle_density_minimum_percent"] = generation.Profile.ObstacleDensityRange(settings.Archetype, settings.WaterAmount).Minimum,
+					["obstacle_density_maximum_percent"] = generation.Profile.ObstacleDensityRange(settings.Archetype, settings.WaterAmount).Maximum,
 					["obstacle_density_percent"] = generation.Validation.Metrics["obstacle_density_percent"],
-					["chokepoint_frequency"] = settings.Archetype == RmgArchetype.CentralContest ? "one-symmetry-orbit" : "none",
+					["interior_margin_logical"] = 8,
+					["interior_density_percent"] = generation.Validation.Metrics["water_interior_density_percent"],
+					["interior_share_percent"] = generation.Validation.Metrics["water_interior_share_percent"],
+					["interior_covered_sectors"] = generation.Validation.Metrics["water_interior_covered_sector_count"],
+					["interior_minimum_density_percent"] = generation.Validation.Metrics["water_interior_minimum_density_percent"],
+					["interior_minimum_sectors"] = generation.Validation.Metrics["water_interior_minimum_sector_count"],
+					["chokepoint_frequency"] = generation.Map.Chokepoints.Count > 0 ? "one-symmetry-orbit" : "none",
+					["chokepoint_segments_requested"] = settings.Archetype == RmgArchetype.CentralContest ? 2 : 0,
+					["chokepoint_segments_achieved"] = generation.Map.Chokepoints.Count,
 					["route_openness"] = settings.Archetype == RmgArchetype.Open ? "major" : "normal-with-route-constriction",
 					["shoreline_mode"] = generation.Profile.UsesShorelineMaterialization ? "normal-transition-catalogue-v2" : "homogeneous-hard-seam-v1",
 					["visual_shoreline_complete"] = generation.Profile.UsesShorelineMaterialization,
@@ -555,8 +576,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					["selection_sha256"] = RmgLandCoverMaterializer.SelectionHash(generation.Map),
 					["land_native_cells"] = generation.Map.LandCoverLandNativeCount,
 					["allowed_lattice_points"] = generation.Map.LandCoverAllowedLatticeCount,
-					["rock_requested_percent"] = generation.Profile.RockLandPercent,
-					["vegetation_requested_percent"] = generation.Profile.VegetationLandPercent,
+					["tactical_terrain"] = RmgPlayerSettingsContract.ParameterLevelName(settings.TacticalTerrain),
+					["rock_requested_percent"] = generation.Profile.RockLandPercentFor(settings.TacticalTerrain),
+					["vegetation_requested_percent"] = generation.Profile.VegetationLandPercentFor(settings.TacticalTerrain),
 					["tolerance_percent"] = generation.Profile.LandCoverTolerancePercent,
 					["rock_requested_native_cells"] = generation.Validation.Metrics["rock_land_requested_native_cells"],
 					["vegetation_requested_native_cells"] = generation.Validation.Metrics["vegetation_land_requested_native_cells"],
@@ -594,6 +616,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 						new JProperty(role.ToString(), generation.Validation.Metrics[$"battlefield_role_{role.ToString().ToLowerInvariant()}_slow_native_cells"]))),
 					["tactical_slow_native_cells"] = generation.Validation.Metrics["battlefield_tactical_slow_native_cells"],
 					["central_half_slow_native_cells"] = generation.Validation.Metrics["battlefield_central_half_slow_native_cells"],
+					["tactical_anchor_orbits_requested"] = generation.Profile.TacticalLandAnchorOrbitCountFor(settings.TacticalTerrain),
 					["tactical_anchor_orbits"] = generation.Map.BattlefieldTacticalAnchorOrbitCount,
 					["tactical_anchor_lattice_points"] = new JArray(generation.Map.BattlefieldTacticalAnchors
 						.OrderBy(point => point.Y).ThenBy(point => point.X)
@@ -660,6 +683,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			RmgTopologyPreset.LandDetails => "land-details",
 			RmgTopologyPreset.LandCover => "land-cover",
 			RmgTopologyPreset.BattlefieldLayout => "battlefield-layout",
+			RmgTopologyPreset.ParameterizedBattlefield => "parameterized-battlefield",
+			RmgTopologyPreset.CoherentWater => "coherent-water",
 			_ => throw new ArgumentOutOfRangeException(nameof(topology))
 		};
 	}
