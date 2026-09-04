@@ -292,7 +292,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				RmgLayoutFamily.ArtificialBattlefield;
 			var version = layoutFamily switch
 			{
-				RmgLayoutFamily.NaturalLandscape => 9,
+				RmgLayoutFamily.NaturalLandscape => 10,
 				RmgLayoutFamily.StructuredCompetitive => 8,
 				_ => requested.SchemaVersion >= 2 ? 7 : 6
 			};
@@ -306,6 +306,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				GeneratorVersion = version,
 				TopologyPreset = version switch
 				{
+					10 => RmgTopologyPreset.NaturalTerrainV10,
 					9 => RmgTopologyPreset.NaturalTerrain,
 					8 => RmgTopologyPreset.CoherentWater,
 					7 => RmgTopologyPreset.ParameterizedBattlefield,
@@ -459,11 +460,11 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				LayoutFamily = RmgPlayerLayoutFamily.NaturalLandscape,
 				OriginalSurfaceRelations = false
 			});
-			if (natural.Normalized.GeneratorVersion != 9 ||
-				natural.Normalized.TopologyPreset != RmgTopologyPreset.NaturalTerrain ||
+			if (natural.Normalized.GeneratorVersion != 10 ||
+				natural.Normalized.TopologyPreset != RmgTopologyPreset.NaturalTerrainV10 ||
 				natural.Normalized.LayoutFamily != RmgLayoutFamily.NaturalLandscape ||
 				natural.Normalized.OriginalSurfaceRelations)
-				failures.Add("Natural Landscape did not resolve to the experimental Version 9 contract.");
+				failures.Add("Natural Landscape did not resolve to the experimental Version 10 contract.");
 			return failures;
 
 			void ExpectRejected(string label, Action action)

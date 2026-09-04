@@ -9,7 +9,7 @@ param(
     [string]$Symmetry = "horizontal",
     [ValidateSet("open", "central-contest")]
     [string]$Archetype = "open",
-    [ValidateSet("off", "mixed", "shoreline", "land-details", "land-cover", "battlefield-layout", "parameterized-battlefield", "coherent-water", "natural-terrain")]
+    [ValidateSet("off", "mixed", "shoreline", "land-details", "land-cover", "battlefield-layout", "parameterized-battlefield", "coherent-water", "natural-terrain", "natural-terrain-v10")]
     [string]$Topology = "off",
     [ValidateSet("low", "standard", "high")]
     [string]$WaterAmount = "standard",
@@ -125,7 +125,7 @@ else
         "--water-amount", $WaterAmount,
         "--tactical-terrain", $TacticalTerrain,
         "--movement-validation", $MovementValidation,
-        "--generator-version", $(if ($Topology -eq "natural-terrain") { "9" } elseif ($Topology -eq "coherent-water") { "8" } elseif ($Topology -eq "parameterized-battlefield") { "7" } elseif ($Topology -eq "battlefield-layout") { "6" } elseif ($Topology -eq "land-cover") { "5" } elseif ($Topology -eq "land-details") { "4" } elseif ($Topology -eq "shoreline") { "3" } elseif ($Topology -eq "mixed") { "2" } else { "1" })
+        "--generator-version", $(if ($Topology -eq "natural-terrain-v10") { "10" } elseif ($Topology -eq "natural-terrain") { "9" } elseif ($Topology -eq "coherent-water") { "8" } elseif ($Topology -eq "parameterized-battlefield") { "7" } elseif ($Topology -eq "battlefield-layout") { "6" } elseif ($Topology -eq "land-cover") { "5" } elseif ($Topology -eq "land-details") { "4" } elseif ($Topology -eq "shoreline") { "3" } elseif ($Topology -eq "mixed") { "2" } else { "1" })
     )
 }
 

@@ -50,6 +50,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public int MinimumStartEscapeSectors { get; init; }
 		public int TerrainSemanticMismatchCells { get; init; }
 		public int ProductionExitFailures { get; init; }
+		public bool DirtPlacementEnforced { get; set; }
+		public int NonDirtStartCells { get; set; }
+		public int NonDirtColonyCells { get; set; }
 		public bool WaspSupportContractAccepted { get; init; }
 		public int MinimumChokepointStartDistance { get; init; }
 		public int MinimumChokepointColonyDistance { get; init; }
@@ -100,6 +103,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					["minimum_start_escape_sectors_r12"] = MinimumStartEscapeSectors,
 					["terrain_semantic_mismatch_cells"] = TerrainSemanticMismatchCells,
 					["production_exit_failures"] = ProductionExitFailures,
+					["original_surface_dirt_placement_enforced"] = DirtPlacementEnforced,
+					["non_dirt_start_coverage_cells"] = NonDirtStartCells,
+					["non_dirt_neutral_colony_coverage_cells"] = NonDirtColonyCells,
 					["wasp_support_contract_accepted"] = WaspSupportContractAccepted,
 					["minimum_chokepoint_start_distance_native"] = MinimumChokepointStartDistance,
 					["minimum_chokepoint_colony_distance_native"] = MinimumChokepointColonyDistance,
@@ -196,6 +202,14 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 			var colonyTypes = generation.Profile.NeutralColonyActors.ToHashSet(StringComparer.OrdinalIgnoreCase);
 			var colonies = actors.Where(a => colonyTypes.Contains(a.Type)).ToArray();
+			var dirtPlacementEnforced = generation.Profile.UsesNaturalTerrainMorphologyV10 &&
+				generation.Settings.OriginalSurfaceRelations;
+			bool IsNotDirt(CPos cell) => !baseGrid.Contains(cell) ||
+				!string.Equals(baseGrid.Terrain[baseGrid.Index(cell)], "Clear", StringComparison.OrdinalIgnoreCase);
+			var nonDirtStartCells = startingCoverage.Concat(generation.Map.Starts.Select(start =>
+				OpenRaRmgMapAdapter.ToNative(start, generation.Profile))).Distinct().Count(IsNotDirt);
+			var nonDirtColonyCells = colonies.SelectMany(colony => colony.Coverage.Append(colony.Location))
+				.Distinct().Count(IsNotDirt);
 			var blockedCells = Enumerable.Range(0, baseGrid.CellCount)
 				.Where(i => string.Equals(baseGrid.Terrain[i], "Water", StringComparison.OrdinalIgnoreCase))
 				.Select(baseGrid.Cell)
@@ -469,6 +483,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				MinimumStartEscapeSectors = minimumEscapeSectors,
 				TerrainSemanticMismatchCells = semanticMismatches,
 				ProductionExitFailures = productionExitFailures,
+				DirtPlacementEnforced = dirtPlacementEnforced,
+				NonDirtStartCells = nonDirtStartCells,
+				NonDirtColonyCells = nonDirtColonyCells,
 				WaspSupportContractAccepted = waspContractAccepted,
 				MinimumChokepointStartDistance = chokepointStartDistance,
 				MinimumChokepointColonyDistance = chokepointColonyDistance,
@@ -487,6 +504,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				WeightedPathMeasurements = weightedPathMeasurements,
 				FailureDetails = failureDetails
 			};
+
+			if (dirtPlacementEnforced && (nonDirtStartCells > 0 || nonDirtColonyCells > 0))
+				Hard("ORIGINAL_SURFACE_DIRT_PLACEMENT", $"Original surface relations require dirt under all spawn/base and neutral-colony footprints; found {nonDirtStartCells}/{nonDirtColonyCells} non-dirt native cells.");
 
 			if (generation.Profile.GeneratorVersion >= 5 && !landCoverCostContractAccepted)
 				Hard("LAND_COVER_LOCOMOTOR_COSTS", landCoverCostContractMessage);

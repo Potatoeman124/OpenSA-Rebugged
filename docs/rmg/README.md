@@ -8,6 +8,15 @@ The repository contains only original source code, build tooling, and project do
 
 The RMG must preserve that boundary: it may refer to terrain and actor identifiers supported by the engine, but it must not copy original maps, art, audio, or other legally ambiguous asset material into the repository.
 
+## Current integration checkpoint
+
+Natural Landscape V10 was approved for integration on 2026-09-05. It includes five natural morphology families,
+ranked curved terrain candidates, authoritative generated surfaces for dirt-only placement, bounded status text,
+and the offline generation/visual-review loop. The [surface-authority record](NATURAL_V10_SURFACE_AUTHORITY.md)
+describes the final 15-map validation, screenshot regressions and remaining limits. The experimental UI label
+is retained; historical V1-V9 generation paths are preserved. The phase descriptions below are chronological
+records, not claims that the current Natural Landscape selection is still planned.
+
 ## Current map contract
 
 A generated skirmish map must be loadable by the existing OpenSA map pipeline and provide:
@@ -242,3 +251,9 @@ Phase 7C adds strict JSON schema version 1 and player-facing presets over Versio
 Phase 8A adds schema version 2 and opt-in Generator Version 7. The separate in-game RMG panel, modal progress state, preview, and map-cache refresh are integrated. Water Amount and Tactical Terrain are functional Low/Standard/High controls with requested-versus-achieved diagnostics; Chokepoints and Amount of Hostiles remain disabled placeholders.
 
 Phase 8B adds Water-component morphology to the complete-corpus audit. Phase 8C adds a first-class Layout Family control and Version 8 coherent Water morphology. Visual review corrected the labels: Version 8 is Structured Competitive, Version 7 is Artificial Battlefield, and Natural Landscape remains a disabled placeholder until a terrain-first organic generator exists.
+
+## Natural Landscape V9 checkpoint and V10 visual gate
+
+Generator Version 9 makes Natural Landscape playable and reliable, including adaptive colony placement, water-preserving routes, Original surface relations, package validation, and native movement validation. Its output remains an experimental baseline: visual review rejected its coarse orthogonal boundaries, repair-like surface envelopes, and repeated composition.
+
+V10 therefore begins with an offline feedback loop before player-facing promotion. Run `scripts/rmg/Invoke-RmgVisualReviewLoop.ps1` to generate actual map packages, extract their packaged previews, render topology diagnostics and contact sheets, and create an explicit per-map review worksheet. Run `scripts/rmg/Test-RmgVisualReviewGate.ps1` after inspection; it blocks incomplete and rejected batches. On the V10 feature branch, the Natural Landscape selection routes to the experimental V10 profile only after that loop achieved one uninterrupted 15-map mechanical and visual pass. See [Natural Landscape V10 visual development contract](NATURAL_V10_VISUAL_DEVELOPMENT_CONTRACT.md).

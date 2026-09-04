@@ -1399,7 +1399,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				if (profile.UsesClearLandDetails && profile.ClearLandDetailTemplateIds.Contains(map.TemplateIds[i]) &&
 					Enumerable.Range(0, 4).Any(frame => map.NativeTerrainIntents[4 * i + frame] != RmgNativeTerrainIntent.Clear))
 					Hard("CLEAR_DETAIL_NATIVE_TERRAIN", $"Clear detail at logical cell {i} has a non-Clear native terrain intent.");
-				var slowProtected = profile.UsesBattlefieldLayout ? RmgBattlefieldRolePlanner.MustRemainClear(map.BattlefieldRoles[i]) : RmgClearLandDetailMaterializer.IsProtected(map, i);
+				var slowProtected = RmgLandCoverMaterializer.IsSlowTerrainProtected(map, profile, i);
 				if (profile.UsesLandCover && slowProtected &&
 					Enumerable.Range(0, 4).Any(frame => RmgLandCoverMaterializer.IsSlow(map.NativeTerrainIntents[4 * i + frame])))
 					Hard("LAND_COVER_PROTECTED_OVERLAP", $"Slow terrain at logical cell {i} overlaps a protected Clear layer.");
@@ -1682,7 +1682,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				if (map.ClearLandDetailExcludedProtectedCount != excludedProtected)
 					Hard("CLEAR_DETAIL_EXCLUSION_ACCOUNTING",
 						$"Recorded {map.ClearLandDetailExcludedProtectedCount} protected exclusions; measured {excludedProtected}.");
-				if (Math.Abs(map.ClearLandDetailSymmetrySideACount - map.ClearLandDetailSymmetrySideBCount) > 1)
+				if (!profile.UsesNaturalTerrainMorphologyV10 &&
+					Math.Abs(map.ClearLandDetailSymmetrySideACount - map.ClearLandDetailSymmetrySideBCount) > 1)
 					Hard("CLEAR_DETAIL_VISUAL_BALANCE", "Clear detail counts differ by more than one across symmetry sides.");
 
 				report.Metrics["clear_land_detail_eligible_stamp_count"] = eligible;

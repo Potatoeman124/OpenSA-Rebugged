@@ -454,7 +454,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var settings = generation.Settings;
 			var report = new JObject
 			{
-				["schema_version"] = generation.Profile.GeneratorVersion >= 9 ? 11 : generation.Profile.GeneratorVersion >= 8 ? 10 : generation.Profile.GeneratorVersion >= 7 ? 9 : generation.Profile.GeneratorVersion >= 6 ? 8 : generation.Profile.GeneratorVersion >= 5 ? 6 : generation.Profile.GeneratorVersion >= 4 ? 5 : generation.Profile.GeneratorVersion >= 3 ? 4 : generation.Profile.GeneratorVersion >= 2 ? 3 : 2,
+				["schema_version"] = generation.Profile.GeneratorVersion >= 10 ? 12 : generation.Profile.GeneratorVersion >= 9 ? 11 : generation.Profile.GeneratorVersion >= 8 ? 10 : generation.Profile.GeneratorVersion >= 7 ? 9 : generation.Profile.GeneratorVersion >= 6 ? 8 : generation.Profile.GeneratorVersion >= 5 ? 6 : generation.Profile.GeneratorVersion >= 4 ? 5 : generation.Profile.GeneratorVersion >= 3 ? 4 : generation.Profile.GeneratorVersion >= 2 ? 3 : 2,
 				["generator_version"] = settings.GeneratorVersion,
 				["configuration_id"] = generation.Profile.ProfileId,
 				["configuration_version"] = generation.Profile.ConfigurationVersion,
@@ -483,7 +483,10 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					6 => "normal-land-cover-v1+battlefield-layout-v1",
 					7 => "normal-land-cover-v1+parameterized-battlefield-v1",
 					8 => "normal-land-cover-v1+coherent-water-v1",
-					_ => "natural-v9-terrain-prototype-step2+playable-safety-projection-v1"
+					9 => "natural-v9-terrain-prototype-step2+playable-safety-projection-v1",
+					_ => settings.OriginalSurfaceRelations ?
+						"natural-v10.1-authoritative-surface-placement-v4" :
+						"natural-v10.1-ranked-curved-terrain-v2+playable-safety-projection-v1"
 				},
 				["blocking_topology"] = generation.Profile.GeneratorVersion == 1 ? null : new JObject
 				{
@@ -654,8 +657,12 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				{
 					["enabled"] = true,
 					["status"] = "experimental-playable",
-					["prototype"] = NaturalPrototype.NaturalTerrainPrototypeSettings.PrototypeId,
-					["morphology"] = NaturalPrototype.NaturalTerrainPrototypeSettings.MorphologyId,
+					["prototype"] = generation.Profile.UsesNaturalTerrainMorphologyV10 ?
+						(generation.Settings.OriginalSurfaceRelations ? "natural-v10.1-authoritative-surface-placement-v4" : "natural-v10.1-ranked-curved-terrain-v2") :
+						NaturalPrototype.NaturalTerrainPrototypeSettings.PrototypeId,
+					["morphology"] = generation.Profile.UsesNaturalTerrainMorphologyV10 ?
+						"NATURAL_MULTI_FAMILY_V2" :
+						NaturalPrototype.NaturalTerrainPrototypeSettings.MorphologyId,
 					["variant"] = generation.Map.NaturalTerrainVariantId,
 					["original_surface_relations"] = settings.OriginalSurfaceRelations,
 					["prototype_forbidden_surface_adjacencies"] = generation.Map.NaturalForbiddenSurfaceAdjacencyCount,
@@ -711,6 +718,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			RmgTopologyPreset.ParameterizedBattlefield => "parameterized-battlefield",
 			RmgTopologyPreset.CoherentWater => "coherent-water",
 			RmgTopologyPreset.NaturalTerrain => "natural-terrain",
+			RmgTopologyPreset.NaturalTerrainV10 => "natural-terrain-v10",
 			_ => throw new ArgumentOutOfRangeException(nameof(topology))
 		};
 	}

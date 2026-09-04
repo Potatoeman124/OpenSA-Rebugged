@@ -159,9 +159,10 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		{
 			var nodes = map.GraphNodes.ToDictionary(node => node.Id, StringComparer.Ordinal);
 
-			// Five logical cells provide a stable native-width corridor even where
-			// shoreline transition templates narrow the passable aperture.
-			var logicalRadius = 2;
+			// V9 keeps its conservative five-logical-cell corridor. Natural V10
+			// follows terrain with a three-logical-cell reserve, which still exceeds
+			// the configured five-native-cell minimum without drawing broad roads.
+			var logicalRadius = profile.UsesNaturalTerrainMorphologyV10 && !map.NaturalSurfacesFrozen ? 1 : 2;
 			var clearedWater = new HashSet<int>();
 			foreach (var edge in map.GraphEdges.OrderBy(edge => edge.RouteId))
 			{
@@ -171,7 +172,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				for (var i = 0; i < centerline.Length; i++)
 				{
 					var radius = logicalRadius;
-					if (i > 0 && i + 1 < centerline.Length)
+					if (!map.NaturalSurfacesFrozen && i > 0 && i + 1 < centerline.Length)
 					{
 						var incoming = (X: centerline[i].X - centerline[i - 1].X,
 							Y: centerline[i].Y - centerline[i - 1].Y);
@@ -194,6 +195,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 								map.RouteIds[index] = edge.RouteId;
 							if (map.Obstacles[index])
 							{
+								if (map.NaturalSurfacesFrozen)
+									throw new RmgGenerationRejectedException("NATURAL_SURFACE_AUTHORITY", "Routing attempted to clear frozen Water.");
 								map.Obstacles[index] = false;
 								map.ObstacleRegionIds[index] = -1;
 								clearedWater.Add(index);
@@ -220,7 +223,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					new RmgPoint(0, -1)
 				};
 				var directDistance = start.ManhattanDistance(target);
-				var maximumDetourDistance = directDistance + 24;
+				var maximumDetourDistance = directDistance +
+					(profile.UsesNaturalTerrainMorphologyV10 ? map.Width : 24);
 				var ownStartRadius = profile.StartRegionRadiusNative / 2;
 				var stateCount = map.Obstacles.Length * DirectionCount;
 				var distances = Enumerable.Repeat(long.MaxValue, stateCount).ToArray();
@@ -277,7 +281,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 									existingRouteCells++;
 							}
 
-						if (overlapsStructure || overlapsOtherStart)
+						if (overlapsStructure || overlapsOtherStart || (map.NaturalSurfacesFrozen && waterCells != 0))
 							continue;
 
 						var nextState = map.Index(next) * DirectionCount + direction;
@@ -311,32 +315,59 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			}
 		}
 
-		static void PlaceNaturalColonies(RmgLogicalMap map, RmgProfile profile, RmgGenerationSettings settings)
+		static void PlaceNaturalColonies(RmgLogicalMap map, RmgProfile profile, RmgGenerationSettings settings,
+			int initialRound = 0, int? maximumRoundExclusive = null)
 		{
 			var minimumColonyCount = MinimumAdaptiveColonyCount(profile, settings);
 			var requestedRounds = settings.NeutralColonyCount / settings.PlayerCount;
+			var lastRoundExclusive = Math.Min(requestedRounds, maximumRoundExclusive ?? requestedRounds);
 			var minimumRounds = (minimumColonyCount + settings.PlayerCount - 1) / settings.PlayerCount;
 			var searchNodes = 0;
 			const int MaximumSearchNodes = 8192;
 			const int CandidateLimit = 192;
 			var typeRandom = DeterministicRandom.ForStream(settings, profile, "natural-colony-types");
-			var completedRounds = 0;
+			for (var skippedRound = 0; skippedRound < initialRound; skippedRound++)
+				typeRandom.NextInt(profile.NeutralColonyActors.Length);
+			var completedRounds = initialRound;
 			var stopReason = "requested target reached";
-			for (var round = 0; round < requestedRounds; round++)
+			for (var round = initialRound; round < lastRoundExclusive; round++)
 			{
 				var actorCount = map.Actors.Count;
 				var role = round < 2 ? "near-start" : round % 2 == 0 ? "side-route" : "peripheral";
-				var actorType = profile.NeutralColonyActors[typeRandom.NextInt(profile.NeutralColonyActors.Length)];
-				if (!PlaceForPlayer(0))
+				var preferredActorIndex = typeRandom.NextInt(profile.NeutralColonyActors.Length);
+				var attemptedActorTypes = new List<string>();
+				string actorType = null;
+				var actorCandidateCounts = "not evaluated";
+				var placedRound = false;
+				var exhaustedActorTypeSearch = false;
+				for (var actorOffset = 0; actorOffset < profile.NeutralColonyActors.Length; actorOffset++)
 				{
+					actorType = profile.NeutralColonyActors[
+						(preferredActorIndex + actorOffset) % profile.NeutralColonyActors.Length];
+					var actorTypeSearchStart = searchNodes;
+					if (PlaceBalancedRound(actorTypeSearchStart))
+					{
+						placedRound = true;
+						break;
+					}
+
+					attemptedActorTypes.Add($"{actorType}[{actorCandidateCounts}]");
 					map.Actors.RemoveRange(actorCount, map.Actors.Count - actorCount);
-					stopReason = searchNodes > MaximumSearchNodes ?
-						$"search exceeded {MaximumSearchNodes} nodes during round {round + 1}" :
-						$"round {round + 1} had no complete player-balanced combat-safe placement";
+					exhaustedActorTypeSearch |= searchNodes - actorTypeSearchStart > MaximumSearchNodes;
+				}
+
+				if (!placedRound)
+				{
+					stopReason = exhaustedActorTypeSearch ?
+						$"a species search exceeded {MaximumSearchNodes} nodes during round {round + 1}; " +
+							$"tried {string.Join(", ", attemptedActorTypes)}" :
+						$"round {round + 1} had no complete player-balanced combat-safe placement; " +
+							$"tried {string.Join(", ", attemptedActorTypes)}";
 					break;
 				}
 
-				var proposedClearance = NaturalColonyClearance();
+				var proposedClearance = profile.UsesNaturalTerrainMorphologyV10 ?
+					new HashSet<int>() : NaturalColonyClearance();
 				var proposedInteriorClearance = proposedClearance.Count(index =>
 					WaterInteriorSector(map, new RmgPoint(index % map.Width, index / map.Width)) >= 0);
 				var totalClearanceLimit = (int)Math.Ceiling(map.NaturalPrototypeWaterCount * .30D);
@@ -352,41 +383,76 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 				completedRounds++;
 
-				bool PlaceForPlayer(int playerIndex)
+				bool PlaceBalancedRound(int actorTypeSearchStart)
 				{
-					if (playerIndex == map.Starts.Count)
-						return true;
-
-					var target = map.Starts[playerIndex];
-					var request = new ColonyRequest(role, new[] { target }, round);
-					var tieRandom = DeterministicRandom.ForStream(settings, profile,
-						$"natural-colony-{round}-{playerIndex}");
-					var candidates = Enumerable.Range(7, map.Height - 14)
-						.SelectMany(y => Enumerable.Range(7, map.Width - 14).Select(x => new RmgPoint(x, y)))
-						.Where(point => NearestStart(map, point) == target)
-						.Select(point => (Point: point,
-							Score: ColonyScore(map, new[] { point }, request) -
-								1000000L * NaturalColonyWaterCost(point),
-							Tie: tieRandom.NextInt(int.MaxValue)))
-						.OrderByDescending(candidate => candidate.Score)
-						.ThenBy(candidate => candidate.Tie)
-						.ThenBy(candidate => candidate.Point.Y)
-						.ThenBy(candidate => candidate.Point.X)
-						.Where(candidate => NaturalColonyLocationIsValid(actorType, candidate.Point))
-						.Take(CandidateLimit)
+					// Freeze each player's individually valid sites before searching.
+					// The previous depth-first order could spend the complete budget on
+					// one unconstrained player before discovering that a later player
+					// had no compatible site. Fail-first ordering and forward checking
+					// make the same bounded search solve the most constrained territory
+					// first without weakening any colony or terrain constraint.
+					var candidateSets = Enumerable.Range(0, map.Starts.Count)
+						.Select(playerIndex =>
+						{
+							var target = map.Starts[playerIndex];
+							var request = new ColonyRequest(role, new[] { target }, round);
+							var tieRandom = DeterministicRandom.ForStream(settings, profile,
+								$"natural-colony-{round}-{playerIndex}-{actorType}");
+							return Enumerable.Range(7, map.Height - 14)
+								.SelectMany(y => Enumerable.Range(7, map.Width - 14).Select(x => new RmgPoint(x, y)))
+								.Where(point => NearestStart(map, point) == target)
+								.Select(point => (Point: point,
+									Score: ColonyScore(map, new[] { point }, request) -
+										1000000L * NaturalColonyWaterCost(point) -
+										10000000L * NaturalColonyRouteOverlap(point),
+									Tie: tieRandom.NextInt(int.MaxValue)))
+								.OrderByDescending(candidate => candidate.Score)
+								.ThenBy(candidate => candidate.Tie)
+								.ThenBy(candidate => candidate.Point.Y)
+								.ThenBy(candidate => candidate.Point.X)
+								.Where(candidate => NaturalColonyLocationIsValid(actorType, candidate.Point))
+								.Take(CandidateLimit)
+								.ToArray();
+						})
 						.ToArray();
-					foreach (var (point, _, _) in candidates)
+					actorCandidateCounts = string.Join("/", candidateSets.Select(candidates => candidates.Length));
+					var unassigned = Enumerable.Range(0, map.Starts.Count).ToHashSet();
+					return PlaceMostConstrainedPlayer();
+
+					bool PlaceMostConstrainedPlayer()
 					{
-						if (++searchNodes > MaximumSearchNodes)
+						if (unassigned.Count == 0)
+							return true;
+
+						var (playerIndex, candidates) = unassigned
+							.Select(playerIndex => (PlayerIndex: playerIndex,
+								Candidates: candidateSets[playerIndex]
+									.Where(candidate => NaturalColonyLocationIsValid(actorType, candidate.Point))
+									.ToArray()))
+							.OrderBy(entry => entry.Candidates.Length)
+							.ThenBy(entry => entry.PlayerIndex)
+							.First();
+						if (candidates.Length == 0)
 							return false;
 
-						map.Actors.Add(new RmgActorPlan(actorType, profile.ColonyOwner, role, point, round));
-						if (PlaceForPlayer(playerIndex + 1))
-							return true;
-						map.Actors.RemoveAt(map.Actors.Count - 1);
-					}
+						unassigned.Remove(playerIndex);
+						foreach (var (point, _, _) in candidates)
+						{
+							if (++searchNodes - actorTypeSearchStart > MaximumSearchNodes)
+								break;
 
-					return false;
+							map.Actors.Add(new RmgActorPlan(actorType, profile.ColonyOwner, role,
+								point, round));
+							var forwardCompatible = unassigned.All(playerIndex => candidateSets[playerIndex]
+								.Any(next => NaturalColonyLocationIsValid(actorType, next.Point)));
+							if (forwardCompatible && PlaceMostConstrainedPlayer())
+								return true;
+							map.Actors.RemoveAt(map.Actors.Count - 1);
+						}
+
+						unassigned.Add(playerIndex);
+						return false;
+					}
 				}
 			}
 
@@ -396,7 +462,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					$"Natural terrain safely supports only {completedRounds * settings.PlayerCount} colonies; " +
 					$"the adaptive minimum is {minimumColonyCount}. Stop reason: {stopReason}.");
 
-			var clearedWater = NaturalColonyClearance();
+			var clearedWater = profile.UsesNaturalTerrainMorphologyV10 ?
+				new HashSet<int>() : NaturalColonyClearance();
 			foreach (var index in clearedWater)
 			{
 				map.Obstacles[index] = false;
@@ -404,7 +471,24 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			}
 
 			foreach (var actor in map.Actors.Where(actor => actor.Owner == profile.ColonyOwner))
-				ReserveSquare(map.StructureReservations, map, actor.LogicalLocation, 4);
+			{
+				if (profile.UsesNaturalTerrainMorphologyV10)
+				{
+					// V10 placement already proves this exact physical colony and exit
+					// clearance dry. Reserving a larger square here would visibly carve
+					// unrelated terrain during the generic repair pass.
+					for (var dy = -2; dy <= 4; dy++)
+						for (var dx = -2; dx <= 4; dx++)
+						{
+							var point = new RmgPoint(actor.LogicalLocation.X + dx,
+								actor.LogicalLocation.Y + dy);
+							if (map.Contains(point))
+								map.StructureReservations[map.Index(point)] = true;
+						}
+				}
+				else
+					ReserveSquare(map.StructureReservations, map, actor.LogicalLocation, 4);
+			}
 
 			map.NaturalColonyClearedWaterCount = clearedWater.Count;
 			RebuildObstacleRegionMetadata(map);
@@ -435,16 +519,43 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				return water;
 			}
 
+			int NaturalColonyFootprintWaterCost(RmgPoint point)
+			{
+				var water = 0;
+				for (var dy = -2; dy <= 4; dy++)
+					for (var dx = -2; dx <= 4; dx++)
+						if (map.Obstacles[map.Index(new RmgPoint(point.X + dx, point.Y + dy))])
+							water++;
+				return water;
+			}
+
+			int NaturalColonyRouteOverlap(RmgPoint point)
+			{
+				var overlap = 0;
+				for (var dy = 0; dy <= 2; dy++)
+					for (var dx = 0; dx <= 2; dx++)
+						if (map.RouteMasks[map.Index(new RmgPoint(point.X + dx, point.Y + dy))] != 0)
+							overlap++;
+				return overlap;
+			}
+
 			bool NaturalColonyLocationIsValid(string actorType, RmgPoint point)
 			{
 				if (point.X < 4 || point.Y < 4 || point.X >= map.Width - 4 || point.Y >= map.Height - 4 ||
 					map.GraphNodes.Where(node => node.Role == "hub")
 						.Any(node => point.ChebyshevDistance(node.Location) < 8))
 					return false;
-				for (var dy = -1; dy <= 3; dy++)
-					for (var dx = -1; dx <= 3; dx++)
+				var routeMinimum = profile.UsesNaturalTerrainMorphologyV10 ? 0 : -1;
+				var routeMaximum = profile.UsesNaturalTerrainMorphologyV10 ? 2 : 3;
+				for (var dy = routeMinimum; dy <= routeMaximum; dy++)
+					for (var dx = routeMinimum; dx <= routeMaximum; dx++)
 						if (map.RouteMasks[map.Index(new RmgPoint(point.X + dx, point.Y + dy))] != 0)
 							return false;
+				if (profile.UsesNaturalTerrainMorphologyV10 && NaturalColonyFootprintWaterCost(point) != 0)
+					return false;
+				if (map.NaturalSurfacesFrozen && map.NaturalOriginalSurfaceRelations &&
+					!profile.DirtPlacementRules.ColonyFits(map, actorType, point))
+					return false;
 				return ColonyCombatSpaceIsValid(map, profile, actorType, point);
 			}
 		}
@@ -519,9 +630,13 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			RebuildObstacleRegionMetadata(map);
 			for (var operation = 0; operation < map.Obstacles.Length; operation++)
 			{
-				var (interiorDensity, _, interiorCoveredSectors, _) = WaterInteriorMetrics(map);
+				var (interiorDensity, interiorShare, interiorCoveredSectors, _) = WaterInteriorMetrics(map);
+				var needsInteriorProgress = profile.UsesNaturalTerrainMorphologyV10 &&
+					(interiorDensity < interiorMinimumDensity || interiorCoveredSectors < interiorMinimumSectors ||
+						interiorShare < 40D);
 				if (map.Obstacles.Count(value => value) >= desiredTarget &&
-					interiorDensity >= interiorMinimumDensity && interiorCoveredSectors >= interiorMinimumSectors)
+					interiorDensity >= interiorMinimumDensity && interiorCoveredSectors >= interiorMinimumSectors &&
+					(!profile.UsesNaturalTerrainMorphologyV10 || interiorShare >= 40D))
 					break;
 
 				RmgPoint[] bestAdded = null;
@@ -554,6 +669,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 							new RmgPoint(topLeft.X + 1, topLeft.Y + 1)
 						};
 						var added = block.Where(point => !cells.Contains(point)).Distinct().ToArray();
+						if (needsInteriorProgress && !added.Any(point => WaterInteriorSector(map, point) >= 0))
+							continue;
 						if (added.Length == 0 || map.Obstacles.Count(value => value) + added.Length > maximumTarget ||
 							cells.Count + added.Length > profile.ObstacleRegionMaximumLogical ||
 							added.Any(point => !ObstacleExtensionCellEligible(map, point, region.Id)))

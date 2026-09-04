@@ -39,7 +39,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		BattlefieldLayout,
 		ParameterizedBattlefield,
 		CoherentWater,
-		NaturalTerrain
+		NaturalTerrain,
+		NaturalTerrainV10
 	}
 
 	public enum RmgLayoutFamily
@@ -186,6 +187,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public int HighVegetationLandPercent { get; private set; }
 		public int HighTacticalLandAnchorOrbitCount { get; private set; }
 		public RmgColonyCombatRules ColonyCombatRules { get; private set; }
+		public RmgDirtPlacementRules DirtPlacementRules { get; private set; }
 		public bool UsesShorelineMaterialization => GeneratorVersion >= 3;
 		public bool UsesClearLandDetails => GeneratorVersion >= 4;
 		public bool UsesLandCover => GeneratorVersion >= 5;
@@ -193,7 +195,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public bool UsesTerrainDecorations => GeneratorVersion >= 6;
 		public bool UsesParameterizedBattlefield => GeneratorVersion >= 7;
 		public bool UsesCoherentWaterMorphology => GeneratorVersion == 8;
-		public bool UsesNaturalTerrainMorphology => GeneratorVersion == 9;
+		public bool UsesNaturalTerrainMorphologyV10 => GeneratorVersion == 10;
+		public bool UsesNaturalTerrainMorphology => GeneratorVersion is 9 or 10;
 
 		public int ObstacleDensityTarget(RmgArchetype archetype, RmgParameterLevel waterAmount)
 		{
@@ -249,6 +252,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				RmgTopologyPreset.ParameterizedBattlefield => "sa|rmg/normal-parameterized-battlefield-v7.yaml",
 				RmgTopologyPreset.CoherentWater => "sa|rmg/normal-coherent-water-v8.yaml",
 				RmgTopologyPreset.NaturalTerrain => "sa|rmg/normal-natural-landscape-v9.yaml",
+				RmgTopologyPreset.NaturalTerrainV10 => "sa|rmg/normal-natural-landscape-v10.yaml",
 				_ => "sa|rmg/normal-clear-v1.yaml"
 			});
 
@@ -337,6 +341,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (profile.GeneratorVersion >= 2)
 				profile.ColonyCombatRules = RmgColonyCombatRules.Load(modData, profile.NeutralColonyActors,
 					profile.ColonyCombatSafetyBufferNative);
+			if (profile.UsesNaturalTerrainMorphologyV10)
+				profile.DirtPlacementRules = RmgDirtPlacementRules.Load(modData, profile.NeutralColonyActors);
 			return profile;
 		}
 
@@ -351,54 +357,55 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var version7 = ProfileId == "normal-parameterized-battlefield-v7" && ConfigurationVersion == 1 && GeneratorVersion == 7;
 			var version8 = ProfileId == "normal-coherent-water-v8" && ConfigurationVersion == 1 && GeneratorVersion == 8;
 			var version9 = ProfileId == "normal-natural-landscape-v9" && ConfigurationVersion == 1 && GeneratorVersion == 9;
-			if (!version1 && !version2 && !version3 && !version4 && !version5 && !version6 && !version7 && !version8 && !version9)
-				throw new InvalidOperationException("Only frozen Generator Versions 1 through 7 and opt-in Version 8/9 layout-family profiles are supported.");
+			var version10 = ProfileId == "normal-natural-landscape-v10" && ConfigurationVersion == 1 && GeneratorVersion == 10;
+			if (!version1 && !version2 && !version3 && !version4 && !version5 && !version6 && !version7 && !version8 && !version9 && !version10)
+				throw new InvalidOperationException("Only frozen Generator Versions 1 through 9 and opt-in Version 10 layout-family profiles are supported.");
 			if (Tileset != "NORMAL" || PlayableWidth != 128 || PlayableHeight != 128 || CordonWidth != 2 || LogicalWidth != 64 || LogicalHeight != 64)
 				throw new InvalidOperationException("The Version 1 geometry or tileset was changed without a contract revision.");
 			if (version1 && (ObstacleDensity != 0 || VegetationDensity != 0))
 				throw new InvalidOperationException("Version 1 is Clear-only: obstacle and vegetation density must be zero.");
 			if (ClearTemplateIds.Length == 0 || NeutralColonyActors.Length == 0)
 				throw new InvalidOperationException("The RMG profile must declare clear templates and neutral colony actors.");
-			if ((version2 || version3 || version4 || version5 || version6 || version7 || version8 || version9) && (BlockedTemplateIds.Length == 0 || VegetationDensity != 0 ||
+			if ((version2 || version3 || version4 || version5 || version6 || version7 || version8 || version9 || version10) && (BlockedTemplateIds.Length == 0 || VegetationDensity != 0 ||
 				MinimumRouteWidthNative != 5 || MajorRouteWidthNative != 9 || ChokepointWidthNative != 3 ||
-				(!version9 && (OpenObstacleDensityTarget != 12 || OpenObstacleDensityMinimum != 10 || OpenObstacleDensityMaximum != 14 ||
+				(!(version9 || version10) && (OpenObstacleDensityTarget != 12 || OpenObstacleDensityMinimum != 10 || OpenObstacleDensityMaximum != 14 ||
 				CentralObstacleDensityTarget != 16 || CentralObstacleDensityMinimum != 14 || CentralObstacleDensityMaximum != 18 ||
 				ObstacleRegionMinimumLogical != 8)) || MaximumTopologyAttempts != 4 ||
 				MaximumRepairOperations != 8 || MaximumRepairCellsLogical != 64 || ColonyCombatSafetyBufferNative != 1))
 				throw new InvalidOperationException("The blocking-topology or combat-space constants do not match the accepted contract.");
-			if ((!version1 && !version8 && !version9 && ObstacleRegionMaximumLogical != 64) || ((version8 || version9) && ObstacleRegionMaximumLogical != 1024))
+			if ((!version1 && !version8 && !version9 && !version10 && ObstacleRegionMaximumLogical != 64) || ((version8 || version9 || version10) && ObstacleRegionMaximumLogical != 1024))
 				throw new InvalidOperationException("Obstacle-region capacity does not match the selected frozen layout-family contract.");
 			if (version2 && (OpenWaterDetailTemplateIds.Length != 0 || ShorelineDecorationPercent != 0 || OpenWaterDetailPercent != 0))
 				throw new InvalidOperationException("The frozen Version 2 profile cannot enable Version 3 visual decoration.");
-			if ((version3 || version4 || version5 || version6 || version7 || version8 || version9) && (!OpenWaterDetailTemplateIds.SequenceEqual(NormalWaterTransitionCatalogue.OpenWaterDetailTemplateIds) ||
+			if ((version3 || version4 || version5 || version6 || version7 || version8 || version9 || version10) && (!OpenWaterDetailTemplateIds.SequenceEqual(NormalWaterTransitionCatalogue.OpenWaterDetailTemplateIds) ||
 				ShorelineDecorationPercent != 16 || OpenWaterDetailPercent != 8))
 				throw new InvalidOperationException("The Version 3 shoreline policy must use the audited 16% shoreline decoration, " +
 					"8% open-Water detail, and fixed NORMAL detail templates 24, 25, and 27.");
-			if (!version4 && !version5 && !version6 && !version7 && !version8 && !version9 && (ClearLandDetailTemplateIds.Length != 0 || ClearLandDetailPercent != 0))
+			if (!version4 && !version5 && !version6 && !version7 && !version8 && !version9 && !version10 && (ClearLandDetailTemplateIds.Length != 0 || ClearLandDetailPercent != 0))
 				throw new InvalidOperationException("Generator Versions 1 through 3 cannot enable Phase 6B Clear land details.");
-			if ((version4 || version5 || version6 || version7 || version8 || version9) && (!ClearLandDetailTemplateIds.SequenceEqual(new ushort[] { 61, 62 }) || ClearLandDetailPercent != 4))
-				throw new InvalidOperationException("Generator Versions 4 through 9 must use the audited four-percent Clear detail policy and fixed NORMAL templates 61 and 62.");
-			if (!version5 && !version6 && !version7 && !version8 && !version9 && (RockLandPercent != 0 || VegetationLandPercent != 0 || RockDetailPercent != 0 ||
+			if ((version4 || version5 || version6 || version7 || version8 || version9 || version10) && (!ClearLandDetailTemplateIds.SequenceEqual(new ushort[] { 61, 62 }) || ClearLandDetailPercent != 4))
+				throw new InvalidOperationException("Generator Versions 4 through 10 must use the audited four-percent Clear detail policy and fixed NORMAL templates 61 and 62.");
+			if (!version5 && !version6 && !version7 && !version8 && !version9 && !version10 && (RockLandPercent != 0 || VegetationLandPercent != 0 || RockDetailPercent != 0 ||
 				VegetationDetailPercent != 0 || LandCoverTolerancePercent != 0))
 				throw new InvalidOperationException("Generator Versions 1 through 4 cannot enable Phase 6C slow land cover.");
 			if (version5 && (RockLandPercent != 14 || VegetationLandPercent != 8 || RockDetailPercent != 2 ||
 				VegetationDetailPercent != 3 || LandCoverTolerancePercent != 2))
 				throw new InvalidOperationException("Generator Version 5 must use the frozen 14% Rock, 8% Vegetation, 2% Rock-detail, 3% Vegetation-detail, and two-point tolerance policy.");
-			if ((version6 || version7 || version8 || version9) && (RockLandPercent != 14 || VegetationLandPercent != 8 || RockDetailPercent != 2 ||
+			if ((version6 || version7 || version8 || version9 || version10) && (RockLandPercent != 14 || VegetationLandPercent != 8 || RockDetailPercent != 2 ||
 				VegetationDetailPercent != 3 || LandCoverTolerancePercent != 2))
-				throw new InvalidOperationException("Generator Versions 6 through 8 must preserve the Version 5 Standard coverage and detail-selection rates.");
-			if ((version6 || version7 || version8 || version9) && (BattlefieldFlankRadiusLogical != 3 || TacticalLandAnchorOrbitCount != 3 ||
+				throw new InvalidOperationException("Generator Versions 6 through 10 must preserve the Version 5 Standard coverage and detail-selection rates.");
+			if ((version6 || version7 || version8 || version9 || version10) && (BattlefieldFlankRadiusLogical != 3 || TacticalLandAnchorOrbitCount != 3 ||
 				!SoilDecorationActors.SequenceEqual(new[] { "plant_flower", "rmg_plant_broad_leaf_grass" }) ||
 				!RockDecorationActors.SequenceEqual(new[] { "rmg_plant_brown_mushroom" }) ||
 				!VegetationDecorationActors.SequenceEqual(new[] { "rmg_plant_toad_stool" }) ||
 				BlockingDecorationActors.Length != 0 ||
 				LandDecorationPerThousand != 3 || MinimumLandDecorationSectors != 12))
-				throw new InvalidOperationException("Versions 6 through 8 must use the accepted role and terrain-specific decoration policy.");
-			if ((version7 || version8 || version9) && (LowWaterDensityAdjustment != -4 || HighWaterDensityAdjustment != 4 ||
+				throw new InvalidOperationException("Versions 6 through 10 must use the accepted role and terrain-specific decoration policy.");
+			if ((version7 || version8 || version9 || version10) && (LowWaterDensityAdjustment != -4 || HighWaterDensityAdjustment != 4 ||
 				LowRockLandPercent != 10 || LowVegetationLandPercent != 5 || LowTacticalLandAnchorOrbitCount != 2 ||
 				HighRockLandPercent != 18 || HighVegetationLandPercent != 11 || HighTacticalLandAnchorOrbitCount != 5))
-				throw new InvalidOperationException("Version 7 and 8 parameter profiles do not match the accepted Phase 8A Low/Standard/High contract.");
-			if (!version7 && !version8 && !version9 && (LowWaterDensityAdjustment != 0 || HighWaterDensityAdjustment != 0 || LowRockLandPercent != 0 ||
+				throw new InvalidOperationException("Version 7 through 10 parameter profiles do not match the accepted Phase 8A Low/Standard/High contract.");
+			if (!version7 && !version8 && !version9 && !version10 && (LowWaterDensityAdjustment != 0 || HighWaterDensityAdjustment != 0 || LowRockLandPercent != 0 ||
 				LowVegetationLandPercent != 0 || LowTacticalLandAnchorOrbitCount != 0 || HighRockLandPercent != 0 ||
 				HighVegetationLandPercent != 0 || HighTacticalLandAnchorOrbitCount != 0))
 				throw new InvalidOperationException("Generator Versions 1 through 6 cannot enable Version 7 parameter profiles.");
@@ -467,6 +474,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public int[] NaturalVegetationPriorities { get; }
 		public string NaturalTerrainVariantId { get; set; }
 		public bool NaturalOriginalSurfaceRelations { get; set; }
+		public bool NaturalSurfacesFrozen { get; set; }
+		public int NaturalRelocatedStartCount { get; set; }
+		public int NaturalReplacedColonyCount { get; set; }
 		public int NaturalForbiddenSurfaceAdjacencyCount { get; set; }
 		public int NaturalPrototypeWaterCount { get; set; }
 		public int NaturalPrototypeInteriorWaterCount { get; set; }
