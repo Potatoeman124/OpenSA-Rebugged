@@ -20,6 +20,10 @@ namespace OpenRA.Mods.OpenSA.Rmg.NaturalPrototype
 		const int Width = NaturalTerrainPrototypeSettings.Width;
 		const int Height = NaturalTerrainPrototypeSettings.Height;
 		const int CellCount = Width * Height;
+		static readonly (int X, int Y)[] ForwardMooreNeighbors =
+		{
+			(1, 0), (0, 1), (1, 1), (-1, 1)
+		};
 
 		public static NaturalTerrainPrototypeCandidate Generate(NaturalTerrainPrototypeSettings settings)
 		{
@@ -27,6 +31,9 @@ namespace OpenRA.Mods.OpenSA.Rmg.NaturalPrototype
 				throw new ArgumentNullException(nameof(settings));
 			if (settings.CandidateIndex < 0)
 				throw new ArgumentException("CandidateIndex must be non-negative.", nameof(settings));
+			ValidateTargetOverride(settings.WaterTargetOverride, "WaterTargetOverride");
+			ValidateTargetOverride(settings.RockTargetOverride, "RockTargetOverride");
+			ValidateTargetOverride(settings.VegetationTargetOverride, "VegetationTargetOverride");
 
 			var streams = settings.StreamSeeds();
 			var basins = CreateBasins(settings, streams["basin-potential"]);
@@ -74,9 +81,9 @@ namespace OpenRA.Mods.OpenSA.Rmg.NaturalPrototype
 				}
 
 			var variation = new DeterministicRandom(streams["classification-variation"]);
-			var waterTarget = .16 + .08 * Unit(variation);
-			var rockTarget = .11 + .06 * Unit(variation);
-			var vegetationTarget = .075 + .04 * Unit(variation);
+			var waterTarget = settings.WaterTargetOverride ?? .16 + .08 * Unit(variation);
+			var rockTarget = settings.RockTargetOverride ?? .11 + .06 * Unit(variation);
+			var vegetationTarget = settings.VegetationTargetOverride ?? .075 + .04 * Unit(variation);
 			var waterThreshold = LowerQuantile(normalized, waterTarget);
 			for (var i = 0; i < CellCount; i++)
 				waterDecision[i] = (float)(waterThreshold - normalized[i]);
@@ -90,25 +97,38 @@ namespace OpenRA.Mods.OpenSA.Rmg.NaturalPrototype
 				.Where(i => semantic[i] == (byte)NaturalTerrainSemantic.Clear)
 				.Select(i => roughness[i] + .18 * normalized[i]).ToArray();
 			var rockThreshold = UpperQuantile(rockScores, rockTarget * CellCount / rockScores.Length);
+			var unrestrictedRock = new bool[CellCount];
 			for (var i = 0; i < CellCount; i++)
 			{
 				var score = roughness[i] + .18 * normalized[i];
 				rockDecision[i] = (float)(score - (float)rockThreshold);
-				if (semantic[i] == (byte)NaturalTerrainSemantic.Clear && score >= rockThreshold)
+				unrestrictedRock[i] = semantic[i] == (byte)NaturalTerrainSemantic.Clear && score >= rockThreshold;
+				if (unrestrictedRock[i] &&
+					(!settings.OriginalSurfaceRelations || !HasSurfaceWithin(semantic, i, NaturalTerrainSemantic.Water, 1)))
 					semantic[i] = (byte)NaturalTerrainSemantic.Rock;
 			}
 
 			var vegetationScores = Enumerable.Range(0, CellCount)
-				.Where(i => semantic[i] == (byte)NaturalTerrainSemantic.Clear)
+				.Where(i => semantic[i] != (byte)NaturalTerrainSemantic.Water && !unrestrictedRock[i])
 				.Select(i => moisture[i] - .15 * roughness[i] + .10 * (1 - normalized[i])).ToArray();
 			var vegetationThreshold = UpperQuantile(vegetationScores, vegetationTarget * CellCount / vegetationScores.Length);
 			for (var i = 0; i < CellCount; i++)
 			{
 				var score = moisture[i] - .15 * roughness[i] + .10 * (1 - normalized[i]);
 				vegetationDecision[i] = (float)(score - (float)vegetationThreshold);
-				if (semantic[i] == (byte)NaturalTerrainSemantic.Clear && score >= vegetationThreshold)
+				if (semantic[i] == (byte)NaturalTerrainSemantic.Clear && !unrestrictedRock[i] &&
+					score >= vegetationThreshold &&
+					(!settings.OriginalSurfaceRelations || !HasSurfaceWithin(semantic, i, NaturalTerrainSemantic.Water, 2)))
 					semantic[i] = (byte)NaturalTerrainSemantic.Vegetation;
 			}
+
+			if (settings.OriginalSurfaceRelations)
+				AddGravelTransitionAroundMoss(semantic);
+			var adjacencyCounts = CountSurfaceAdjacencies(semantic);
+			var forbiddenAdjacencyCount = ForbiddenSurfaceAdjacencyCount(adjacencyCounts);
+			if (settings.OriginalSurfaceRelations && forbiddenAdjacencyCount != 0)
+				throw new InvalidOperationException(
+					$"Original surface relations produced {forbiddenAdjacencyCount} forbidden edge/corner contacts.");
 
 			return new NaturalTerrainPrototypeCandidate
 			{
@@ -134,8 +154,17 @@ namespace OpenRA.Mods.OpenSA.Rmg.NaturalPrototype
 				VegetationThreshold = vegetationThreshold,
 				WaterTarget = waterTarget,
 				RockTarget = rockTarget,
-				VegetationTarget = vegetationTarget
+				VegetationTarget = vegetationTarget,
+				SurfaceAdjacencyCounts = adjacencyCounts,
+				ForbiddenSurfaceAdjacencyCount = forbiddenAdjacencyCount
 			};
+		}
+
+		static void ValidateTargetOverride(double? value, string name)
+		{
+			if (value.HasValue && (double.IsNaN(value.Value) || double.IsInfinity(value.Value) ||
+				value.Value <= 0 || value.Value >= 1))
+				throw new ArgumentException($"{name} must be strictly between zero and one.");
 		}
 
 		public static IReadOnlyList<string> RunSelfTests()
@@ -143,7 +172,13 @@ namespace OpenRA.Mods.OpenSA.Rmg.NaturalPrototype
 			var failures = new List<string>();
 			foreach (var variant in Enum.GetValues<NaturalTerrainPrototypeVariant>())
 			{
-				var settings = new NaturalTerrainPrototypeSettings { RootSeed = 92001, CandidateIndex = 0, Variant = variant };
+				var settings = new NaturalTerrainPrototypeSettings
+				{
+					RootSeed = 92001,
+					CandidateIndex = 0,
+					Variant = variant,
+					OriginalSurfaceRelations = true
+				};
 				var first = Generate(settings);
 				var second = Generate(settings);
 				if (!first.Semantic.SequenceEqual(second.Semantic))
@@ -161,9 +196,127 @@ namespace OpenRA.Mods.OpenSA.Rmg.NaturalPrototype
 					failures.Add("Variant A must not contain basin objects.");
 				if (variant == NaturalTerrainPrototypeVariant.CorrelatedFieldWithBasinPotential && (first.Basins.Count < 1 || first.Basins.Count > 3))
 					failures.Add("Variant B must contain one to three basin potentials.");
+				if (first.ForbiddenSurfaceAdjacencyCount != 0)
+					failures.Add($"Original surface relations failed for {settings.VariantId}: {first.ForbiddenSurfaceAdjacencyCount} forbidden contacts.");
+
+				var unrestricted = Generate(new NaturalTerrainPrototypeSettings
+				{
+					RootSeed = settings.RootSeed,
+					CandidateIndex = settings.CandidateIndex,
+					Variant = settings.Variant,
+					OriginalSurfaceRelations = false
+				});
+				foreach (var field in first.Fields.Keys)
+					if (!first.Fields[field].SequenceEqual(unrestricted.Fields[field]))
+						failures.Add($"Surface-relations option changed the accepted Step 2 field stream for {settings.VariantId}/{field}.");
+				if (first.Semantic.SequenceEqual(unrestricted.Semantic))
+					failures.Add($"Surface-relations option did not affect semantic classification for {settings.VariantId}.");
 			}
 
 			return failures;
+		}
+
+		public static IReadOnlyDictionary<string, int> CountSurfaceAdjacencies(byte[] semantic)
+		{
+			if (semantic == null || semantic.Length != CellCount)
+				throw new ArgumentException($"Semantic field must contain exactly {CellCount} cells.", nameof(semantic));
+
+			var counts = new Dictionary<string, int>(StringComparer.Ordinal)
+			{
+				["water-dirt"] = 0,
+				["water-gravel"] = 0,
+				["water-moss"] = 0,
+				["dirt-gravel"] = 0,
+				["dirt-moss"] = 0,
+				["gravel-moss"] = 0
+			};
+			for (var y = 0; y < Height; y++)
+				for (var x = 0; x < Width; x++)
+				{
+					var value = (NaturalTerrainSemantic)semantic[y * Width + x];
+					foreach (var (offsetX, offsetY) in ForwardMooreNeighbors)
+					{
+						var nx = x + offsetX;
+						var ny = y + offsetY;
+						if (nx < 0 || nx >= Width || ny < 0 || ny >= Height)
+							continue;
+						var neighbor = (NaturalTerrainSemantic)semantic[ny * Width + nx];
+						if (value == neighbor)
+							continue;
+						var key = SurfacePairKey(value, neighbor);
+						counts[key]++;
+					}
+				}
+
+			return counts;
+		}
+
+		public static int CountForbiddenSurfaceAdjacencies(byte[] semantic) =>
+			ForbiddenSurfaceAdjacencyCount(CountSurfaceAdjacencies(semantic));
+
+		static void AddGravelTransitionAroundMoss(byte[] semantic)
+		{
+			var moss = new List<int>();
+			for (var i = 0; i < semantic.Length; i++)
+				if (semantic[i] == (byte)NaturalTerrainSemantic.Vegetation)
+					moss.Add(i);
+
+			foreach (var index in moss)
+			{
+				var x = index % Width;
+				var y = index / Width;
+				for (var dy = -1; dy <= 1; dy++)
+					for (var dx = -1; dx <= 1; dx++)
+					{
+						if (dx == 0 && dy == 0)
+							continue;
+						var nx = x + dx;
+						var ny = y + dy;
+						if (nx < 0 || nx >= Width || ny < 0 || ny >= Height)
+							continue;
+						var neighbor = ny * Width + nx;
+						if (semantic[neighbor] == (byte)NaturalTerrainSemantic.Clear)
+							semantic[neighbor] = (byte)NaturalTerrainSemantic.Rock;
+					}
+			}
+		}
+
+		static bool HasSurfaceWithin(byte[] semantic, int index, NaturalTerrainSemantic surface, int radius)
+		{
+			var x = index % Width;
+			var y = index / Width;
+			for (var dy = -radius; dy <= radius; dy++)
+				for (var dx = -radius; dx <= radius; dx++)
+				{
+					if (dx == 0 && dy == 0)
+						continue;
+					var nx = x + dx;
+					var ny = y + dy;
+					if (nx >= 0 && nx < Width && ny >= 0 && ny < Height &&
+						semantic[ny * Width + nx] == (byte)surface)
+						return true;
+				}
+
+			return false;
+		}
+
+		static int ForbiddenSurfaceAdjacencyCount(IReadOnlyDictionary<string, int> counts) =>
+			counts["water-gravel"] + counts["water-moss"] + counts["dirt-moss"];
+
+		static string SurfacePairKey(NaturalTerrainSemantic first, NaturalTerrainSemantic second)
+		{
+			var low = (NaturalTerrainSemantic)Math.Min((byte)first, (byte)second);
+			var high = (NaturalTerrainSemantic)Math.Max((byte)first, (byte)second);
+			return (low, high) switch
+			{
+				(NaturalTerrainSemantic.Clear, NaturalTerrainSemantic.Water) => "water-dirt",
+				(NaturalTerrainSemantic.Water, NaturalTerrainSemantic.Rock) => "water-gravel",
+				(NaturalTerrainSemantic.Water, NaturalTerrainSemantic.Vegetation) => "water-moss",
+				(NaturalTerrainSemantic.Clear, NaturalTerrainSemantic.Rock) => "dirt-gravel",
+				(NaturalTerrainSemantic.Clear, NaturalTerrainSemantic.Vegetation) => "dirt-moss",
+				(NaturalTerrainSemantic.Rock, NaturalTerrainSemantic.Vegetation) => "gravel-moss",
+				_ => throw new ArgumentException($"Unsupported surface adjacency {first}-{second}.")
+			};
 		}
 
 		static List<NaturalTerrainPrototypeBasin> CreateBasins(NaturalTerrainPrototypeSettings settings, ulong seed)

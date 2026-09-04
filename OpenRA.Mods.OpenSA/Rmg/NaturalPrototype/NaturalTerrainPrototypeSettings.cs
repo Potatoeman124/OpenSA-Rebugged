@@ -26,13 +26,17 @@ namespace OpenRA.Mods.OpenSA.Rmg.NaturalPrototype
 	{
 		public const string PrototypeId = "natural-v9-terrain-prototype-step2";
 		public const string MorphologyId = "NATURAL_INLAND_LAKES_V1";
-		public const int SchemaVersion = 1;
+		public const int SchemaVersion = 2;
 		public const int Width = 128;
 		public const int Height = 128;
 
 		public ulong RootSeed { get; init; }
 		public int CandidateIndex { get; init; }
 		public NaturalTerrainPrototypeVariant Variant { get; init; }
+		public bool OriginalSurfaceRelations { get; init; } = true;
+		public double? WaterTargetOverride { get; init; }
+		public double? RockTargetOverride { get; init; }
+		public double? VegetationTargetOverride { get; init; }
 
 		public string VariantId => Variant switch
 		{
@@ -41,10 +45,13 @@ namespace OpenRA.Mods.OpenSA.Rmg.NaturalPrototype
 			_ => throw new ArgumentOutOfRangeException()
 		};
 
-		public string CanonicalIdentity => string.Join("\n", new[]
+		public string SurfaceRelationsId => OriginalSurfaceRelations ? "original" : "unrestricted";
+
+		// Preserve the accepted Step 2 field streams. The option changes semantic classification only.
+		public string FieldIdentity => string.Join("\n", new[]
 		{
 			$"prototype={PrototypeId}",
-			$"schema={SchemaVersion}",
+			"schema=1",
 			$"morphology={MorphologyId}",
 			$"variant={VariantId}",
 			$"root_seed={RootSeed}",
@@ -52,6 +59,15 @@ namespace OpenRA.Mods.OpenSA.Rmg.NaturalPrototype
 			$"size={Width}x{Height}",
 			"tileset=NORMAL"
 		});
+
+		public string CanonicalIdentity => FieldIdentity +
+			$"\nschema_extension={SchemaVersion}\noriginal_surface_relations={OriginalSurfaceRelations.ToString().ToLowerInvariant()}" +
+			$"\nwater_target_override={TargetIdentity(WaterTargetOverride)}" +
+			$"\nrock_target_override={TargetIdentity(RockTargetOverride)}" +
+			$"\nvegetation_target_override={TargetIdentity(VegetationTargetOverride)}";
+
+		static string TargetIdentity(double? value) =>
+			value?.ToString("R", System.Globalization.CultureInfo.InvariantCulture) ?? "automatic";
 
 		public static readonly string[] StreamNames =
 		{
@@ -69,7 +85,7 @@ namespace OpenRA.Mods.OpenSA.Rmg.NaturalPrototype
 		{
 			var result = new Dictionary<string, ulong>(StringComparer.Ordinal);
 			foreach (var stream in StreamNames)
-				result.Add(stream, DeriveSeed(CanonicalIdentity, stream));
+				result.Add(stream, DeriveSeed(FieldIdentity, stream));
 			return result;
 		}
 

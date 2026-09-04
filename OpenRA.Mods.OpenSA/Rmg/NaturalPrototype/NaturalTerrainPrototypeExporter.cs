@@ -52,7 +52,7 @@ namespace OpenRA.Mods.OpenSA.Rmg.NaturalPrototype
 				streamSeeds[stream.Key] = new JObject
 				{
 					["subseed_u64"] = stream.Value.ToString(),
-					["identity"] = candidate.Settings.CanonicalIdentity + "\nstream=" + stream.Key
+					["identity"] = candidate.Settings.FieldIdentity + "\nstream=" + stream.Key
 				};
 
 			var combined = string.Join("\n", fieldHashes.Properties().Select(p => p.Name + "=" + p.Value));
@@ -71,6 +71,8 @@ namespace OpenRA.Mods.OpenSA.Rmg.NaturalPrototype
 				["root_seed"] = candidate.Settings.RootSeed.ToString(),
 				["candidate_index"] = candidate.Settings.CandidateIndex,
 				["canonical_identity"] = candidate.Settings.CanonicalIdentity,
+				["field_identity"] = candidate.Settings.FieldIdentity,
+				["original_surface_relations"] = candidate.Settings.OriginalSurfaceRelations,
 				["width"] = NaturalTerrainPrototypeSettings.Width,
 				["height"] = NaturalTerrainPrototypeSettings.Height,
 				["tileset"] = "NORMAL",
@@ -83,9 +85,26 @@ namespace OpenRA.Mods.OpenSA.Rmg.NaturalPrototype
 					["domain_warp_scale_cells"] = 58,
 					["domain_warp_amplitude_cells"] = 5.5,
 					["edge_uplift_width_cells"] = 18,
-					["classification_order"] = new JArray("Water", "Rock", "Vegetation", "Clear"),
+					["classification_order"] = candidate.Settings.OriginalSurfaceRelations ?
+						new JArray("Water", "Rock", "Vegetation", "Gravel transition around Moss", "Dirt") :
+						new JArray("Water", "Rock", "Vegetation", "Clear"),
+					["surface_relation_neighborhood"] = "Moore-8 (edge and corner contact)",
 					["post_hoc_cleanup"] = false,
 					["cleanup_changed_cells"] = 0
+				},
+				["surface_relations"] = new JObject
+				{
+					["mode"] = candidate.Settings.SurfaceRelationsId,
+					["enabled"] = candidate.Settings.OriginalSurfaceRelations,
+					["allowed_transition_chain"] = new JArray("Water", "Dirt", "Gravel", "Moss"),
+					["semantic_mapping"] = new JObject
+					{
+						["Dirt"] = NaturalTerrainSemantic.Clear.ToString(),
+						["Gravel"] = NaturalTerrainSemantic.Rock.ToString(),
+						["Moss"] = NaturalTerrainSemantic.Vegetation.ToString()
+					},
+					["adjacency_counts"] = JObject.FromObject(candidate.SurfaceAdjacencyCounts),
+					["forbidden_adjacency_count"] = candidate.ForbiddenSurfaceAdjacencyCount
 				},
 				["basins"] = JArray.FromObject(candidate.Basins),
 				["thresholds"] = new JObject

@@ -29,7 +29,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 		public static void Materialize(RmgLogicalMap map, RmgProfile profile, RmgGenerationSettings settings)
 		{
-			if (!profile.UsesBattlefieldLayout)
+			if (!profile.UsesTerrainDecorations)
 				return;
 
 			var occupied = map.Actors.Select(NativePoint).ToHashSet();
@@ -44,11 +44,12 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				for (var x = 0; x < profile.PlayableWidth; x++)
 				{
 					var native = new RmgPoint(x, y);
-					var partner = RmgGenerator.Transform(native, settings.Symmetry, profile.PlayableWidth, profile.PlayableHeight);
+					var partner = profile.UsesNaturalTerrainMorphology ? native :
+						RmgGenerator.Transform(native, settings.Symmetry, profile.PlayableWidth, profile.PlayableHeight);
 					if (NativeIndex(native, profile.PlayableWidth) > NativeIndex(partner, profile.PlayableWidth))
 						continue;
 					var orbit = new[] { native, partner }.Distinct().Select(ToAnchor).ToArray();
-					if (orbit.Any(anchor => !Eligible(map, anchor, occupied)) ||
+					if (orbit.Any(anchor => !Eligible(map, profile, anchor, occupied)) ||
 						orbit.Select(anchor => TerrainAt(map, anchor)).Distinct().Count() != 1 ||
 						orbit.SelectMany((first, index) => orbit.Skip(index + 1)
 							.Select(second => first.Native.ChebyshevDistance(second.Native))).Any(distance => distance < MinimumSpacingNative))
@@ -62,7 +63,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				}
 
 			var requested = (profile.PlayableWidth * profile.PlayableHeight * profile.LandDecorationPerThousand + 500) / 1000;
-			var target = requested & ~1;
+			var target = profile.UsesNaturalTerrainMorphology ? requested : requested & ~1;
 			var landCells = map.NativeTerrainIntents.Count(intent => intent == RmgNativeTerrainIntent.Clear ||
 				intent == RmgNativeTerrainIntent.Rock || intent == RmgNativeTerrainIntent.Vegetation);
 			var rockTarget = SurfaceTarget(target, map.NativeTerrainIntents.Count(intent => intent == RmgNativeTerrainIntent.Rock), landCells);
@@ -105,7 +106,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 						.FirstOrDefault();
 					if (candidate == null || selectedForTerrain + candidate.Anchors.Length > targets[terrain])
 						throw new RmgGenerationRejectedException("LAND_DECORATION_CAPACITY",
-							$"Selected {selectedForTerrain}/{targets[terrain]} {terrain} decorations from {candidates[terrain].Count} exact-symmetry candidate orbits.");
+							$"Selected {selectedForTerrain}/{targets[terrain]} {terrain} decorations from {candidates[terrain].Count} eligible candidate orbits.");
 					Select(candidate);
 					selectedForTerrain += candidate.Anchors.Length;
 					selectedOrbitCounts[terrain]++;
@@ -184,11 +185,14 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		static NativeAnchor ToAnchor(RmgPoint native) => new(
 			new RmgPoint(native.X / 2, native.Y / 2), native.X % 2 + 2 * (native.Y % 2), native);
 
-		static bool Eligible(RmgLogicalMap map, NativeAnchor anchor, IReadOnlySet<RmgPoint> occupied)
+		static bool Eligible(RmgLogicalMap map, RmgProfile profile, NativeAnchor anchor, IReadOnlySet<RmgPoint> occupied)
 		{
 			var index = map.Index(anchor.Logical);
-			return !map.Obstacles[index] && !RmgBattlefieldRolePlanner.MustRemainClear(map.BattlefieldRoles[index]) &&
-				!occupied.Contains(anchor.Native) && TerrainAt(map, anchor) != RmgNativeTerrainIntent.Water;
+			var protectedClear = profile.UsesNaturalTerrainMorphology ?
+				RmgClearLandDetailMaterializer.IsProtected(map, index) :
+				RmgBattlefieldRolePlanner.MustRemainClear(map.BattlefieldRoles[index]);
+			return !map.Obstacles[index] && !protectedClear && !occupied.Contains(anchor.Native) &&
+				TerrainAt(map, anchor) != RmgNativeTerrainIntent.Water;
 		}
 
 		static RmgNativeTerrainIntent TerrainAt(RmgLogicalMap map, NativeAnchor anchor) =>

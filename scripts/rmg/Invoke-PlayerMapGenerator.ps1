@@ -20,6 +20,7 @@ param(
     [string]$TacticalTerrain = "preset",
     [ValidateSet("proxy", "native", "both")]
     [string]$MovementValidation = "both",
+    [bool]$OriginalSurfaceRelations = $true,
     [string]$OutputPath,
     [string]$ReportPath,
     [switch]$InstallForPlay,
@@ -44,6 +45,10 @@ $settings = [ordered]@{
     neutral_colony_density = $NeutralColonyDensity
     water_amount = $WaterAmount
     tactical_terrain = $TacticalTerrain
+}
+if ($LayoutFamily -eq "natural-landscape")
+{
+    $settings.original_surface_relations = $OriginalSurfaceRelations
 }
 $settings | ConvertTo-Json | Set-Content -LiteralPath $settingsPath -Encoding utf8
 

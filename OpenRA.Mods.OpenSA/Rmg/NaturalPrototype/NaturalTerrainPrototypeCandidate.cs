@@ -45,5 +45,7 @@ namespace OpenRA.Mods.OpenSA.Rmg.NaturalPrototype
 		public double WaterTarget { get; init; }
 		public double RockTarget { get; init; }
 		public double VegetationTarget { get; init; }
+		public IReadOnlyDictionary<string, int> SurfaceAdjacencyCounts { get; init; }
+		public int ForbiddenSurfaceAdjacencyCount { get; init; }
 	}
 }

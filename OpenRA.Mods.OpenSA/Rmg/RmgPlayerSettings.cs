@@ -79,6 +79,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public RmgPlayerColonyDensity NeutralColonyDensity { get; init; } = RmgPlayerColonyDensity.Preset;
 		public RmgPlayerParameterLevel WaterAmount { get; init; } = RmgPlayerParameterLevel.Preset;
 		public RmgPlayerParameterLevel TacticalTerrain { get; init; } = RmgPlayerParameterLevel.Preset;
+		public bool OriginalSurfaceRelations { get; init; } = true;
 
 		public JObject ToJson()
 		{
@@ -99,7 +100,11 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			}
 
 			if (SchemaVersion >= 3)
+			{
 				json["layout_family"] = RmgPlayerSettingsContract.PlayerLayoutFamilyName(LayoutFamily);
+				if (LayoutFamily == RmgPlayerLayoutFamily.NaturalLandscape)
+					json["original_surface_relations"] = OriginalSurfaceRelations;
+			}
 
 			return json;
 		}
@@ -136,6 +141,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				["neutral_colonies"] = Normalized.NeutralColonyCount,
 				["water_amount"] = RmgPlayerSettingsContract.ParameterLevelName(Normalized.WaterAmount),
 				["tactical_terrain"] = RmgPlayerSettingsContract.ParameterLevelName(Normalized.TacticalTerrain),
+				["original_surface_relations"] = Normalized.OriginalSurfaceRelations,
 				["tileset"] = "NORMAL",
 				["size"] = "128,128"
 			},
@@ -158,6 +164,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			"symmetry",
 			"layout",
 			"layout_family",
+			"original_surface_relations",
 			"neutral_colony_density",
 			"water_amount",
 			"tactical_terrain"
@@ -229,6 +236,12 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (!ulong.TryParse(seedText, NumberStyles.None, CultureInfo.InvariantCulture, out var seed))
 				throw new ArgumentException("Player settings seed must be an unsigned integer encoded as a JSON string or integer.");
 
+			var layoutFamily = schemaVersion >= 3 ?
+				ParsePlayerLayoutFamily(OptionalText(json, "layout_family", "preset")) :
+				RmgPlayerLayoutFamily.Preset;
+			if (json["original_surface_relations"] != null && layoutFamily != RmgPlayerLayoutFamily.NaturalLandscape)
+				throw new ArgumentException("Player setting 'original_surface_relations' applies only to Natural Landscape.");
+
 			return new RmgPlayerSettings
 			{
 				SchemaVersion = schemaVersion,
@@ -237,16 +250,15 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				PlayerCount = RequiredInt(json, "players"),
 				Symmetry = ParseSymmetry(OptionalText(json, "symmetry", "automatic")),
 				Layout = ParseLayout(OptionalText(json, "layout", "preset")),
-				LayoutFamily = schemaVersion >= 3 ?
-					ParsePlayerLayoutFamily(OptionalText(json, "layout_family", "preset")) :
-					RmgPlayerLayoutFamily.Preset,
+				LayoutFamily = layoutFamily,
 				NeutralColonyDensity = ParseColonyDensity(OptionalText(json, "neutral_colony_density", "preset")),
 				WaterAmount = schemaVersion >= 2 ?
 					ParsePlayerParameterLevel(OptionalText(json, "water_amount", "preset"), "water_amount") :
 					RmgPlayerParameterLevel.Preset,
 				TacticalTerrain = schemaVersion >= 2 ?
 					ParsePlayerParameterLevel(OptionalText(json, "tactical_terrain", "preset"), "tactical_terrain") :
-					RmgPlayerParameterLevel.Preset
+					RmgPlayerParameterLevel.Preset,
+				OriginalSurfaceRelations = OptionalBool(json, "original_surface_relations", true)
 			};
 		}
 
@@ -278,10 +290,12 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var layoutFamily = requested.SchemaVersion >= 3 ?
 				ResolveLayoutFamily(requested.LayoutFamily, PresetLayoutFamily(requested.Preset)) :
 				RmgLayoutFamily.ArtificialBattlefield;
-			if (layoutFamily == RmgLayoutFamily.NaturalLandscape)
-				throw new ArgumentException("Natural Landscape is planned until a genuinely organic terrain-generation contract is implemented.");
-			var version = layoutFamily == RmgLayoutFamily.StructuredCompetitive ? 8 :
-				requested.SchemaVersion >= 2 ? 7 : 6;
+			var version = layoutFamily switch
+			{
+				RmgLayoutFamily.NaturalLandscape => 9,
+				RmgLayoutFamily.StructuredCompetitive => 8,
+				_ => requested.SchemaVersion >= 2 ? 7 : 6
+			};
 			var normalized = new RmgGenerationSettings
 			{
 				Seed = requested.Seed,
@@ -292,13 +306,15 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				GeneratorVersion = version,
 				TopologyPreset = version switch
 				{
+					9 => RmgTopologyPreset.NaturalTerrain,
 					8 => RmgTopologyPreset.CoherentWater,
 					7 => RmgTopologyPreset.ParameterizedBattlefield,
 					_ => RmgTopologyPreset.BattlefieldLayout
 				},
 				WaterAmount = waterAmount,
 				LayoutFamily = layoutFamily,
-				TacticalTerrain = tacticalTerrain
+				TacticalTerrain = tacticalTerrain,
+				OriginalSurfaceRelations = requested.OriginalSurfaceRelations
 			};
 			var overrides = new List<string>();
 			if (requested.Layout != RmgPlayerLayout.Preset)
@@ -430,12 +446,24 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				"{\"schema_version\":1,\"preset\":\"balanced\",\"seed\":\"1\",\"players\":2,\"water_amount\":\"high\"}")));
 			ExpectRejected("schema 3 field in schema 2", () => Parse(JObject.Parse(
 				"{\"schema_version\":2,\"preset\":\"balanced\",\"seed\":\"1\",\"players\":2,\"layout_family\":\"natural-landscape\"}")));
-			ExpectRejected("planned natural landscape", () => Resolve(new RmgPlayerSettings
+			var naturalRequest = Parse(JObject.Parse(
+				"{\"schema_version\":3,\"preset\":\"balanced\",\"seed\":\"1\",\"players\":2,\"layout_family\":\"natural-landscape\",\"original_surface_relations\":false}"));
+			if (naturalRequest.OriginalSurfaceRelations || naturalRequest.ToJson().Value<bool>("original_surface_relations"))
+				failures.Add("Natural Landscape original-surface-relations setting did not round trip.");
+			ExpectRejected("Natural-only surface relation setting on Structured Competitive", () => Parse(JObject.Parse(
+				"{\"schema_version\":3,\"preset\":\"balanced\",\"seed\":\"1\",\"players\":2,\"layout_family\":\"structured-competitive\",\"original_surface_relations\":true}")));
+			var natural = Resolve(new RmgPlayerSettings
 			{
 				Seed = 1,
 				PlayerCount = 2,
-				LayoutFamily = RmgPlayerLayoutFamily.NaturalLandscape
-			}));
+				LayoutFamily = RmgPlayerLayoutFamily.NaturalLandscape,
+				OriginalSurfaceRelations = false
+			});
+			if (natural.Normalized.GeneratorVersion != 9 ||
+				natural.Normalized.TopologyPreset != RmgTopologyPreset.NaturalTerrain ||
+				natural.Normalized.LayoutFamily != RmgLayoutFamily.NaturalLandscape ||
+				natural.Normalized.OriginalSurfaceRelations)
+				failures.Add("Natural Landscape did not resolve to the experimental Version 9 contract.");
 			return failures;
 
 			void ExpectRejected(string label, Action action)
@@ -671,7 +699,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			$"archetype={settings.Archetype}",
 			$"colonies={settings.NeutralColonyCount}",
 			$"water={settings.WaterAmount}",
-			$"tactical-terrain={settings.TacticalTerrain}"
+			$"tactical-terrain={settings.TacticalTerrain}",
+			$"original-surface-relations={settings.OriginalSurfaceRelations}"
 		});
 
 		static int RequiredInt(JObject json, string name)
@@ -696,5 +725,15 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 		static string OptionalText(JObject json, string name, string fallback) =>
 			json[name] == null ? fallback : RequiredText(json, name);
+
+		static bool OptionalBool(JObject json, string name, bool fallback)
+		{
+			var token = json[name];
+			if (token == null)
+				return fallback;
+			if (token.Type != JTokenType.Boolean)
+				throw new ArgumentException($"Player settings field '{name}' must be a JSON boolean.");
+			return token.Value<bool>();
+		}
 	}
 }

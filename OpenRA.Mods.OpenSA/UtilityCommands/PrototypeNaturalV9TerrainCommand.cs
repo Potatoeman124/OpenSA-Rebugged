@@ -23,7 +23,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 		string IUtilityCommand.Name => "--prototype-natural-v9-terrain";
 		bool IUtilityCommand.ValidateArguments(string[] args) => args.Length >= 1;
 
-		[Desc("OUTPUT_DIRECTORY", "--root-seed N", "--candidate-index N", "--variant correlated-field-baseline|correlated-field-with-basin-potential", "[--overwrite]", "[--self-test]", "Export one deterministic NORMAL 128x128 Natural V9 Step 2 terrain-only prototype candidate. This command does not create a playable map.")]
+		[Desc("OUTPUT_DIRECTORY", "--root-seed N", "--candidate-index N", "--variant correlated-field-baseline|correlated-field-with-basin-potential", "[--original-surface-relations true|false]", "[--overwrite]", "[--self-test]", "Export one deterministic NORMAL 128x128 Natural V9 terrain-only prototype candidate. This command does not create a playable map.")]
 		void IUtilityCommand.Run(Utility utility, string[] args)
 		{
 			try
@@ -42,7 +42,8 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				{
 					RootSeed = options.RootSeed,
 					CandidateIndex = options.CandidateIndex,
-					Variant = options.Variant
+					Variant = options.Variant,
+					OriginalSurfaceRelations = options.OriginalSurfaceRelations
 				});
 				var generationMilliseconds = stopwatch.Elapsed.TotalMilliseconds;
 				stopwatch.Restart();
@@ -64,7 +65,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 		static Options Parse(string[] args)
 		{
 			if (args.Length < 2)
-				throw new ArgumentException("Usage: --prototype-natural-v9-terrain OUTPUT_DIRECTORY --root-seed N --candidate-index N --variant ID [--overwrite] [--self-test]");
+				throw new ArgumentException("Usage: --prototype-natural-v9-terrain OUTPUT_DIRECTORY --root-seed N --candidate-index N --variant ID [--original-surface-relations true|false] [--overwrite] [--self-test]");
 			var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 			var overwrite = false;
 			var selfTest = false;
@@ -88,7 +89,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			}
 
 			foreach (var key in values.Keys)
-				if (key != "--root-seed" && key != "--candidate-index" && key != "--variant")
+				if (key != "--root-seed" && key != "--candidate-index" && key != "--variant" && key != "--original-surface-relations")
 					throw new ArgumentException($"Unknown option: {key}");
 			if (!values.TryGetValue("--root-seed", out var rootText) || !ulong.TryParse(rootText, out var rootSeed))
 				throw new ArgumentException("--root-seed must be an unsigned integer.");
@@ -102,12 +103,18 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				"correlated-field-with-basin-potential" => NaturalTerrainPrototypeVariant.CorrelatedFieldWithBasinPotential,
 				_ => throw new ArgumentException("--variant must be correlated-field-baseline or correlated-field-with-basin-potential.")
 			};
+			var originalSurfaceRelations = true;
+			if (values.TryGetValue("--original-surface-relations", out var relationsText) &&
+				!bool.TryParse(relationsText, out originalSurfaceRelations))
+				throw new ArgumentException("--original-surface-relations must be true or false.");
+
 			return new Options
 			{
 				OutputDirectory = args[1],
 				RootSeed = rootSeed,
 				CandidateIndex = candidateIndex,
 				Variant = variant,
+				OriginalSurfaceRelations = originalSurfaceRelations,
 				Overwrite = overwrite,
 				SelfTest = selfTest
 			};
@@ -119,6 +126,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			public ulong RootSeed { get; init; }
 			public int CandidateIndex { get; init; }
 			public NaturalTerrainPrototypeVariant Variant { get; init; }
+			public bool OriginalSurfaceRelations { get; init; }
 			public bool Overwrite { get; init; }
 			public bool SelfTest { get; init; }
 		}

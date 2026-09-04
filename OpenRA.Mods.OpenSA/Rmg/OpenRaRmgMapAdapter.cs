@@ -454,7 +454,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var settings = generation.Settings;
 			var report = new JObject
 			{
-				["schema_version"] = generation.Profile.GeneratorVersion >= 8 ? 10 : generation.Profile.GeneratorVersion >= 7 ? 9 : generation.Profile.GeneratorVersion >= 6 ? 8 : generation.Profile.GeneratorVersion >= 5 ? 6 : generation.Profile.GeneratorVersion >= 4 ? 5 : generation.Profile.GeneratorVersion >= 3 ? 4 : generation.Profile.GeneratorVersion >= 2 ? 3 : 2,
+				["schema_version"] = generation.Profile.GeneratorVersion >= 9 ? 11 : generation.Profile.GeneratorVersion >= 8 ? 10 : generation.Profile.GeneratorVersion >= 7 ? 9 : generation.Profile.GeneratorVersion >= 6 ? 8 : generation.Profile.GeneratorVersion >= 5 ? 6 : generation.Profile.GeneratorVersion >= 4 ? 5 : generation.Profile.GeneratorVersion >= 3 ? 4 : generation.Profile.GeneratorVersion >= 2 ? 3 : 2,
 				["generator_version"] = settings.GeneratorVersion,
 				["configuration_id"] = generation.Profile.ProfileId,
 				["configuration_version"] = generation.Profile.ConfigurationVersion,
@@ -482,7 +482,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					5 => "normal-land-cover-v1",
 					6 => "normal-land-cover-v1+battlefield-layout-v1",
 					7 => "normal-land-cover-v1+parameterized-battlefield-v1",
-					_ => "normal-land-cover-v1+coherent-water-v1"
+					8 => "normal-land-cover-v1+coherent-water-v1",
+					_ => "natural-v9-terrain-prototype-step2+playable-safety-projection-v1"
 				},
 				["blocking_topology"] = generation.Profile.GeneratorVersion == 1 ? null : new JObject
 				{
@@ -503,9 +504,11 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					["interior_minimum_density_percent"] = generation.Validation.Metrics["water_interior_minimum_density_percent"],
 					["interior_minimum_sectors"] = generation.Validation.Metrics["water_interior_minimum_sector_count"],
 					["chokepoint_frequency"] = generation.Map.Chokepoints.Count > 0 ? "one-symmetry-orbit" : "none",
-					["chokepoint_segments_requested"] = settings.Archetype == RmgArchetype.CentralContest ? 2 : 0,
+					["chokepoint_segments_requested"] = generation.Profile.UsesNaturalTerrainMorphology ? 0 :
+						settings.Archetype == RmgArchetype.CentralContest ? 2 : 0,
 					["chokepoint_segments_achieved"] = generation.Map.Chokepoints.Count,
-					["route_openness"] = settings.Archetype == RmgArchetype.Open ? "major" : "normal-with-route-constriction",
+					["route_openness"] = generation.Profile.UsesNaturalTerrainMorphology ? "natural-safe-corridors" :
+						settings.Archetype == RmgArchetype.Open ? "major" : "normal-with-route-constriction",
 					["shoreline_mode"] = generation.Profile.UsesShorelineMaterialization ? "normal-transition-catalogue-v2" : "homogeneous-hard-seam-v1",
 					["visual_shoreline_complete"] = generation.Profile.UsesShorelineMaterialization,
 					["unsupported_shoreline_neighborhoods"] = generation.Profile.UsesShorelineMaterialization ? generation.Map.ShorelineUnsupportedNeighborhoodCount : null,
@@ -646,6 +649,28 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					}
 				};
 
+			if (generation.Profile.UsesNaturalTerrainMorphology)
+				report["natural_landscape"] = new JObject
+				{
+					["enabled"] = true,
+					["status"] = "experimental-playable",
+					["prototype"] = NaturalPrototype.NaturalTerrainPrototypeSettings.PrototypeId,
+					["morphology"] = NaturalPrototype.NaturalTerrainPrototypeSettings.MorphologyId,
+					["variant"] = generation.Map.NaturalTerrainVariantId,
+					["original_surface_relations"] = settings.OriginalSurfaceRelations,
+					["prototype_forbidden_surface_adjacencies"] = generation.Map.NaturalForbiddenSurfaceAdjacencyCount,
+					["terrain_symmetry"] = "independent-from-player-start-symmetry",
+					["gameplay_safety"] = "terrain-first least-damage routes, adaptive colonies, and native movement validation",
+					["prototype_water_cells"] = generation.Map.NaturalPrototypeWaterCount,
+					["prototype_interior_water_cells"] = generation.Map.NaturalPrototypeInteriorWaterCount,
+					["projected_water_cells"] = generation.Map.NaturalProjectedWaterCount,
+					["projected_interior_water_cells"] = generation.Map.NaturalProjectedInteriorWaterCount,
+					["pre_route_water_cells"] = generation.Map.NaturalPreRouteWaterCount,
+					["pre_route_interior_water_cells"] = generation.Map.NaturalPreRouteInteriorWaterCount,
+					["colony_cleared_water_cells"] = generation.Map.NaturalColonyClearedWaterCount,
+					["route_cleared_water_cells"] = generation.Map.NaturalRouteClearedWaterCount
+				};
+
 			return report;
 		}
 
@@ -685,6 +710,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			RmgTopologyPreset.BattlefieldLayout => "battlefield-layout",
 			RmgTopologyPreset.ParameterizedBattlefield => "parameterized-battlefield",
 			RmgTopologyPreset.CoherentWater => "coherent-water",
+			RmgTopologyPreset.NaturalTerrain => "natural-terrain",
 			_ => throw new ArgumentOutOfRangeException(nameof(topology))
 		};
 	}

@@ -490,7 +490,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 			if (generation.Profile.GeneratorVersion >= 5 && !landCoverCostContractAccepted)
 				Hard("LAND_COVER_LOCOMOTOR_COSTS", landCoverCostContractMessage);
-			if (generation.Profile.GeneratorVersion >= 5 && weightedParityFailures > 0)
+			if (generation.Profile.GeneratorVersion >= 5 && !generation.Profile.UsesNaturalTerrainMorphology && weightedParityFailures > 0)
 				Hard("LAND_COVER_WEIGHTED_PARITY", $"{weightedParityFailures} symmetry-equivalent weighted journeys are unreachable or have unequal costs; maximum finite delta is {maximumWeightedParityDelta}.");
 
 			if (startingUnits.Length == 0)

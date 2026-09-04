@@ -772,7 +772,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			}
 
 			var (interiorDensity, _, interiorCoveredSectors, _) = WaterInteriorMetrics(map);
-			var (interiorMinimumDensity, interiorMinimumSectors) = WaterInteriorMinimum(settings.WaterAmount, profile.UsesCoherentWaterMorphology);
+			var (interiorMinimumDensity, interiorMinimumSectors) = WaterInteriorMinimum(settings.WaterAmount, profile.UsesCoherentWaterMorphology || profile.UsesNaturalTerrainMorphology);
 			if (profile.UsesParameterizedBattlefield &&
 				(interiorDensity < interiorMinimumDensity || interiorCoveredSectors < interiorMinimumSectors))
 				throw new ObstacleDensityTargetMissException($"Attempt {attempt} produced battlefield-interior Water " +
@@ -1417,39 +1417,40 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					Hard("LAND_COVER_TEMPLATE", $"Slow terrain at logical cell {i} uses non-catalogued template {map.TemplateIds[i]}.");
 			}
 
-			for (var y = 0; y < map.Height; y++)
-				for (var x = 0; x < map.Width; x++)
-				{
-					var point = new RmgPoint(x, y);
-					var partner = Transform(point, settings.Symmetry, map.Width, map.Height);
-					var pointIndex = map.Index(point);
-					var partnerIndex = map.Index(partner);
-					var templateSymmetry = map.TemplateIds[pointIndex] == map.TemplateIds[partnerIndex];
-					if (profile.UsesClearLandDetails && !map.Obstacles[pointIndex] && !map.Obstacles[partnerIndex])
-						templateSymmetry = true;
-					var nativeTerrainSymmetry = true;
-					if (profile.UsesLandCover)
-						for (var frame = 0; frame < 4; frame++)
-							if (map.NativeTerrainIntents[4 * pointIndex + frame] != map.NativeTerrainIntents[
-								4 * partnerIndex + NormalWaterTransitionCatalogue.TransformFrame(frame, settings.Symmetry)])
-							{
-								nativeTerrainSymmetry = false;
-								break;
-							}
-
-					if (profile.UsesShorelineMaterialization && map.ShorelineRoles[pointIndex] != RmgShorelineRole.None)
+			if (!profile.UsesNaturalTerrainMorphology)
+				for (var y = 0; y < map.Height; y++)
+					for (var x = 0; x < map.Width; x++)
 					{
-						var expectedPartnerRole = map.ShorelineRoles[pointIndex] == RmgShorelineRole.Interior ?
-							RmgShorelineRole.Interior :
-							NormalWaterTransitionCatalogue.TransformRole(map.ShorelineRoles[pointIndex], settings.Symmetry);
-						templateSymmetry = map.ShorelineRoles[partnerIndex] == expectedPartnerRole;
-					}
+						var point = new RmgPoint(x, y);
+						var partner = Transform(point, settings.Symmetry, map.Width, map.Height);
+						var pointIndex = map.Index(point);
+						var partnerIndex = map.Index(partner);
+						var templateSymmetry = map.TemplateIds[pointIndex] == map.TemplateIds[partnerIndex];
+						if (profile.UsesClearLandDetails && !map.Obstacles[pointIndex] && !map.Obstacles[partnerIndex])
+							templateSymmetry = true;
+						var nativeTerrainSymmetry = true;
+						if (profile.UsesLandCover)
+							for (var frame = 0; frame < 4; frame++)
+								if (map.NativeTerrainIntents[4 * pointIndex + frame] != map.NativeTerrainIntents[
+									4 * partnerIndex + NormalWaterTransitionCatalogue.TransformFrame(frame, settings.Symmetry)])
+								{
+									nativeTerrainSymmetry = false;
+									break;
+								}
 
-					if (profile.UsesBattlefieldLayout && map.BattlefieldRoles[pointIndex] != map.BattlefieldRoles[partnerIndex])
-						Hard("BATTLEFIELD_ROLE_SYMMETRY", $"Battlefield role at {point} differs from symmetry partner {partner}.");
-					if (map.Obstacles[pointIndex] != map.Obstacles[partnerIndex] || !templateSymmetry || !nativeTerrainSymmetry ||
-						map.RouteMasks[pointIndex] != 0 != (map.RouteMasks[partnerIndex] != 0))
-						Hard("TOPOLOGY_SYMMETRY", $"Semantic topology at {point} differs from symmetry partner {partner}.");
+						if (profile.UsesShorelineMaterialization && map.ShorelineRoles[pointIndex] != RmgShorelineRole.None)
+						{
+							var expectedPartnerRole = map.ShorelineRoles[pointIndex] == RmgShorelineRole.Interior ?
+								RmgShorelineRole.Interior :
+								NormalWaterTransitionCatalogue.TransformRole(map.ShorelineRoles[pointIndex], settings.Symmetry);
+							templateSymmetry = map.ShorelineRoles[partnerIndex] == expectedPartnerRole;
+						}
+
+						if (profile.UsesBattlefieldLayout && map.BattlefieldRoles[pointIndex] != map.BattlefieldRoles[partnerIndex])
+							Hard("BATTLEFIELD_ROLE_SYMMETRY", $"Battlefield role at {point} differs from symmetry partner {partner}.");
+						if (map.Obstacles[pointIndex] != map.Obstacles[partnerIndex] || !templateSymmetry || !nativeTerrainSymmetry ||
+							map.RouteMasks[pointIndex] != 0 != (map.RouteMasks[partnerIndex] != 0))
+							Hard("TOPOLOGY_SYMMETRY", $"Semantic topology at {point} differs from symmetry partner {partner}.");
 				}
 
 			var components = ConnectedComponents(map, blocked: true);
@@ -1460,17 +1461,19 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var smallWaterBodyShare = totalWaterComponentCells == 0 ? 0D :
 				100D * components.Where(component => component.Count < smallWaterBodyThreshold)
 					.Sum(component => component.Count) / totalWaterComponentCells;
-			if (profile.UsesCoherentWaterMorphology &&
+			if ((profile.UsesCoherentWaterMorphology || profile.UsesNaturalTerrainMorphology) &&
 				(components.Count > 12 || largestWaterBodyShare < 20D || smallWaterBodyShare > 15D))
 				Hard("NATURAL_WATER_MORPHOLOGY",
-					$"Structured Competitive produced {components.Count} Water bodies, " +
-					$"{largestWaterBodyShare:F2}% largest-body share, and {smallWaterBodyShare:F2}% small-body share.");
+					$"{(profile.UsesNaturalTerrainMorphology ? "Natural Landscape" : "Structured Competitive")} produced " +
+					$"{components.Count} Water bodies, {largestWaterBodyShare:F2}% largest-body share, " +
+					$"and {smallWaterBodyShare:F2}% small-body share.");
 			foreach (var component in components)
 				if (component.Count < profile.ObstacleRegionMinimumLogical || component.Count > profile.ObstacleRegionMaximumLogical)
 					Hard("OBSTACLE_REGION_SIZE", $"Obstacle region has {component.Count} cells; expected {profile.ObstacleRegionMinimumLogical}-{profile.ObstacleRegionMaximumLogical}.");
 			for (var a = 0; a < components.Count; a++)
 				for (var b = a + 1; b < components.Count; b++)
-					if (MinimumDistance(components[a].Select(IndexPoint).ToHashSet(), components[b].Select(IndexPoint).ToHashSet()) < 3)
+					if (!profile.UsesNaturalTerrainMorphology &&
+						MinimumDistance(components[a].Select(IndexPoint).ToHashSet(), components[b].Select(IndexPoint).ToHashSet()) < 3)
 						Hard("OBSTACLE_REGION_SEPARATION", $"Obstacle regions {a} and {b} do not preserve two complete OPEN cells between them.");
 
 			var openComponents = ConnectedComponents(map, blocked: false);
@@ -1495,7 +1498,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					Hard("START_ROUTE_EXITS", $"Start {start} has only {outgoing} named strategic exits.");
 			}
 
-			var requestedChokes = settings.Archetype == RmgArchetype.CentralContest ? 2 : 0;
+			var requestedChokes = !profile.UsesNaturalTerrainMorphology &&
+				settings.Archetype == RmgArchetype.CentralContest ? 2 : 0;
 			if (!map.ChokepointTargetReduced && map.Chokepoints.Count != requestedChokes)
 				Hard("CHOKEPOINT_ORBIT", $"Expected {requestedChokes} chokepoint segments but found {map.Chokepoints.Count}.");
 			else if (map.ChokepointTargetReduced && map.Chokepoints.Count != 0)
@@ -1534,9 +1538,39 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			}
 
 			var (interiorWaterDensity, interiorWaterShare, interiorWaterCoveredSectors, interiorWaterCellCount) = WaterInteriorMetrics(map);
-			var (interiorWaterMinimumDensity, interiorWaterMinimumSectors) = WaterInteriorMinimum(settings.WaterAmount, profile.UsesCoherentWaterMorphology);
+			var (interiorWaterMinimumDensity, interiorWaterMinimumSectors) = WaterInteriorMinimum(settings.WaterAmount, profile.UsesCoherentWaterMorphology || profile.UsesNaturalTerrainMorphology);
+			var naturalDensityQuantizationTolerance = profile.UsesNaturalTerrainMorphology ?
+				100D / ((map.Width - 2 * WaterInteriorMarginLogical) * (map.Height - 2 * WaterInteriorMarginLogical)) : 0D;
+			var naturalPrototypeRetention = map.NaturalPrototypeWaterCount == 0 ? 0D :
+				100D * map.Obstacles.Count(value => value) / map.NaturalPrototypeWaterCount;
+			var naturalInteriorRetention = map.NaturalPrototypeInteriorWaterCount == 0 ? 0D :
+				100D * interiorWaterCellCount / map.NaturalPrototypeInteriorWaterCount;
+			var naturalRouteCoverage = 100D * map.RouteMasks.Count(mask => mask != 0) / map.RouteMasks.Length;
+			var naturalRouteClearedShare = map.NaturalPreRouteWaterCount == 0 ? 0D :
+				100D * map.NaturalRouteClearedWaterCount / map.NaturalPreRouteWaterCount;
+			if (profile.UsesNaturalTerrainMorphology)
+			{
+				var naturalDensityFloor = profile.ObstacleDensityTarget(settings.Archetype, settings.WaterAmount) - 2D;
+				if (density + naturalDensityQuantizationTolerance < naturalDensityFloor)
+					Hard("NATURAL_WATER_RETENTION",
+						$"Natural Landscape retained only {density:F3}% Water; expected at least {naturalDensityFloor:F1}%.");
+				if (naturalPrototypeRetention < 70D || naturalInteriorRetention < 60D)
+					Hard("NATURAL_MORPHOLOGY_RETENTION",
+						$"Natural Landscape retained {naturalPrototypeRetention:F1}% of projected Water and " +
+						$"{naturalInteriorRetention:F1}% of projected interior Water; expected at least 70% and 60%. " +
+						$"Interior cells {interiorWaterCellCount}/{map.NaturalPrototypeInteriorWaterCount}, " +
+						$"route-cleared {map.NaturalRouteClearedWaterCount}, colony-cleared {map.NaturalColonyClearedWaterCount}, " +
+						$"route coverage {naturalRouteCoverage:F1}%.");
+				if (interiorWaterShare < 35D)
+					Hard("NATURAL_INTERIOR_BALANCE",
+						$"Only {interiorWaterShare:F1}% of final Water lies in the battlefield interior; expected at least 35%.");
+				if (naturalRouteCoverage > 35D)
+					Hard("NATURAL_ROUTE_FOOTPRINT",
+						$"Terrain-aware route reservations cover {naturalRouteCoverage:F1}% of the map; expected at most 35%.");
+			}
+
 			if (profile.UsesParameterizedBattlefield &&
-				(interiorWaterDensity < interiorWaterMinimumDensity ||
+				(interiorWaterDensity + naturalDensityQuantizationTolerance < interiorWaterMinimumDensity ||
 				interiorWaterCoveredSectors < interiorWaterMinimumSectors))
 				Hard("WATER_BATTLEFIELD_PRESENCE",
 					$"Battlefield-interior Water {interiorWaterDensity:F3}% across " +
@@ -1588,6 +1622,18 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			report.Metrics["water_interior_covered_sector_count"] = interiorWaterCoveredSectors;
 			report.Metrics["water_interior_minimum_density_percent"] = interiorWaterMinimumDensity;
 			report.Metrics["water_interior_minimum_sector_count"] = interiorWaterMinimumSectors;
+			report.Metrics["natural_prototype_water_count"] = map.NaturalPrototypeWaterCount;
+			report.Metrics["natural_prototype_interior_water_count"] = map.NaturalPrototypeInteriorWaterCount;
+			report.Metrics["natural_projected_water_count"] = map.NaturalProjectedWaterCount;
+			report.Metrics["natural_projected_interior_water_count"] = map.NaturalProjectedInteriorWaterCount;
+			report.Metrics["natural_pre_route_water_count"] = map.NaturalPreRouteWaterCount;
+			report.Metrics["natural_pre_route_interior_water_count"] = map.NaturalPreRouteInteriorWaterCount;
+			report.Metrics["natural_colony_cleared_water_count"] = map.NaturalColonyClearedWaterCount;
+			report.Metrics["natural_route_cleared_water_count"] = map.NaturalRouteClearedWaterCount;
+			report.Metrics["natural_prototype_retention_percent"] = naturalPrototypeRetention;
+			report.Metrics["natural_interior_retention_percent"] = naturalInteriorRetention;
+			report.Metrics["natural_route_coverage_percent"] = naturalRouteCoverage;
+			report.Metrics["natural_route_cleared_share_percent"] = naturalRouteClearedShare;
 			report.Metrics["obstacle_region_count"] = components.Count;
 			report.Metrics["water_body_count"] = components.Count;
 			report.Metrics["water_largest_body_share_percent"] = largestWaterBodyShare;
@@ -1698,7 +1744,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 							waterAdjacency++;
 					}
 
-				if (waterAdjacency > 0)
+				if (waterAdjacency > 0 && (!profile.UsesNaturalTerrainMorphology || settings.OriginalSurfaceRelations))
 					Hard("LAND_COVER_WATER_SEPARATION", $"{waterAdjacency} Rock/Vegetation native cells touch Water.");
 
 				var rockComponents = NativeTerrainComponentSizes(map, RmgNativeTerrainIntent.Rock);

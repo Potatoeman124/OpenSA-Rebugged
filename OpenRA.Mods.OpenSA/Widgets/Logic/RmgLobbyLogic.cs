@@ -54,6 +54,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		readonly DropDownButtonWidget colonyButton;
 		readonly DropDownButtonWidget waterButton;
 		readonly DropDownButtonWidget tacticalTerrainButton;
+		readonly CheckboxWidget originalSurfaceRelationsCheckbox;
 		readonly ButtonWidget rmgToggleButton;
 
 		RmgPlayerPreset preset = RmgPlayerPreset.Balanced;
@@ -66,6 +67,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		RmgPlayerParameterLevel tacticalTerrain = RmgPlayerParameterLevel.Standard;
 		int playerCount = 4;
 		bool presetCustomized;
+		bool originalSurfaceRelations = true;
 		bool stale;
 		bool rmgView;
 		bool rmgMode;
@@ -109,6 +111,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			colonyButton = lobby.Get<DropDownButtonWidget>("RMG_COLONY_DENSITY");
 			waterButton = lobby.Get<DropDownButtonWidget>("RMG_WATER_AMOUNT");
 			tacticalTerrainButton = lobby.Get<DropDownButtonWidget>("RMG_TERRAIN_COMPLEXITY");
+			originalSurfaceRelationsCheckbox = lobby.Get<CheckboxWidget>("RMG_ORIGINAL_SURFACE_RELATIONS");
 
 			BindControls();
 			rmgToggleButton.GetText = () => rmgView ? "Return to Skirmish" : "Random Map Generator";
@@ -233,7 +236,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			BindDropDown(layoutFamilyButton,
 				new[]
 				{
-					new Choice<RmgPlayerLayoutFamily>(RmgPlayerLayoutFamily.NaturalLandscape, "Natural Landscape (planned)"),
+					new Choice<RmgPlayerLayoutFamily>(RmgPlayerLayoutFamily.NaturalLandscape, "Natural Landscape (experimental)"),
 					new Choice<RmgPlayerLayoutFamily>(RmgPlayerLayoutFamily.StructuredCompetitive, "Structured Competitive"),
 					new Choice<RmgPlayerLayoutFamily>(RmgPlayerLayoutFamily.ArtificialBattlefield, "Artificial Battlefield")
 				}, () => layoutFamily, value =>
@@ -301,6 +304,19 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					MarkStale();
 				});
 
+			originalSurfaceRelationsCheckbox.IsChecked = () => originalSurfaceRelations;
+			originalSurfaceRelationsCheckbox.IsDisabled = () =>
+				!CanConfigure() || layoutFamily != RmgPlayerLayoutFamily.NaturalLandscape;
+			originalSurfaceRelationsCheckbox.OnClick = () =>
+			{
+				if (originalSurfaceRelationsCheckbox.IsDisabled())
+					return;
+
+				originalSurfaceRelations ^= true;
+				presetCustomized = true;
+				MarkStale();
+			};
+
 			playersSlider.Value = playerCount;
 			playersSlider.GetValue = () => playerCount;
 			playersSlider.OnChange += value =>
@@ -325,9 +341,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			randomizeButton.IsDisabled = () => !CanConfigure();
 			randomizeButton.OnClick = () =>
 			{
-				var bytes = new byte[sizeof(ulong)];
-				RandomNumberGenerator.Fill(bytes);
-				seedField.Text = BitConverter.ToUInt64(bytes, 0).ToString(CultureInfo.InvariantCulture);
+				seedField.Text = CreateDisplaySeed().ToString(CultureInfo.InvariantCulture);
 				MarkStale();
 			};
 
@@ -400,12 +414,27 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		}
 
 		bool CanConfigure() => !generating && Game.IsHost && orderManager.LocalClient != null && !orderManager.LocalClient.IsReady;
+
+		static ulong CreateDisplaySeed()
+		{
+			const ulong ExclusiveUpperBound = 1_000_000_000_000_000_000UL;
+			var rejectionLimit = ulong.MaxValue - ulong.MaxValue % ExclusiveUpperBound;
+			var bytes = new byte[sizeof(ulong)];
+			ulong value;
+			do
+			{
+				RandomNumberGenerator.Fill(bytes);
+				value = BitConverter.ToUInt64(bytes, 0);
+			}
+			while (value >= rejectionLimit);
+
+			return value % ExclusiveUpperBound;
+		}
+
 		bool TryGetSeed() => ulong.TryParse(seedField?.Text, NumberStyles.None, CultureInfo.InvariantCulture, out _);
 
 		string UnsupportedReason()
 		{
-			if (layoutFamily == RmgPlayerLayoutFamily.NaturalLandscape)
-				return "Natural Landscape is planned until a genuinely organic terrain-generation contract is implemented.";
 			if (terrain != TerrainChoice.Normal)
 				return $"{TerrainDisplayName(terrain)} terrain is a planned placeholder; NORMAL is currently supported.";
 			if (size != SizeChoice.Standard)
@@ -466,7 +495,8 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					LayoutFamily = layoutFamily,
 					NeutralColonyDensity = colonyDensity,
 					WaterAmount = waterAmount,
-					TacticalTerrain = tacticalTerrain
+					TacticalTerrain = tacticalTerrain,
+					OriginalSurfaceRelations = originalSurfaceRelations
 				};
 				var settingsResolution = RmgPlayerSettingsContract.Resolve(playerSettings);
 				var profile = RmgProfile.Load(modData, settingsResolution.Normalized.TopologyPreset);
@@ -613,7 +643,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 
 		static string LayoutFamilyDisplayName(RmgPlayerLayoutFamily value) => value switch
 		{
-			RmgPlayerLayoutFamily.NaturalLandscape => "Natural Landscape (planned)",
+			RmgPlayerLayoutFamily.NaturalLandscape => "Natural Landscape (experimental)",
 			RmgPlayerLayoutFamily.StructuredCompetitive => "Structured Competitive",
 			RmgPlayerLayoutFamily.ArtificialBattlefield => "Artificial Battlefield",
 			_ => "Preset"

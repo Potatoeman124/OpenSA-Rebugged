@@ -34,7 +34,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				for (var x = 0; x < latticeWidth; x++)
 					allowedEnvelope[y * latticeWidth + x] = SlowPointAllowed(map, profile, x, y);
 
-			EnforceSymmetricCapacity(allowedEnvelope, latticeWidth, latticeHeight, settings.Symmetry);
+			var terrainSymmetry = profile.UsesNaturalTerrainMorphology ? (RmgSymmetry?)null : settings.Symmetry;
+			EnforceSymmetricCapacity(allowedEnvelope, latticeWidth, latticeHeight, terrainSymmetry);
 			var allowedVegetationCore = new bool[allowedEnvelope.Length];
 			for (var y = 0; y < latticeHeight; y++)
 				for (var x = 0; x < latticeWidth; x++)
@@ -45,6 +46,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				}
 
 			var rolePriorities = profile.UsesBattlefieldLayout ? BuildLatticeRolePriorities(map, latticeWidth, latticeHeight) : null;
+			var vegetationPriorities = profile.UsesNaturalTerrainMorphology ? map.NaturalVegetationPriorities : rolePriorities;
+			var rockPriorities = profile.UsesNaturalTerrainMorphology ? map.NaturalRockPriorities : rolePriorities;
 
 			var requestedVegetationTarget = RoundedPercent(landNativeCount, profile.VegetationLandPercentFor(settings.TacticalTerrain));
 			var vegetationCapacity = WeightedCount(allowedVegetationCore, latticeWidth, latticeHeight, map.Width, map.Height);
@@ -58,11 +61,11 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				var stream = vegetationAttempt == 0 ? "terrain-land-cover-vegetation" :
 					$"terrain-land-cover-vegetation-retry-{vegetationAttempt}";
 				vegetation = GenerateMask(allowedVegetationCore, latticeWidth, latticeHeight, vegetationTarget,
-					settings.Symmetry, DeterministicRandom.ForStream(settings, profile, stream), 3, rolePriorities);
+					terrainSymmetry, DeterministicRandom.ForStream(settings, profile, stream), 3, vegetationPriorities);
 				try
 				{
 					requiredEnvelope = Dilate(vegetation, allowedEnvelope, latticeWidth, latticeHeight, 1,
-						settings.Symmetry, profile.UsesParameterizedBattlefield);
+						terrainSymmetry, profile.UsesParameterizedBattlefield);
 					if (profile.UsesParameterizedBattlefield)
 						vegetationTarget = Math.Min(vegetationTarget, WeightedCount(vegetation, latticeWidth, latticeHeight, map.Width, map.Height));
 					break;
@@ -86,8 +89,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var envelopeCapacity = WeightedCount(allowedEnvelope, latticeWidth, latticeHeight, map.Width, map.Height);
 			var combinedTarget = Math.Min(requestedRockTarget + vegetationTarget, envelopeCapacity);
 			var envelope = GenerateMask(allowedEnvelope, latticeWidth, latticeHeight, combinedTarget,
-				settings.Symmetry, DeterministicRandom.ForStream(settings, profile, "terrain-land-cover-rock-envelope"), 3,
-				rolePriorities, requiredEnvelope);
+				terrainSymmetry, DeterministicRandom.ForStream(settings, profile, "terrain-land-cover-rock-envelope"), 3,
+				rockPriorities, requiredEnvelope);
 			var envelopeNativeCount = WeightedCount(envelope, latticeWidth, latticeHeight, map.Width, map.Height);
 			var vegetationNativeCount = WeightedCount(vegetation, latticeWidth, latticeHeight, map.Width, map.Height);
 			var rockNativeCount = envelopeNativeCount - vegetationNativeCount;
@@ -224,20 +227,21 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				var protectedClear = profile.UsesBattlefieldLayout ?
 					RmgBattlefieldRolePlanner.MustRemainClear(map.BattlefieldRoles[logicalIndex]) :
 					RmgClearLandDetailMaterializer.IsProtected(map, logicalIndex);
-				if (protectedClear ||
-					map.NativeTerrainIntents[4 * logicalIndex + frame] != RmgNativeTerrainIntent.Clear)
+				if (protectedClear || Enumerable.Range(0, 4).Any(candidateFrame =>
+					map.NativeTerrainIntents[4 * logicalIndex + candidateFrame] != RmgNativeTerrainIntent.Clear))
 					return false;
 
-				for (var dy = -1; dy <= 1; dy++)
-					for (var dx = -1; dx <= 1; dx++)
-					{
-						var x = nativeX + dx;
-						var y = nativeY + dy;
-						if (x < 0 || x >= 2 * map.Width || y < 0 || y >= 2 * map.Height)
-							continue;
-						if (NativeIntent(map, x, y) == RmgNativeTerrainIntent.Water)
-							return false;
-					}
+				if (!profile.UsesNaturalTerrainMorphology || map.NaturalOriginalSurfaceRelations)
+					for (var dy = -1; dy <= 1; dy++)
+						for (var dx = -1; dx <= 1; dx++)
+						{
+							var x = nativeX + dx;
+							var y = nativeY + dy;
+							if (x < 0 || x >= 2 * map.Width || y < 0 || y >= 2 * map.Height)
+								continue;
+							if (NativeIntent(map, x, y) == RmgNativeTerrainIntent.Water)
+								return false;
+						}
 			}
 
 			return true;
@@ -271,7 +275,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			return map.NativeTerrainIntents[4 * logical + 2 * (nativeY & 1) + (nativeX & 1)];
 		}
 
-		static void EnforceSymmetricCapacity(bool[] allowed, int width, int height, RmgSymmetry symmetry)
+		static void EnforceSymmetricCapacity(bool[] allowed, int width, int height, RmgSymmetry? symmetry)
 		{
 			for (var y = 0; y < height; y++)
 				for (var x = 0; x < width; x++)
@@ -344,7 +348,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					$"No tactical slow-terrain anchor orbit fits the protected-clear and Water-separation constraints; target is {profile.TacticalLandAnchorOrbitCountFor(settings.TacticalTerrain)}.");
 		}
 
-		static bool[] GenerateMask(bool[] allowed, int width, int height, int targetWeight, RmgSymmetry symmetry,
+		static bool[] GenerateMask(bool[] allowed, int width, int height, int targetWeight, RmgSymmetry? symmetry,
 			DeterministicRandom random, int seedOrbitCount, int[] priorityScores = null, bool[] requiredMask = null)
 		{
 			var selected = requiredMask == null ? new bool[allowed.Length] : requiredMask.ToArray();
@@ -359,7 +363,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var candidates = Enumerable.Range(0, allowed.Length)
 				.Where(index => allowed[index])
 				.Select(index => new RmgPoint(index % width, index / width))
-				.Where(point => Canonical(point, TransformLattice(point, symmetry, width, height), width, strict: true) &&
+				.Where(point => (!symmetry.HasValue ||
+					Canonical(point, TransformLattice(point, symmetry, width, height), width, strict: true)) &&
 					Clearance(allowed, width, height, point, 2))
 				.ToList();
 			Shuffle(candidates, random);
@@ -374,7 +379,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				reseedCandidates = reseedCandidates.OrderByDescending(point => priorityScores[point.Y * width + point.X]).ToList();
 			foreach (var candidate in candidates)
 			{
-				if (seeds.Count >= 2 * seedOrbitCount)
+				if (seeds.Count >= (symmetry.HasValue ? 2 : 1) * seedOrbitCount)
 					break;
 				var partner = TransformLattice(candidate, symmetry, width, height);
 				if (seeds.Any(seed => seed.ChebyshevDistance(candidate) < 10 || seed.ChebyshevDistance(partner) < 10))
@@ -467,7 +472,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		}
 
 		static bool TryAdd(bool[] selected, bool[] allowed, IReadOnlyCollection<RmgPoint> addition, int width, int height,
-			RmgSymmetry symmetry, out int addedWeight)
+			RmgSymmetry? symmetry, out int addedWeight)
 		{
 			var changed = new HashSet<RmgPoint>();
 			var pendingStamps = new HashSet<RmgPoint>();
@@ -541,7 +546,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		}
 
 		static bool PruneSourceForSupportedDilation(bool[] source, bool[] allowed, int width, int height,
-			int radius, RmgSymmetry symmetry, out bool[] result)
+			int radius, RmgSymmetry? symmetry, out bool[] result)
 		{
 			for (var repair = 0; repair < width * height; repair++)
 			{
@@ -601,7 +606,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			return true;
 		}
 
-		static bool RepairUnsupportedMasksByRemoval(bool[] selected, int width, int height, RmgSymmetry symmetry)
+		static bool RepairUnsupportedMasksByRemoval(bool[] selected, int width, int height, RmgSymmetry? symmetry)
 		{
 			for (var repair = 0; repair < width * height; repair++)
 			{
@@ -634,7 +639,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			return null;
 		}
 
-		static bool RepairUnsupportedMasks(bool[] selected, bool[] allowed, int width, int height, RmgSymmetry symmetry)
+		static bool RepairUnsupportedMasks(bool[] selected, bool[] allowed, int width, int height, RmgSymmetry? symmetry)
 		{
 			for (var repair = 0; repair < width * height; repair++)
 			{
@@ -688,7 +693,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			(mask[(y + 1) * width + x] ? 4 : 0) |
 			(mask[(y + 1) * width + x + 1] ? 8 : 0);
 
-		static bool[] Dilate(bool[] source, bool[] allowed, int width, int height, int radius, RmgSymmetry symmetry, bool repairUnsupportedMasks)
+		static bool[] Dilate(bool[] source, bool[] allowed, int width, int height, int radius, RmgSymmetry? symmetry, bool repairUnsupportedMasks)
 		{
 			var result = new bool[source.Length];
 			for (var index = 0; index < source.Length; index++)
@@ -786,8 +791,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			return true;
 		}
 
-		static RmgPoint TransformLattice(RmgPoint point, RmgSymmetry symmetry, int width, int height) => symmetry switch
+		static RmgPoint TransformLattice(RmgPoint point, RmgSymmetry? symmetry, int width, int height) => symmetry switch
 		{
+			null => point,
 			RmgSymmetry.MirrorHorizontal => new RmgPoint(point.X, height - 1 - point.Y),
 			RmgSymmetry.MirrorVertical => new RmgPoint(width - 1 - point.X, point.Y),
 			RmgSymmetry.Rotate180 => new RmgPoint(width - 1 - point.X, height - 1 - point.Y),

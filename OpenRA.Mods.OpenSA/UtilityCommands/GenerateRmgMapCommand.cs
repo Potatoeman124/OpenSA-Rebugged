@@ -23,7 +23,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 		string IUtilityCommand.Name => "--generate-sa-map";
 		bool IUtilityCommand.ValidateArguments(string[] args) => args.Length >= 1;
 
-		[Desc("OUTPUT.oramap", "--seed N | --player-settings FILE", "[--players 2|4]", "[--symmetry horizontal|vertical|rotational]", "[--archetype open|central-contest]", "[--topology off|mixed|shoreline|land-details|land-cover|battlefield-layout|parameterized-battlefield|coherent-water]", "[--neutral-colonies N]", "[--water-amount low|standard|high]", "[--tactical-terrain low|standard|high]", "[--movement-validation proxy|native|both]", "[--report FILE]", "[--overwrite]", "Generate a deterministic OpenSA skirmish map. Schema 3 player settings select Version 8 Structured Competitive or frozen Version 7 Artificial Battlefield; Natural Landscape is planned.")]
+		[Desc("OUTPUT.oramap", "--seed N | --player-settings FILE", "[--players 2|4]", "[--symmetry horizontal|vertical|rotational]", "[--archetype open|central-contest]", "[--topology off|mixed|shoreline|land-details|land-cover|battlefield-layout|parameterized-battlefield|coherent-water|natural-terrain]", "[--neutral-colonies N]", "[--water-amount low|standard|high]", "[--tactical-terrain low|standard|high]", "[--movement-validation proxy|native|both]", "[--report FILE]", "[--overwrite]", "Generate a deterministic OpenSA skirmish map. Schema 3 player settings select experimental Version 9 Natural Landscape, Version 8 Structured Competitive, or frozen Version 7 Artificial Battlefield.")]
 		void IUtilityCommand.Run(Utility utility, string[] args)
 		{
 			try
@@ -145,6 +145,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				RmgTopologyPreset.BattlefieldLayout => 6,
 				RmgTopologyPreset.ParameterizedBattlefield => 7,
 				RmgTopologyPreset.CoherentWater => 8,
+				RmgTopologyPreset.NaturalTerrain => 9,
 				RmgTopologyPreset.LandCover => 5,
 				_ => 1
 			};
@@ -173,8 +174,12 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 					Archetype = ParseArchetype(values.TryGetValue("--archetype", out var archetype) ? archetype : "open"),
 					WaterAmount = ParseParameterLevel(values.TryGetValue("--water-amount", out var waterAmount) ? waterAmount : "standard"),
 					TacticalTerrain = ParseParameterLevel(values.TryGetValue("--tactical-terrain", out var tacticalTerrain) ? tacticalTerrain : "standard"),
-					LayoutFamily = topology == RmgTopologyPreset.CoherentWater ?
-						RmgLayoutFamily.StructuredCompetitive : RmgLayoutFamily.ArtificialBattlefield
+					LayoutFamily = topology switch
+					{
+						RmgTopologyPreset.NaturalTerrain => RmgLayoutFamily.NaturalLandscape,
+						RmgTopologyPreset.CoherentWater => RmgLayoutFamily.StructuredCompetitive,
+						_ => RmgLayoutFamily.ArtificialBattlefield
+					}
 				}
 			};
 		}
@@ -220,8 +225,9 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			"battlefield-layout" => RmgTopologyPreset.BattlefieldLayout,
 			"parameterized-battlefield" => RmgTopologyPreset.ParameterizedBattlefield,
 			"coherent-water" => RmgTopologyPreset.CoherentWater,
+			"natural-terrain" => RmgTopologyPreset.NaturalTerrain,
 			"land-cover" => RmgTopologyPreset.LandCover,
-			_ => throw new ArgumentException("Topology must be off, mixed, shoreline, land-details, land-cover, battlefield-layout, parameterized-battlefield, or coherent-water.")
+			_ => throw new ArgumentException("Topology must be off, mixed, shoreline, land-details, land-cover, battlefield-layout, parameterized-battlefield, coherent-water, or natural-terrain.")
 		};
 
 		public static string TopologyName(RmgTopologyPreset value) => value switch
@@ -234,6 +240,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			RmgTopologyPreset.BattlefieldLayout => "battlefield-layout",
 			RmgTopologyPreset.ParameterizedBattlefield => "parameterized-battlefield",
 			RmgTopologyPreset.CoherentWater => "coherent-water",
+			RmgTopologyPreset.NaturalTerrain => "natural-terrain",
 			_ => throw new ArgumentOutOfRangeException(nameof(value))
 		};
 

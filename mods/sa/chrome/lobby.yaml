@@ -149,6 +149,14 @@ Background@SERVER_LOBBY:
 					Text: Standard
 					TooltipContainer: TOOLTIP_CONTAINER
 					TooltipText: Controls role-guided Rock and Vegetation movement terrain. Safety and fairness remain mandatory.
+				Checkbox@RMG_ORIGINAL_SURFACE_RELATIONS:
+					X: 155
+					Y: 275
+					Width: 220
+					Height: 28
+					Text: Original surface relations
+					TooltipContainer: TOOLTIP_CONTAINER
+					TooltipText: Natural V9 only. Checked enforces Water-Dirt-Gravel-Moss edge-and-corner transitions.
 				Label@RMG_WATER_LABEL:
 					X: 410
 					Y: 35
@@ -188,7 +196,7 @@ Background@SERVER_LOBBY:
 					Width: 220
 					Height: 28
 					TooltipContainer: TOOLTIP_CONTAINER
-					TooltipText: Natural Landscape is planned. Structured Competitive uses V8 coherent Water morphology. Artificial Battlefield preserves frozen V7.
+					TooltipText: Natural Landscape is experimental V9 organic terrain. Structured Competitive uses V8 coherent Water morphology. Artificial Battlefield preserves frozen V7.
 
 				Label@RMG_CHOKEPOINTS_LABEL:
 					X: 410

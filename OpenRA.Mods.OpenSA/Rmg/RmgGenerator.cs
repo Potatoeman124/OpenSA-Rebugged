@@ -44,8 +44,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				Symmetry = RmgSymmetry.Rotate180,
 				Archetype = RmgArchetype.CentralContest,
 				GeneratorVersion = profile.GeneratorVersion,
-				LayoutFamily = profile.UsesCoherentWaterMorphology ?
-					RmgLayoutFamily.StructuredCompetitive : RmgLayoutFamily.ArtificialBattlefield,
+				LayoutFamily = profile.UsesNaturalTerrainMorphology ? RmgLayoutFamily.NaturalLandscape :
+					profile.UsesCoherentWaterMorphology ?
+						RmgLayoutFamily.StructuredCompetitive : RmgLayoutFamily.ArtificialBattlefield,
 				TopologyPreset = profile.GeneratorVersion switch
 				{
 					2 => RmgTopologyPreset.Mixed,
@@ -55,6 +56,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					6 => RmgTopologyPreset.BattlefieldLayout,
 					7 => RmgTopologyPreset.ParameterizedBattlefield,
 					8 => RmgTopologyPreset.CoherentWater,
+					9 => RmgTopologyPreset.NaturalTerrain,
 					_ => RmgTopologyPreset.Off
 				}
 			};
@@ -435,6 +437,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public static RmgGenerationResult Generate(RmgProfile profile, RmgGenerationSettings settings)
 		{
 			ValidateSettings(profile, settings);
+			if (profile.UsesNaturalTerrainMorphology)
+				return GenerateNaturalLandscape(profile, settings);
 			if (profile.GeneratorVersion >= 2)
 				return GenerateBlockingTopology(profile, settings);
 
@@ -492,8 +496,12 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				throw new ArgumentException("Generator Version 7 requires TopologyPreset=parameterized-battlefield.");
 			if (profile.GeneratorVersion == 8 && settings.TopologyPreset != RmgTopologyPreset.CoherentWater)
 				throw new ArgumentException("Generator Version 8 requires TopologyPreset=coherent-water.");
+			if (profile.GeneratorVersion == 9 && settings.TopologyPreset != RmgTopologyPreset.NaturalTerrain)
+				throw new ArgumentException("Generator Version 9 requires TopologyPreset=natural-terrain.");
 			if (profile.GeneratorVersion == 8 && settings.LayoutFamily != RmgLayoutFamily.StructuredCompetitive)
 				throw new ArgumentException("Generator Version 8 requires LayoutFamily=structured-competitive.");
+			if (profile.GeneratorVersion == 9 && settings.LayoutFamily != RmgLayoutFamily.NaturalLandscape)
+				throw new ArgumentException("Generator Version 9 requires LayoutFamily=natural-landscape.");
 			if (profile.GeneratorVersion < 8 && settings.LayoutFamily != RmgLayoutFamily.ArtificialBattlefield)
 				throw new ArgumentException($"Generator Version {settings.GeneratorVersion} requires LayoutFamily=artificial-battlefield.");
 			if (profile.GeneratorVersion < 7 && (settings.WaterAmount != RmgParameterLevel.Standard ||
@@ -727,7 +735,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		}
 
 		static int MinimumAdaptiveColonyCount(RmgProfile profile, RmgGenerationSettings settings) =>
-			profile.UsesCoherentWaterMorphology ? settings.PlayerCount * 2 :
+			profile.UsesNaturalTerrainMorphology ? settings.PlayerCount :
+				profile.UsesCoherentWaterMorphology ? settings.PlayerCount * 2 :
 				profile.UsesParameterizedBattlefield && settings.WaterAmount == RmgParameterLevel.High ?
 				settings.PlayerCount * 2 :
 				settings.PlayerCount == 2 ? 8 : 12;

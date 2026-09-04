@@ -6,6 +6,7 @@ param(
     [int]$CandidateIndex = 0,
     [ValidateSet("correlated-field-baseline", "correlated-field-with-basin-potential")]
     [string]$Variant = "correlated-field-baseline",
+    [bool]$OriginalSurfaceRelations = $true,
     [switch]$GenerateMatrix,
     [switch]$Overwrite
 )
@@ -17,7 +18,7 @@ $utility = Join-Path $engineRoot "bin\OpenRA.Utility.exe"
 $dotnetRoot = Join-Path $root ".tools\dotnet"
 if ([string]::IsNullOrWhiteSpace($OutputRoot))
 {
-    $OutputRoot = Join-Path $root "artifacts\rmg\natural-v9-step2\candidates"
+    $OutputRoot = Join-Path $root "artifacts\rmg\natural-v9-surface-relations\candidates"
 }
 elseif (![System.IO.Path]::IsPathRooted($OutputRoot))
 {
@@ -74,14 +75,16 @@ try
 {
     foreach ($job in $jobs)
     {
-        $candidateDirectory = Join-Path $OutputRoot "$($job.variant_directory)\root-$($job.root_seed)\candidate-$($job.candidate_index.ToString('00'))"
+        $relationDirectory = if ($OriginalSurfaceRelations) { "original" } else { "unrestricted" }
+        $candidateDirectory = Join-Path $OutputRoot "$relationDirectory\$($job.variant_directory)\root-$($job.root_seed)\candidate-$($job.candidate_index.ToString('00'))"
         $arguments = @(
             "sa",
             "--prototype-natural-v9-terrain",
             $candidateDirectory,
             "--root-seed", $job.root_seed.ToString(),
             "--candidate-index", $job.candidate_index.ToString(),
-            "--variant", $job.variant
+            "--variant", $job.variant,
+            "--original-surface-relations", $OriginalSurfaceRelations.ToString().ToLowerInvariant()
         )
         if ($Overwrite)
         {
@@ -101,7 +104,7 @@ try
         $output | ForEach-Object { Write-Host $_ }
         if ($exitCode -ne 0)
         {
-            throw "Natural V9 Step 2 prototype generation failed with exit code $exitCode."
+            throw "Natural V9 terrain prototype generation failed with exit code $exitCode."
         }
 
         $generation = [double]::NaN
@@ -140,8 +143,9 @@ if ($GenerateMatrix)
     New-Item -ItemType Directory -Force -Path $metricsDirectory | Out-Null
     $performancePath = Join-Path $metricsDirectory "generation-performance.json"
     $payload = [ordered]@{
-        schema_version = 1
+        schema_version = 2
         prototype_id = "natural-v9-terrain-prototype-step2"
+        original_surface_relations = $OriginalSurfaceRelations
         candidate_count = $records.Count
         records = $records
     }
