@@ -2,9 +2,9 @@
 
 ## Status
 
-Phase 7C implements the first UI-neutral, serializable subset of this contract over the accepted Generator Version 6 output. Balanced, Open Conflict, and Tactical Crossroads presets; 2/4 players; Automatic or explicit symmetry; Open Fields or Contested Center layout; constrained neutral-colony density; and seed are implemented. The [Phase 7C contract](PHASE_7C_PLAYER_SETTINGS_CONTRACT.md) is authoritative for the current schema and normalization rules.
+Phase 8C provides the current in-game Random Map Generator panel and player-settings schema version 3. Structured Competitive Version 8 and frozen Artificial Battlefield Version 7 are functional; Natural Landscape is a visible non-generating placeholder. Balanced, Open Conflict, and Tactical Crossroads presets; 2/4 players; Automatic or explicit symmetry; Open Fields or Contested Center battlefield plan; constrained neutral-colony density; Water Amount; Tactical Terrain; and seed are implemented. The [corrected Phase 8C contract](PHASE_8C_STRUCTURED_COMPETITIVE_COHERENT_WATER.md) is authoritative for schema version 3; schema versions 1 and 2 remain compatibility contracts.
 
-The remaining controls and the in-game workflow are proposals. Phase 7C does not make the map chooser ready for generation integration.
+Chokepoint intensity, hostile amount, cosmetic-detail intensity, additional sizes, tilesets, and Natural Landscape generation remain proposals or disabled placeholders. They must not be presented as functional until their generator contracts and validation gates exist.
 
 The objective is to let a player choose recognizable gameplay outcomes without exposing coupled generator internals. Connectivity, combat-space safety, production exits, symmetry fairness, weighted movement parity, legal asset boundaries, and bounded validation remain mandatory and must never become optional player settings.
 
@@ -23,9 +23,10 @@ Most players should be able to choose a preset, press Generate, inspect a previe
 | --- | --- | --- | --- | --- |
 | Generation preset | Dropdown | Balanced, Open Conflict, Tactical Crossroads, Narrow Passages | Sets a coherent combination of layout, Water, slow terrain, colonies, and chokepoints | First three implemented; Narrow Passages deferred |
 | Players | Segmented buttons | 2, 4 | Number of supported starting positions | Implemented in schema v1 |
-| Layout | Dropdown | Open Fields, Contested Center, Mixed Fronts, Narrow Passages | Controls battlefield regions, likely travel lanes, flank structure, and contest areas | Open Fields and Contested Center implemented; others deferred |
-| Tactical terrain impact | Three-state selector | Low, Standard, High | Controls how often Rock and Vegetation influence likely movement and combat areas | Requires layout-aware placement |
-| Water amount | Three-state selector | Low, Standard, High | Controls blocking-region frequency and area, not transition appearance | Core support exists; player-facing profiles required |
+| Layout family | Dropdown | Natural Landscape, Structured Competitive, Artificial Battlefield | Selects a planned organic terrain-first family, V8 coherent-Water competitive layout, or frozen V7 engineered tactical-pool layout | Structured and Artificial implemented in schema v3; Natural deferred |
+| Battlefield plan | Dropdown | Open Fields, Contested Center, Mixed Fronts, Narrow Passages | Controls battlefield regions, likely travel lanes, flank structure, and contest areas inside the selected family | Open Fields and Contested Center implemented; others deferred |
+| Tactical terrain impact | Three-state selector | Low, Standard, High | Controls how often Rock and Vegetation influence likely movement and combat areas | Implemented in schema v2 / Generator V7 |
+| Water amount | Three-state selector | Low, Standard, High | Controls blocking-region frequency and area, not transition appearance | Implemented in schema v2 / Generator V7 |
 | Neutral colony density | Three-state selector | Sparse, Standard, Dense | Controls the number of capturable neutral colonies within legal values for the selected player count | Implemented in schema v1 |
 | Chokepoints | Three-state selector | Few, Standard, Many | Controls the number and strength of intentionally constrained crossings | Partial support exists; depends on layout |
 | Cosmetic detail | Three-state selector | Sparse, Standard, Lush | Controls Clear-native stones and other non-gameplay decoration independently of movement terrain | Clear details exist; distribution remains WIP |

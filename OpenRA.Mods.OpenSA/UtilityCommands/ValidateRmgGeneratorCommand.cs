@@ -21,13 +21,13 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 		string IUtilityCommand.Name => "--validate-sa-rmg";
 		bool IUtilityCommand.ValidateArguments(string[] args) => args.Length == 1;
 
-		[Desc("Run focused deterministic RMG self-tests for frozen V1-V4 and opt-in V5-V6 terrain profiles.")]
+		[Desc("Run focused deterministic RMG self-tests for frozen V1-V7, V8 Structured Competitive, and experimental V9 Natural Landscape profiles.")]
 		void IUtilityCommand.Run(Utility utility, string[] args)
 		{
 			try
 			{
 				var failures = new List<string>();
-				foreach (var topology in new[] { RmgTopologyPreset.Off, RmgTopologyPreset.Mixed, RmgTopologyPreset.Shoreline, RmgTopologyPreset.LandDetails, RmgTopologyPreset.LandCover, RmgTopologyPreset.BattlefieldLayout })
+				foreach (var topology in new[] { RmgTopologyPreset.Off, RmgTopologyPreset.Mixed, RmgTopologyPreset.Shoreline, RmgTopologyPreset.LandDetails, RmgTopologyPreset.LandCover, RmgTopologyPreset.BattlefieldLayout, RmgTopologyPreset.ParameterizedBattlefield, RmgTopologyPreset.CoherentWater, RmgTopologyPreset.NaturalTerrain })
 				{
 					var profile = RmgProfile.Load(utility.ModData, topology);
 					var profileFailures = RmgGenerator.RunSelfTests(profile);

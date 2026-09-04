@@ -37,7 +37,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 
 		[Desc("REPORT.json", "[--seed-start N]", "[--gate-a-count N]", "[--mixed-count N]",
 			"[--colony-count-campaign N]", "[--movement-validation proxy|native|both]",
-			"[--topology off|mixed|shoreline|land-details|land-cover|battlefield-layout]", "[--runtime-sample-rate N]", "[--preserve-failures]", "[--overwrite]",
+			"[--topology off|mixed|shoreline|land-details|land-cover|battlefield-layout|parameterized-battlefield|coherent-water]", "[--runtime-sample-rate N]", "[--preserve-failures]", "[--overwrite]",
 			"Run deterministic RMG self-tests, legal colony-count campaigns, and bounded package/native samples.")]
 		void IUtilityCommand.Run(Utility utility, string[] args)
 		{
@@ -160,7 +160,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				stopwatch.Stop();
 				var report = new JObject
 				{
-					["schema_version"] = profile.GeneratorVersion >= 6 ? 7 : profile.GeneratorVersion >= 5 ? 6 : profile.GeneratorVersion >= 4 ? 5 : 4,
+					["schema_version"] = profile.GeneratorVersion >= 8 ? 9 : profile.GeneratorVersion >= 7 ? 8 : profile.GeneratorVersion >= 6 ? 7 : profile.GeneratorVersion >= 5 ? 6 : profile.GeneratorVersion >= 4 ? 5 : 4,
 					["generator_version"] = profile.GeneratorVersion,
 					["configuration_id"] = profile.ProfileId,
 					["configuration_version"] = profile.ConfigurationVersion,
@@ -243,7 +243,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				Environment.ExitCode = failures.Count == 0 ? 0 : 4;
 
 				bool RunCase(ulong seed, int players, int colonyCount, RmgSymmetry symmetry, RmgArchetype archetype,
-					string campaign, bool forceRuntimeSample = false)
+					string campaign, bool forceRuntimeSample = false, RmgParameterLevel? waterAmount = null, RmgParameterLevel? tacticalTerrain = null)
 				{
 					total++;
 					var settings = new RmgGenerationSettings
@@ -254,7 +254,10 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 						Symmetry = symmetry,
 						Archetype = archetype,
 						GeneratorVersion = profile.GeneratorVersion,
-						TopologyPreset = options.TopologyPreset
+						TopologyPreset = options.TopologyPreset,
+						LayoutFamily = profile.UsesCoherentWaterMorphology ? RmgLayoutFamily.StructuredCompetitive : RmgLayoutFamily.ArtificialBattlefield,
+						WaterAmount = profile.UsesParameterizedBattlefield ? waterAmount ?? Enum.GetValues<RmgParameterLevel>()[(int)(seed % 3UL)] : RmgParameterLevel.Standard,
+						TacticalTerrain = profile.UsesParameterizedBattlefield ? tacticalTerrain ?? Enum.GetValues<RmgParameterLevel>()[(int)(seed / 3UL % 3UL)] : RmgParameterLevel.Standard
 					};
 					var caseTimer = Stopwatch.StartNew();
 					try
@@ -372,6 +375,8 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 							["neutral_colonies"] = settings.NeutralColonyCount,
 							["symmetry"] = OpenRaRmgMapAdapter.SymmetryName(settings.Symmetry),
 							["archetype"] = OpenRaRmgMapAdapter.ArchetypeName(settings.Archetype),
+							["water_amount"] = settings.WaterAmount.ToString().ToLowerInvariant(),
+							["tactical_terrain"] = settings.TacticalTerrain.ToString().ToLowerInvariant(),
 							["forced_boundary_sample"] = forcedBoundary,
 							["logical_hash"] = generation.LogicalHash,
 							["actor_hash"] = generation.ActorHash,
@@ -482,9 +487,11 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 						["neutral_colonies"] = settings.NeutralColonyCount,
 						["symmetry"] = OpenRaRmgMapAdapter.SymmetryName(settings.Symmetry),
 						["archetype"] = OpenRaRmgMapAdapter.ArchetypeName(settings.Archetype),
+						["water_amount"] = settings.WaterAmount.ToString().ToLowerInvariant(),
+						["tactical_terrain"] = settings.TacticalTerrain.ToString().ToLowerInvariant(),
 						["topology_preset"] = OpenRaRmgMapAdapter.TopologyName(settings.TopologyPreset),
 						["reproduce"] =
-							$"powershell -ExecutionPolicy Bypass -File .\\scripts\\rmg\\Invoke-MapGenerator.ps1 -Seed {settings.Seed} -Players {settings.PlayerCount} -NeutralColonies {settings.NeutralColonyCount} -Symmetry {OpenRaRmgMapAdapter.SymmetryName(settings.Symmetry)} -Archetype {OpenRaRmgMapAdapter.ArchetypeName(settings.Archetype)} -Topology {OpenRaRmgMapAdapter.TopologyName(settings.TopologyPreset)} -MovementValidation both -Overwrite"
+							$"powershell -ExecutionPolicy Bypass -File .\\scripts\\rmg\\Invoke-MapGenerator.ps1 -Seed {settings.Seed} -Players {settings.PlayerCount} -NeutralColonies {settings.NeutralColonyCount} -Symmetry {OpenRaRmgMapAdapter.SymmetryName(settings.Symmetry)} -Archetype {OpenRaRmgMapAdapter.ArchetypeName(settings.Archetype)} -Topology {OpenRaRmgMapAdapter.TopologyName(settings.TopologyPreset)} -WaterAmount {settings.WaterAmount.ToString().ToLowerInvariant()} -TacticalTerrain {settings.TacticalTerrain.ToString().ToLowerInvariant()} -MovementValidation both -Overwrite"
 					});
 				}
 
@@ -528,9 +535,11 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 						failure["neutral_colonies"] = settings.NeutralColonyCount;
 						failure["symmetry"] = OpenRaRmgMapAdapter.SymmetryName(settings.Symmetry);
 						failure["archetype"] = OpenRaRmgMapAdapter.ArchetypeName(settings.Archetype);
+						failure["water_amount"] = settings.WaterAmount.ToString().ToLowerInvariant();
+						failure["tactical_terrain"] = settings.TacticalTerrain.ToString().ToLowerInvariant();
 						failure["topology_preset"] = OpenRaRmgMapAdapter.TopologyName(settings.TopologyPreset);
 						failure["reproduce"] =
-							$"powershell -ExecutionPolicy Bypass -File .\\scripts\\rmg\\Invoke-MapGenerator.ps1 -Seed {settings.Seed} -Players {settings.PlayerCount} -NeutralColonies {settings.NeutralColonyCount} -Symmetry {OpenRaRmgMapAdapter.SymmetryName(settings.Symmetry)} -Archetype {OpenRaRmgMapAdapter.ArchetypeName(settings.Archetype)} -Topology {OpenRaRmgMapAdapter.TopologyName(settings.TopologyPreset)} -MovementValidation both -Overwrite";
+							$"powershell -ExecutionPolicy Bypass -File .\\scripts\\rmg\\Invoke-MapGenerator.ps1 -Seed {settings.Seed} -Players {settings.PlayerCount} -NeutralColonies {settings.NeutralColonyCount} -Symmetry {OpenRaRmgMapAdapter.SymmetryName(settings.Symmetry)} -Archetype {OpenRaRmgMapAdapter.ArchetypeName(settings.Archetype)} -Topology {OpenRaRmgMapAdapter.TopologyName(settings.TopologyPreset)} -WaterAmount {settings.WaterAmount.ToString().ToLowerInvariant()} -TacticalTerrain {settings.TacticalTerrain.ToString().ToLowerInvariant()} -MovementValidation both -Overwrite";
 					}
 
 					if (generation != null)

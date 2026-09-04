@@ -2,6 +2,8 @@
 
 ## Status
 
+> Historical compatibility note: this document freezes player-settings schema version 1 and its Version 6 normalization. Phase 8A adds schema version 2 and Version 7 parameter controls. Phase 8C adds schema version 3 and the corrected Natural/Structured/Artificial taxonomy; see [the corrected Phase 8C contract](PHASE_8C_STRUCTURED_COMPETITIVE_COHERENT_WATER.md). Schema versions 1 and 2 remain supported unchanged.
+
 Phase 7C implements the first serializable player-facing settings layer over the accepted Generator Version 6 `battlefield-layout` profile. It does not add an in-game dialog or map-cache integration. The low-level generator command remains available for development and regression work.
 
 The contract intentionally exposes only choices already supported by the automated and manual Version 6 gates. Unsupported choices are rejected instead of being approximated.

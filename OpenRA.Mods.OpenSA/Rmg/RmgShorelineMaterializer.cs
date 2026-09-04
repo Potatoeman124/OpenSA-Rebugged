@@ -40,6 +40,34 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var clearRandom = DeterministicRandom.ForStream(settings, profile, "terrain-clear-variants");
 			var interiorRandom = DeterministicRandom.ForStream(settings, profile, "terrain-water-interiors");
 			var shorelineRandom = DeterministicRandom.ForStream(settings, profile, "terrain-shoreline-variants");
+			if (profile.UsesNaturalTerrainMorphology)
+			{
+				for (var y = 0; y < map.Height; y++)
+					for (var x = 0; x < map.Width; x++)
+					{
+						var point = new RmgPoint(x, y);
+						var index = map.Index(point);
+						if (!map.Obstacles[index])
+						{
+							var clearTemplate = profile.ClearTemplateIds[clearRandom.NextInt(profile.ClearTemplateIds.Length)];
+							Assign(map, index, clearTemplate, RmgShorelineRole.None, Clear());
+							continue;
+						}
+
+						var role = Classify(map, point, out _, out _);
+						if (role == RmgShorelineRole.Interior)
+							Assign(map, index, SelectInteriorTemplate(profile, interiorRandom), role, Water());
+						else
+						{
+							var transition = SelectShorelineTransition(role, profile, shorelineRandom);
+							Assign(map, index, transition.TemplateId, role, transition.NativeTerrain);
+						}
+					}
+
+				ValidateEdges(map);
+				return;
+			}
+
 			for (var y = 0; y < map.Height; y++)
 				for (var x = 0; x < map.Width; x++)
 				{

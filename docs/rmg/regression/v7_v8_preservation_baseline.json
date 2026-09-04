@@ -1,0 +1,675 @@
+{
+  "checkpoint_schema_version": 1,
+  "baseline_date": "2026-08-30",
+  "pre_task_head": "4d5985d9111cc2af79a90b91df0b69b81125c6a3",
+  "engine_revision": "386f691c2e1f469596ef6f58e258a10a176bdc3d",
+  "identity_contract": [
+    "logical_hash_sha256",
+    "actor_hash_sha256",
+    "graph_hash_sha256",
+    "canonical_map_yaml_bin_sha256",
+    "engine_uid_sha1"
+  ],
+  "raw_archive_hash_is_authoritative": false,
+  "families": {
+    "artificial_battlefield": {
+      "player_slug": "artificial-battlefield",
+      "generator_version": 7,
+      "configuration_id": "normal-parameterized-battlefield-v7",
+      "status": "functional-frozen-compatibility-path"
+    },
+    "structured_competitive": {
+      "player_slug": "structured-competitive",
+      "generator_version": 8,
+      "configuration_id": "normal-coherent-water-v8",
+      "status": "functional-frozen-baseline",
+      "historical_rng_streams": "natural-water-* retained for deterministic compatibility"
+    }
+  },
+  "natural_landscape": {
+    "player_slug": "natural-landscape",
+    "generator_version": null,
+    "status": "planned-disabled-unimplemented",
+    "expected_error_contains": "Natural Landscape is planned until a genuinely organic terrain-generation contract is implemented.",
+    "requested_settings": {
+      "schema_version": 3,
+      "preset": "balanced",
+      "seed": "1",
+      "players": 2,
+      "symmetry": "horizontal",
+      "layout": "open-fields",
+      "layout_family": "natural-landscape",
+      "neutral_colony_density": "standard",
+      "water_amount": "standard",
+      "tactical_terrain": "standard"
+    }
+  },
+  "cases": [
+    {
+      "id": "artificial-battlefield-8300001",
+      "generator_version": 7,
+      "configuration_id": "normal-parameterized-battlefield-v7",
+      "configuration_version": 1,
+      "layout_family": "artificial-battlefield",
+      "requested_settings": {
+        "schema_version": 3,
+        "preset": "balanced",
+        "seed": "8300001",
+        "players": 2,
+        "symmetry": "horizontal",
+        "layout": "open-fields",
+        "neutral_colony_density": "standard",
+        "water_amount": "standard",
+        "tactical_terrain": "standard",
+        "layout_family": "artificial-battlefield"
+      },
+      "normalized_settings": {
+        "generator_version": 7,
+        "topology": "parameterized-battlefield",
+        "layout_family": "artificial-battlefield",
+        "seed": "8300001",
+        "players": 2,
+        "symmetry": "horizontal",
+        "archetype": "open",
+        "neutral_colonies": 10,
+        "water_amount": "standard",
+        "tactical_terrain": "standard",
+        "tileset": "NORMAL",
+        "size": "128,128"
+      },
+      "neutral_colonies_requested": 10,
+      "neutral_colonies_achieved": 10,
+      "warnings": [],
+      "adaptations": [],
+      "identities": {
+        "logical_hash_sha256": "90268d4498c1e1cf28aedf3e270fbe304e1bf25bb9468dd66ecaebd39c931578",
+        "actor_hash_sha256": "0361f5a75906dce78af2b8d69d22d7b118ccfa400a1de5eda102e6d6f22d9d58",
+        "graph_hash_sha256": "1053aabe1bbb9887af730378c9100313b75e2acaa6337b53f87da088d4916dae",
+        "canonical_map_yaml_bin_sha256": "dd874800f2b83a9b02a485434fe0ca7b1569b6d3b0dee2f8909cf15e3a1e1902",
+        "engine_uid_sha1": "647feb691f8aec353802224af9adfeff5cde4958"
+      },
+      "expected_validation": {
+        "accepted": true,
+        "native_movement_accepted": true,
+        "package_reload": "passed",
+        "rules_sequences_initialization": "passed",
+        "map_yaml_lint": "passed"
+      }
+    },
+    {
+      "id": "structured-competitive-8300001",
+      "generator_version": 8,
+      "configuration_id": "normal-coherent-water-v8",
+      "configuration_version": 1,
+      "layout_family": "structured-competitive",
+      "requested_settings": {
+        "schema_version": 3,
+        "preset": "balanced",
+        "seed": "8300001",
+        "players": 2,
+        "symmetry": "horizontal",
+        "layout": "open-fields",
+        "neutral_colony_density": "standard",
+        "water_amount": "standard",
+        "tactical_terrain": "standard",
+        "layout_family": "structured-competitive"
+      },
+      "normalized_settings": {
+        "generator_version": 8,
+        "topology": "coherent-water",
+        "layout_family": "structured-competitive",
+        "seed": "8300001",
+        "players": 2,
+        "symmetry": "horizontal",
+        "archetype": "open",
+        "neutral_colonies": 10,
+        "water_amount": "standard",
+        "tactical_terrain": "standard",
+        "tileset": "NORMAL",
+        "size": "128,128"
+      },
+      "neutral_colonies_requested": 10,
+      "neutral_colonies_achieved": 4,
+      "warnings": [],
+      "adaptations": [
+        "neutral-colonies-reduced:4/10"
+      ],
+      "identities": {
+        "logical_hash_sha256": "9124d35c12fb9fab8b2414295de1facc1bf0c2d5453926158aad9822692bd05b",
+        "actor_hash_sha256": "e0b027c457826398fc23fb4ee524fa3155c00704ea1a6dc269c8e0530b581500",
+        "graph_hash_sha256": "1053aabe1bbb9887af730378c9100313b75e2acaa6337b53f87da088d4916dae",
+        "canonical_map_yaml_bin_sha256": "efffcef4bad475936aa56dc658913e674afbfaecce6ed50320755e5372c9ee00",
+        "engine_uid_sha1": "d8943bbf83f93322e991d6bc86c71ccbd47d8c01"
+      },
+      "expected_validation": {
+        "accepted": true,
+        "native_movement_accepted": true,
+        "package_reload": "passed",
+        "rules_sequences_initialization": "passed",
+        "map_yaml_lint": "passed"
+      }
+    },
+    {
+      "id": "artificial-battlefield-8300002",
+      "generator_version": 7,
+      "configuration_id": "normal-parameterized-battlefield-v7",
+      "configuration_version": 1,
+      "layout_family": "artificial-battlefield",
+      "requested_settings": {
+        "schema_version": 3,
+        "preset": "balanced",
+        "seed": "8300002",
+        "players": 2,
+        "symmetry": "vertical",
+        "layout": "contested-center",
+        "neutral_colony_density": "standard",
+        "water_amount": "high",
+        "tactical_terrain": "standard",
+        "layout_family": "artificial-battlefield"
+      },
+      "normalized_settings": {
+        "generator_version": 7,
+        "topology": "parameterized-battlefield",
+        "layout_family": "artificial-battlefield",
+        "seed": "8300002",
+        "players": 2,
+        "symmetry": "vertical",
+        "archetype": "central-contest",
+        "neutral_colonies": 10,
+        "water_amount": "high",
+        "tactical_terrain": "standard",
+        "tileset": "NORMAL",
+        "size": "128,128"
+      },
+      "neutral_colonies_requested": 10,
+      "neutral_colonies_achieved": 10,
+      "warnings": [],
+      "adaptations": [],
+      "identities": {
+        "logical_hash_sha256": "2d9a1786ce48232b67af4c4ff7cda445367358f40f9f88e9ad79fd78491255d2",
+        "actor_hash_sha256": "fe5ffad158dfca518213e95c2cf13d96cbddd631caccd3f4db9277fa9650720f",
+        "graph_hash_sha256": "a2b4db28eba0039a04ec52e90ce3dbec00ee5663aa347977b09bccf6d88aa647",
+        "canonical_map_yaml_bin_sha256": "77434c3f4e7824f2921ba35516d158c65bcb1d890407d02f134ec04ef7dba1a2",
+        "engine_uid_sha1": "fd1cef33b73892649313c019028950be4e3a3677"
+      },
+      "expected_validation": {
+        "accepted": true,
+        "native_movement_accepted": true,
+        "package_reload": "passed",
+        "rules_sequences_initialization": "passed",
+        "map_yaml_lint": "passed"
+      }
+    },
+    {
+      "id": "structured-competitive-8300002",
+      "generator_version": 8,
+      "configuration_id": "normal-coherent-water-v8",
+      "configuration_version": 1,
+      "layout_family": "structured-competitive",
+      "requested_settings": {
+        "schema_version": 3,
+        "preset": "balanced",
+        "seed": "8300002",
+        "players": 2,
+        "symmetry": "vertical",
+        "layout": "contested-center",
+        "neutral_colony_density": "standard",
+        "water_amount": "high",
+        "tactical_terrain": "standard",
+        "layout_family": "structured-competitive"
+      },
+      "normalized_settings": {
+        "generator_version": 8,
+        "topology": "coherent-water",
+        "layout_family": "structured-competitive",
+        "seed": "8300002",
+        "players": 2,
+        "symmetry": "vertical",
+        "archetype": "central-contest",
+        "neutral_colonies": 10,
+        "water_amount": "high",
+        "tactical_terrain": "standard",
+        "tileset": "NORMAL",
+        "size": "128,128"
+      },
+      "neutral_colonies_requested": 10,
+      "neutral_colonies_achieved": 4,
+      "warnings": [],
+      "adaptations": [
+        "neutral-colonies-reduced:4/10"
+      ],
+      "identities": {
+        "logical_hash_sha256": "e2b11f6b1c91158786b599fd74de798cd9495563e2f84529de6de4a83019ebec",
+        "actor_hash_sha256": "f017815d35d4969b6c4ffa58d59afcd58c9f53be2ce9313404a657b4c61d3053",
+        "graph_hash_sha256": "a2b4db28eba0039a04ec52e90ce3dbec00ee5663aa347977b09bccf6d88aa647",
+        "canonical_map_yaml_bin_sha256": "b0d63cd334a23f68f93b8e1c97a1e54098ce98e82a7a8b8d2342055ded08a9d3",
+        "engine_uid_sha1": "58d18efd2a11a98f623b72b60f5bd61036645c93"
+      },
+      "expected_validation": {
+        "accepted": true,
+        "native_movement_accepted": true,
+        "package_reload": "passed",
+        "rules_sequences_initialization": "passed",
+        "map_yaml_lint": "passed"
+      }
+    },
+    {
+      "id": "artificial-battlefield-8300003",
+      "generator_version": 7,
+      "configuration_id": "normal-parameterized-battlefield-v7",
+      "configuration_version": 1,
+      "layout_family": "artificial-battlefield",
+      "requested_settings": {
+        "schema_version": 3,
+        "preset": "balanced",
+        "seed": "8300003",
+        "players": 2,
+        "symmetry": "rotational",
+        "layout": "contested-center",
+        "neutral_colony_density": "standard",
+        "water_amount": "low",
+        "tactical_terrain": "standard",
+        "layout_family": "artificial-battlefield"
+      },
+      "normalized_settings": {
+        "generator_version": 7,
+        "topology": "parameterized-battlefield",
+        "layout_family": "artificial-battlefield",
+        "seed": "8300003",
+        "players": 2,
+        "symmetry": "rotational",
+        "archetype": "central-contest",
+        "neutral_colonies": 10,
+        "water_amount": "low",
+        "tactical_terrain": "standard",
+        "tileset": "NORMAL",
+        "size": "128,128"
+      },
+      "neutral_colonies_requested": 10,
+      "neutral_colonies_achieved": 10,
+      "warnings": [],
+      "adaptations": [],
+      "identities": {
+        "logical_hash_sha256": "812ec45d548017a2e543ad784bae35ce90dcb3f4972cda4016092f7e5984bc03",
+        "actor_hash_sha256": "51ad7663a8a0a00a287995a060e2e7a9e65468c772425aaf0453df43652a75c6",
+        "graph_hash_sha256": "0624077e2047de6f2317889bc83faed5004c3796e7be7b2f38450f9d403da758",
+        "canonical_map_yaml_bin_sha256": "f64e536c986339ba6d5a02679a9b3265517baaa48751c9eaf33edf7370836fe6",
+        "engine_uid_sha1": "9c1e37c1832e976ddf0abe90ba5c9ad50e7d76e1"
+      },
+      "expected_validation": {
+        "accepted": true,
+        "native_movement_accepted": true,
+        "package_reload": "passed",
+        "rules_sequences_initialization": "passed",
+        "map_yaml_lint": "passed"
+      }
+    },
+    {
+      "id": "structured-competitive-8300003",
+      "generator_version": 8,
+      "configuration_id": "normal-coherent-water-v8",
+      "configuration_version": 1,
+      "layout_family": "structured-competitive",
+      "requested_settings": {
+        "schema_version": 3,
+        "preset": "balanced",
+        "seed": "8300003",
+        "players": 2,
+        "symmetry": "rotational",
+        "layout": "contested-center",
+        "neutral_colony_density": "standard",
+        "water_amount": "low",
+        "tactical_terrain": "standard",
+        "layout_family": "structured-competitive"
+      },
+      "normalized_settings": {
+        "generator_version": 8,
+        "topology": "coherent-water",
+        "layout_family": "structured-competitive",
+        "seed": "8300003",
+        "players": 2,
+        "symmetry": "rotational",
+        "archetype": "central-contest",
+        "neutral_colonies": 10,
+        "water_amount": "low",
+        "tactical_terrain": "standard",
+        "tileset": "NORMAL",
+        "size": "128,128"
+      },
+      "neutral_colonies_requested": 10,
+      "neutral_colonies_achieved": 4,
+      "warnings": [],
+      "adaptations": [
+        "neutral-colonies-reduced:4/10"
+      ],
+      "identities": {
+        "logical_hash_sha256": "a2a5b9aa729945a8c5e226ad25337fdc0f1b1423727dd7383920c2bd190094a4",
+        "actor_hash_sha256": "a645002e091ef86a33e5d3fcf7a4f0dcf974e8f6a93e8f8d6f100dab40fcd732",
+        "graph_hash_sha256": "0624077e2047de6f2317889bc83faed5004c3796e7be7b2f38450f9d403da758",
+        "canonical_map_yaml_bin_sha256": "6c545fe6209e79f180675d83280bf682979da9e559bb6f763c60148324de7fd5",
+        "engine_uid_sha1": "4129fdb68225a4280297fa2e461ef84412bbe3a2"
+      },
+      "expected_validation": {
+        "accepted": true,
+        "native_movement_accepted": true,
+        "package_reload": "passed",
+        "rules_sequences_initialization": "passed",
+        "map_yaml_lint": "passed"
+      }
+    },
+    {
+      "id": "artificial-battlefield-5722426127237601134",
+      "generator_version": 7,
+      "configuration_id": "normal-parameterized-battlefield-v7",
+      "configuration_version": 1,
+      "layout_family": "artificial-battlefield",
+      "requested_settings": {
+        "schema_version": 3,
+        "preset": "balanced",
+        "seed": "5722426127237601134",
+        "players": 4,
+        "symmetry": "rotational",
+        "layout": "contested-center",
+        "neutral_colony_density": "standard",
+        "water_amount": "high",
+        "tactical_terrain": "standard",
+        "layout_family": "artificial-battlefield"
+      },
+      "normalized_settings": {
+        "generator_version": 7,
+        "topology": "parameterized-battlefield",
+        "layout_family": "artificial-battlefield",
+        "seed": "5722426127237601134",
+        "players": 4,
+        "symmetry": "rotational",
+        "archetype": "central-contest",
+        "neutral_colonies": 16,
+        "water_amount": "high",
+        "tactical_terrain": "standard",
+        "tileset": "NORMAL",
+        "size": "128,128"
+      },
+      "neutral_colonies_requested": 16,
+      "neutral_colonies_achieved": 12,
+      "warnings": [],
+      "adaptations": [
+        "neutral-colonies-reduced:12/16"
+      ],
+      "identities": {
+        "logical_hash_sha256": "57302668c51e828fa8f6d0d78e42a4666a95688cbe44f633be1a2ecec16faaac",
+        "actor_hash_sha256": "db650ec559dac3b5ae7e31c827ce8ee49abd171a11d52b373be498a8abcfe48d",
+        "graph_hash_sha256": "9263e330dce8795ce843a4ca72a8c208424c5bfa0ffec6e5e3c6526344a03813",
+        "canonical_map_yaml_bin_sha256": "4cebc370eeeebcf4a5f305275321c046ebd921fc9e95bb0ebb811381c90478a2",
+        "engine_uid_sha1": "bddd6222fcfb2de949b22f80269cb3bed77d0147"
+      },
+      "expected_validation": {
+        "accepted": true,
+        "native_movement_accepted": true,
+        "package_reload": "passed",
+        "rules_sequences_initialization": "passed",
+        "map_yaml_lint": "passed"
+      }
+    },
+    {
+      "id": "structured-competitive-5722426127237601134",
+      "generator_version": 8,
+      "configuration_id": "normal-coherent-water-v8",
+      "configuration_version": 1,
+      "layout_family": "structured-competitive",
+      "requested_settings": {
+        "schema_version": 3,
+        "preset": "balanced",
+        "seed": "5722426127237601134",
+        "players": 4,
+        "symmetry": "rotational",
+        "layout": "contested-center",
+        "neutral_colony_density": "standard",
+        "water_amount": "high",
+        "tactical_terrain": "standard",
+        "layout_family": "structured-competitive"
+      },
+      "normalized_settings": {
+        "generator_version": 8,
+        "topology": "coherent-water",
+        "layout_family": "structured-competitive",
+        "seed": "5722426127237601134",
+        "players": 4,
+        "symmetry": "rotational",
+        "archetype": "central-contest",
+        "neutral_colonies": 16,
+        "water_amount": "high",
+        "tactical_terrain": "standard",
+        "tileset": "NORMAL",
+        "size": "128,128"
+      },
+      "neutral_colonies_requested": 16,
+      "neutral_colonies_achieved": 8,
+      "warnings": [],
+      "adaptations": [
+        "neutral-colonies-reduced:8/16"
+      ],
+      "identities": {
+        "logical_hash_sha256": "ada081cc46b1ddae24501d6286e063ef79cede8b1d1f4837d74fd7050258269d",
+        "actor_hash_sha256": "54002771ca800dad8061ee80d2fc1fc5cc885f0deac2a10ce445376ea5d98934",
+        "graph_hash_sha256": "9263e330dce8795ce843a4ca72a8c208424c5bfa0ffec6e5e3c6526344a03813",
+        "canonical_map_yaml_bin_sha256": "ba6fce7d9ee96beeb26c78aad8a7603ef3a4f47bfa67e1d69bb5a55ecc4516e8",
+        "engine_uid_sha1": "4797319483c933848b95d28927b7362dd46deacb"
+      },
+      "expected_validation": {
+        "accepted": true,
+        "native_movement_accepted": true,
+        "package_reload": "passed",
+        "rules_sequences_initialization": "passed",
+        "map_yaml_lint": "passed"
+      }
+    },
+    {
+      "id": "artificial-battlefield-8300005",
+      "generator_version": 7,
+      "configuration_id": "normal-parameterized-battlefield-v7",
+      "configuration_version": 1,
+      "layout_family": "artificial-battlefield",
+      "requested_settings": {
+        "schema_version": 3,
+        "preset": "balanced",
+        "seed": "8300005",
+        "players": 4,
+        "symmetry": "vertical",
+        "layout": "contested-center",
+        "neutral_colony_density": "standard",
+        "water_amount": "standard",
+        "tactical_terrain": "standard",
+        "layout_family": "artificial-battlefield"
+      },
+      "normalized_settings": {
+        "generator_version": 7,
+        "topology": "parameterized-battlefield",
+        "layout_family": "artificial-battlefield",
+        "seed": "8300005",
+        "players": 4,
+        "symmetry": "vertical",
+        "archetype": "central-contest",
+        "neutral_colonies": 16,
+        "water_amount": "standard",
+        "tactical_terrain": "standard",
+        "tileset": "NORMAL",
+        "size": "128,128"
+      },
+      "neutral_colonies_requested": 16,
+      "neutral_colonies_achieved": 16,
+      "warnings": [],
+      "adaptations": [],
+      "identities": {
+        "logical_hash_sha256": "847f4ce214be4a065e59eac65b6d9691a32d5dd260847d24a9a1525d2a8ae1a3",
+        "actor_hash_sha256": "ece74b9b83844e57d9351962cfe4cdf517d3b3a4deee2b2f74ebe1e00d64d7a3",
+        "graph_hash_sha256": "dd3eca6a19253a7dc2a58fcb33624b4d649828c0a5f0977e44789bdc6be3f70e",
+        "canonical_map_yaml_bin_sha256": "54d480ce18a0b4fea9ba072e6e87904565c70d14fffa9164ba3faedab6b711f7",
+        "engine_uid_sha1": "92307a46824edf01e064ca96fc65a4053d20ff54"
+      },
+      "expected_validation": {
+        "accepted": true,
+        "native_movement_accepted": true,
+        "package_reload": "passed",
+        "rules_sequences_initialization": "passed",
+        "map_yaml_lint": "passed"
+      }
+    },
+    {
+      "id": "structured-competitive-8300005",
+      "generator_version": 8,
+      "configuration_id": "normal-coherent-water-v8",
+      "configuration_version": 1,
+      "layout_family": "structured-competitive",
+      "requested_settings": {
+        "schema_version": 3,
+        "preset": "balanced",
+        "seed": "8300005",
+        "players": 4,
+        "symmetry": "vertical",
+        "layout": "contested-center",
+        "neutral_colony_density": "standard",
+        "water_amount": "standard",
+        "tactical_terrain": "standard",
+        "layout_family": "structured-competitive"
+      },
+      "normalized_settings": {
+        "generator_version": 8,
+        "topology": "coherent-water",
+        "layout_family": "structured-competitive",
+        "seed": "8300005",
+        "players": 4,
+        "symmetry": "vertical",
+        "archetype": "central-contest",
+        "neutral_colonies": 16,
+        "water_amount": "standard",
+        "tactical_terrain": "standard",
+        "tileset": "NORMAL",
+        "size": "128,128"
+      },
+      "neutral_colonies_requested": 16,
+      "neutral_colonies_achieved": 8,
+      "warnings": [],
+      "adaptations": [
+        "neutral-colonies-reduced:8/16"
+      ],
+      "identities": {
+        "logical_hash_sha256": "056ad87b40f2887c6c85f34a6f029f8fb02d0da45a1c8f5486f4cf167a7c9389",
+        "actor_hash_sha256": "f9a73212979168bd938a6c853b5439fdbc0986d5e9e97891e4053908e30a46af",
+        "graph_hash_sha256": "dd3eca6a19253a7dc2a58fcb33624b4d649828c0a5f0977e44789bdc6be3f70e",
+        "canonical_map_yaml_bin_sha256": "79df37b15b3bcb157307b16087f455f0a4a3443a0b4fdadc0eb70c8e8915cb62",
+        "engine_uid_sha1": "0e28e3f83798f35e4b73be644baa615087e65ffc"
+      },
+      "expected_validation": {
+        "accepted": true,
+        "native_movement_accepted": true,
+        "package_reload": "passed",
+        "rules_sequences_initialization": "passed",
+        "map_yaml_lint": "passed"
+      }
+    },
+    {
+      "id": "artificial-battlefield-8300006",
+      "generator_version": 7,
+      "configuration_id": "normal-parameterized-battlefield-v7",
+      "configuration_version": 1,
+      "layout_family": "artificial-battlefield",
+      "requested_settings": {
+        "schema_version": 3,
+        "preset": "balanced",
+        "seed": "8300006",
+        "players": 4,
+        "symmetry": "rotational",
+        "layout": "open-fields",
+        "neutral_colony_density": "standard",
+        "water_amount": "standard",
+        "tactical_terrain": "standard",
+        "layout_family": "artificial-battlefield"
+      },
+      "normalized_settings": {
+        "generator_version": 7,
+        "topology": "parameterized-battlefield",
+        "layout_family": "artificial-battlefield",
+        "seed": "8300006",
+        "players": 4,
+        "symmetry": "rotational",
+        "archetype": "open",
+        "neutral_colonies": 16,
+        "water_amount": "standard",
+        "tactical_terrain": "standard",
+        "tileset": "NORMAL",
+        "size": "128,128"
+      },
+      "neutral_colonies_requested": 16,
+      "neutral_colonies_achieved": 16,
+      "warnings": [],
+      "adaptations": [],
+      "identities": {
+        "logical_hash_sha256": "69a15477881bab64c8f15bbb2025b6f82afc5188551d01bbeb42a253420f9a50",
+        "actor_hash_sha256": "9e33e88069747a77ae65f1d3c3cadfda70a0f323c7a5570900e84cac1f818984",
+        "graph_hash_sha256": "01ed883a0a38cf9d3c0aef0ebcf13d822dcce45d71ee3f03df4e91881e063abe",
+        "canonical_map_yaml_bin_sha256": "89f9f82848b61a6859460540b92027ebdb418056db853d01c2eff9e59c8f935d",
+        "engine_uid_sha1": "95d4f6ce1a4f2fd60c0f16921d963324329ac175"
+      },
+      "expected_validation": {
+        "accepted": true,
+        "native_movement_accepted": true,
+        "package_reload": "passed",
+        "rules_sequences_initialization": "passed",
+        "map_yaml_lint": "passed"
+      }
+    },
+    {
+      "id": "structured-competitive-8300006",
+      "generator_version": 8,
+      "configuration_id": "normal-coherent-water-v8",
+      "configuration_version": 1,
+      "layout_family": "structured-competitive",
+      "requested_settings": {
+        "schema_version": 3,
+        "preset": "balanced",
+        "seed": "8300006",
+        "players": 4,
+        "symmetry": "rotational",
+        "layout": "open-fields",
+        "neutral_colony_density": "standard",
+        "water_amount": "standard",
+        "tactical_terrain": "standard",
+        "layout_family": "structured-competitive"
+      },
+      "normalized_settings": {
+        "generator_version": 8,
+        "topology": "coherent-water",
+        "layout_family": "structured-competitive",
+        "seed": "8300006",
+        "players": 4,
+        "symmetry": "rotational",
+        "archetype": "open",
+        "neutral_colonies": 16,
+        "water_amount": "standard",
+        "tactical_terrain": "standard",
+        "tileset": "NORMAL",
+        "size": "128,128"
+      },
+      "neutral_colonies_requested": 16,
+      "neutral_colonies_achieved": 8,
+      "warnings": [],
+      "adaptations": [
+        "neutral-colonies-reduced:8/16"
+      ],
+      "identities": {
+        "logical_hash_sha256": "e2941c416d9d4a863653626a1f41da447560aa9cd88f0ebc5c000436ca29e5ac",
+        "actor_hash_sha256": "1c54556b7ea25bd015968fb9a0f9127be6b11636e42230c29dc47fe1d308d660",
+        "graph_hash_sha256": "01ed883a0a38cf9d3c0aef0ebcf13d822dcce45d71ee3f03df4e91881e063abe",
+        "canonical_map_yaml_bin_sha256": "50721e90ede0c83f410bba257e2d0fc2742cbff02de002492c49b1aab3b89013",
+        "engine_uid_sha1": "4f2460b841a2018324e8aa212660bc4f79a21d1f"
+      },
+      "expected_validation": {
+        "accepted": true,
+        "native_movement_accepted": true,
+        "package_reload": "passed",
+        "rules_sequences_initialization": "passed",
+        "map_yaml_lint": "passed"
+      }
+    }
+  ]
+}

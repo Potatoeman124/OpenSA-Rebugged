@@ -27,18 +27,24 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 	/// </summary>
 	sealed class AuditRmgBattlefieldLayoutsCommand : IUtilityCommand
 	{
-		const string SchemaVersion = "1.0";
+		const string SchemaVersion = "1.1";
 		const string CommandName = "--audit-rmg-battlefield-layouts";
 		const int SectorGridSize = 4;
 		const int RouteBandRadius = 8;
 		const double EdgeBandFraction = 0.15;
 		const double MeaningfulSectorFraction = 0.02;
+		const double MeaningfulWaterBodyMapFraction = 0.005;
 		const double SqrtTwo = 1.4142135623730951;
 
 		static readonly CVec[] Directions =
 		{
 			new(-1, -1), new(-1, 0), new(-1, 1), new(0, -1),
 			new(0, 1), new(1, -1), new(1, 0), new(1, 1)
+		};
+
+		static readonly CVec[] CardinalDirections =
+		{
+			new(-1, 0), new(0, -1), new(1, 0), new(0, 1)
 		};
 
 		static readonly HashSet<string> ColonyActorTypes = new(StringComparer.OrdinalIgnoreCase)
@@ -117,6 +123,9 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 					["edge_band"] = $"outer {EdgeBandFraction:P0} of normalized map depth",
 					["central_half"] = "normalized x and y both within [0.25, 0.75]",
 					["meaningful_surface_sector"] = $"surface occupies at least {MeaningfulSectorFraction:P0} of sector cells",
+					["water_body_connectivity"] = "cardinal four-neighbor connectivity over native Water cells; diagonal-only contact remains separate",
+					["meaningful_water_body"] = $"component occupies at least {MeaningfulWaterBodyMapFraction:P1} of playable map cells, with a four-cell floor",
+					["water_compactness"] = "4*pi*area/perimeter^2 on the native grid; descriptive only and not a naturalness score",
 					["movement_modifier_terrain"] = "Rock (unit speed 75) plus Vegetation (unit speed 50); Clear speed is 100",
 					["decoration_actors"] = "actor types beginning plant_; passable and blocking footprints are reported separately",
 					["embedded_detail_stamps"] = "canonical 2x2 fixed visual-detail templates 61, 62, 93, and 94; reported separately from plant_ actors",
@@ -157,6 +166,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			var rock = AnalyzeSurface(grid, type => type.Equals("Rock", StringComparison.OrdinalIgnoreCase));
 			var vegetation = AnalyzeSurface(grid, type => type.Equals("Vegetation", StringComparison.OrdinalIgnoreCase));
 			var water = AnalyzeSurface(grid, type => type.Equals("Water", StringComparison.OrdinalIgnoreCase));
+			var waterMorphology = AnalyzeWaterMorphology(grid);
 			var movement = AnalyzeSurface(grid, IsMovementModifier);
 			var decoration = AnalyzeDecorations(grid, decorations);
 			var embeddedDetails = AnalyzeEmbeddedDetails(map, grid);
@@ -192,6 +202,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 					["water"] = water.Json,
 					["movement_modifier_combined"] = movement.Json
 				},
+				["water_morphology"] = waterMorphology.Json,
 				["decoration_layout"] = decoration.Json,
 				["embedded_detail_layout"] = embeddedDetails.Json,
 				["traffic_layout"] = traffic?.Json,
@@ -203,7 +214,10 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				movement.CellFraction, movement.EdgeFraction, movement.CentralFraction, movement.SectorCoverage,
 				decoration.DensityPerThousand, decoration.SectorCoverage, decoration.BlockingFraction,
 				embeddedDetails.DensityPerThousand, embeddedDetails.SectorCoverage,
-				traffic?.MovementFraction, traffic?.MovementEnrichment);
+				traffic?.MovementFraction, traffic?.MovementEnrichment,
+				waterMorphology.WaterCellCount, waterMorphology.BodyCount, waterMorphology.MeaningfulBodyCount,
+				waterMorphology.LargestBodyShare, waterMorphology.LargestBodyMapFraction,
+				waterMorphology.LargestBodyCompactness, waterMorphology.SmallBodyShare);
 		}
 
 		static GridModel BuildGrid(Map map, LocomotorInfo locomotor, ActorPoint[] decorations)
@@ -280,6 +294,135 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			};
 
 			return new SurfaceMetric(json, cellCount, cellFraction, edgeFraction, centralFraction, sectorCoverage);
+		}
+
+		static WaterMorphologyMetric AnalyzeWaterMorphology(GridModel grid)
+		{
+			var water = grid.TerrainTypes.Select(type =>
+				type.Equals("Water", StringComparison.OrdinalIgnoreCase)).ToArray();
+			var visited = new bool[grid.CellCount];
+			var components = new List<WaterBody>();
+			for (var seed = 0; seed < grid.CellCount; seed++)
+			{
+				if (!water[seed] || visited[seed])
+					continue;
+
+				var cells = new List<int>();
+				var frontier = new Queue<int>();
+				visited[seed] = true;
+				frontier.Enqueue(seed);
+				var perimeter = 0;
+				var edgeCells = 0;
+				var centralCells = 0;
+				var touchesBounds = false;
+				var minX = grid.Width;
+				var minY = grid.Height;
+				var maxX = 0;
+				var maxY = 0;
+				while (frontier.Count > 0)
+				{
+					var current = frontier.Dequeue();
+					cells.Add(current);
+					var (x, y) = grid.Local(current);
+					minX = Math.Min(minX, x);
+					minY = Math.Min(minY, y);
+					maxX = Math.Max(maxX, x);
+					maxY = Math.Max(maxY, y);
+					if (grid.NormalizedBorderDepth(current) <= EdgeBandFraction)
+						edgeCells++;
+					if (grid.IsCentralHalf(current))
+						centralCells++;
+					if (x == 0 || y == 0 || x == grid.Width - 1 || y == grid.Height - 1)
+						touchesBounds = true;
+
+					foreach (var direction in CardinalDirections)
+					{
+						var neighborX = x + direction.X;
+						var neighborY = y + direction.Y;
+						if (neighborX < 0 || neighborY < 0 || neighborX >= grid.Width || neighborY >= grid.Height)
+						{
+							perimeter++;
+							continue;
+						}
+
+						var neighbor = grid.IndexLocal(neighborX, neighborY);
+						if (!water[neighbor])
+						{
+							perimeter++;
+							continue;
+						}
+
+						if (!visited[neighbor])
+						{
+							visited[neighbor] = true;
+							frontier.Enqueue(neighbor);
+						}
+					}
+				}
+
+				var area = cells.Count;
+				var width = maxX - minX + 1;
+				var height = maxY - minY + 1;
+				var compactness = perimeter == 0 ? 0 : 4 * Math.PI * area / (perimeter * perimeter);
+				components.Add(new WaterBody(area, perimeter, compactness, width, height, edgeCells, centralCells, touchesBounds));
+			}
+
+			var ordered = components.OrderByDescending(component => component.Area).ToArray();
+			var waterCellCount = ordered.Sum(component => component.Area);
+			var meaningfulMinimum = Math.Max(4, (int)Math.Ceiling(grid.CellCount * MeaningfulWaterBodyMapFraction));
+			var meaningfulBodyCount = ordered.Count(component => component.Area >= meaningfulMinimum);
+			var meaningfulWaterCells = ordered.Where(component => component.Area >= meaningfulMinimum).Sum(component => component.Area);
+			var smallBodyShare = waterCellCount == 0 ? 0 : 1 - meaningfulWaterCells / (double)waterCellCount;
+			var largest = ordered.FirstOrDefault();
+			var largestShare = largest == null || waterCellCount == 0 ? 0 : largest.Area / (double)waterCellCount;
+			var largestMapFraction = largest == null ? 0 : largest.Area / (double)grid.CellCount;
+			var topThreeShare = waterCellCount == 0 ? 0 :
+				ordered.Take(3).Sum(component => component.Area) / (double)waterCellCount;
+			var componentJson = new JArray();
+			for (var rank = 0; rank < ordered.Length; rank++)
+			{
+				var component = ordered[rank];
+				componentJson.Add(new JObject
+				{
+					["rank"] = rank + 1,
+					["cell_count"] = component.Area,
+					["fraction_of_water"] = waterCellCount == 0 ? 0 : Round(component.Area / (double)waterCellCount),
+					["fraction_of_map"] = Round(component.Area / (double)grid.CellCount),
+					["perimeter_edges"] = component.Perimeter,
+					["compactness"] = Round(component.Compactness),
+					["bounding_width_cells"] = component.Width,
+					["bounding_height_cells"] = component.Height,
+					["bounding_width_fraction"] = Round(component.Width / (double)grid.Width),
+					["bounding_height_fraction"] = Round(component.Height / (double)grid.Height),
+					["edge_band_fraction_of_body"] = Round(component.EdgeCells / (double)component.Area),
+					["central_half_fraction_of_body"] = Round(component.CentralCells / (double)component.Area),
+					["touches_playable_bounds"] = component.TouchesBounds,
+					["meaningful"] = component.Area >= meaningfulMinimum
+				});
+			}
+
+			var json = new JObject
+			{
+				["connectivity"] = "cardinal-four-neighbor",
+				["water_cell_count"] = waterCellCount,
+				["body_count"] = ordered.Length,
+				["meaningful_body_minimum_cells"] = meaningfulMinimum,
+				["meaningful_body_count"] = meaningfulBodyCount,
+				["small_body_fraction_of_water"] = Round(smallBodyShare),
+				["component_size_mean"] = ordered.Length == 0 ? 0 : Round(ordered.Average(component => component.Area)),
+				["component_size_median"] = Round(Median(ordered.Select(component => (double)component.Area))),
+				["largest_body_cells"] = largest?.Area ?? 0,
+				["largest_body_fraction_of_water"] = Round(largestShare),
+				["largest_body_fraction_of_map"] = Round(largestMapFraction),
+				["largest_body_compactness"] = largest == null ? 0 : Round(largest.Compactness),
+				["largest_body_bounding_width_fraction"] = largest == null ? 0 : Round(largest.Width / (double)grid.Width),
+				["largest_body_bounding_height_fraction"] = largest == null ? 0 : Round(largest.Height / (double)grid.Height),
+				["top_three_body_fraction_of_water"] = Round(topThreeShare),
+				["components"] = componentJson
+			};
+
+			return new WaterMorphologyMetric(json, waterCellCount, ordered.Length, meaningfulBodyCount,
+				largestShare, largestMapFraction, largest?.Compactness ?? 0, smallBodyShare);
 		}
 
 		static EmbeddedDetailMetric AnalyzeEmbeddedDetails(Map map, GridModel grid)
@@ -560,9 +703,17 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			var result = new JObject();
 			foreach (var group in maps.GroupBy(selector).OrderBy(g => g.Key, StringComparer.Ordinal))
 			{
+				var waterMaps = group.Where(map => map.WaterCellCount > 0).ToArray();
 				result[group.Key] = new JObject
 				{
 					["map_count"] = group.Count(),
+					["water_bearing_map_count"] = waterMaps.Length,
+					["water_body_count_median"] = Round(Median(waterMaps.Select(map => (double)map.WaterBodyCount))),
+					["water_meaningful_body_count_median"] = Round(Median(waterMaps.Select(map => (double)map.MeaningfulWaterBodyCount))),
+					["water_largest_body_fraction_of_water_median"] = Round(Median(waterMaps.Select(map => map.LargestWaterBodyShare))),
+					["water_largest_body_fraction_of_map_median"] = Round(Median(waterMaps.Select(map => map.LargestWaterBodyMapFraction))),
+					["water_largest_body_compactness_median"] = Round(Median(waterMaps.Select(map => map.LargestWaterBodyCompactness))),
+					["water_small_body_fraction_median"] = Round(Median(waterMaps.Select(map => map.WaterSmallBodyShare))),
 					["movement_modifier_cell_fraction_median"] = Round(Median(group.Select(m => m.MovementCellFraction))),
 					["movement_modifier_edge_fraction_median"] = Round(Median(group.Select(m => m.MovementEdgeFraction))),
 					["movement_modifier_central_fraction_median"] = Round(Median(group.Select(m => m.MovementCentralFraction))),
@@ -598,7 +749,13 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				["embedded_detail_density_per_1000_cells"] = Round(map.EmbeddedDetailDensity),
 				["embedded_detail_sector_coverage"] = Round(map.EmbeddedDetailSectorCoverage),
 				["traffic_movement_modifier_fraction"] = map.TrafficMovementFraction,
-				["traffic_movement_enrichment"] = map.TrafficMovementEnrichment
+				["traffic_movement_enrichment"] = map.TrafficMovementEnrichment,
+				["water_body_count"] = map.WaterBodyCount,
+				["water_meaningful_body_count"] = map.MeaningfulWaterBodyCount,
+				["water_largest_body_fraction_of_water"] = Round(map.LargestWaterBodyShare),
+				["water_largest_body_fraction_of_map"] = Round(map.LargestWaterBodyMapFraction),
+				["water_largest_body_compactness"] = Round(map.LargestWaterBodyCompactness),
+				["water_small_body_fraction"] = Round(map.WaterSmallBodyShare)
 			};
 		}
 
@@ -673,11 +830,19 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 
 		sealed record EmbeddedDetailMetric(JObject Json, double DensityPerThousand, double SectorCoverage);
 
+		sealed record WaterBody(int Area, int Perimeter, double Compactness, int Width, int Height,
+			int EdgeCells, int CentralCells, bool TouchesBounds);
+
+		sealed record WaterMorphologyMetric(JObject Json, int WaterCellCount, int BodyCount, int MeaningfulBodyCount,
+			double LargestBodyShare, double LargestBodyMapFraction, double LargestBodyCompactness, double SmallBodyShare);
+
 		sealed record MapAudit(string Directory, string Title, string Classification, string Tileset, JObject Json,
 			double MovementCellFraction, double MovementEdgeFraction, double MovementCentralFraction,
 			double MovementSectorCoverage, double DecorationDensity, double DecorationSectorCoverage,
 			double BlockingDecorationFraction, double EmbeddedDetailDensity, double EmbeddedDetailSectorCoverage,
-			double? TrafficMovementFraction, double? TrafficMovementEnrichment);
+			double? TrafficMovementFraction, double? TrafficMovementEnrichment,
+			int WaterCellCount, int WaterBodyCount, int MeaningfulWaterBodyCount, double LargestWaterBodyShare,
+			double LargestWaterBodyMapFraction, double LargestWaterBodyCompactness, double WaterSmallBodyShare);
 
 		sealed class GridModel
 		{

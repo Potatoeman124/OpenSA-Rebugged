@@ -8,7 +8,7 @@ param(
     [int]$RuntimeSampleRate = 100,
     [ValidateSet("proxy", "native", "both")]
     [string]$MovementValidation = "both",
-    [ValidateSet("off", "mixed", "shoreline", "land-details", "land-cover", "battlefield-layout")]
+    [ValidateSet("off", "mixed", "shoreline", "land-details", "land-cover", "battlefield-layout", "parameterized-battlefield", "coherent-water")]
     [string]$Topology = "off",
     [switch]$PreserveFailures,
     [switch]$Overwrite
@@ -22,7 +22,7 @@ $dotnetRoot = Join-Path $root ".tools\dotnet"
 
 if ([string]::IsNullOrWhiteSpace($ReportPath))
 {
-    $phase = if ($Topology -eq "battlefield-layout") { "phase-7b-battlefield-layout" } elseif ($Topology -eq "land-cover") { "phase-6c-weighted-land-cover" } elseif ($Topology -eq "land-details") { "phase-6b-clear-land-details" } elseif ($Topology -eq "shoreline") { "phase-5b-shoreline-materialization" } elseif ($Topology -eq "mixed") { "phase-4c-blocking-topology" } else { "phase-4a-native-movement-validation" }
+    $phase = if ($Topology -eq "coherent-water") { "phase-8c-structured-competitive" } elseif ($Topology -eq "parameterized-battlefield") { "phase-8a-parameterized-battlefield" } elseif ($Topology -eq "battlefield-layout") { "phase-7b-battlefield-layout" } elseif ($Topology -eq "land-cover") { "phase-6c-weighted-land-cover" } elseif ($Topology -eq "land-details") { "phase-6b-clear-land-details" } elseif ($Topology -eq "shoreline") { "phase-5b-shoreline-materialization" } elseif ($Topology -eq "mixed") { "phase-4c-blocking-topology" } else { "phase-4a-native-movement-validation" }
     $ReportPath = Join-Path $root "artifacts\rmg\$phase\campaign\bounded-reference.json"
 }
 elseif (![System.IO.Path]::IsPathRooted($ReportPath))

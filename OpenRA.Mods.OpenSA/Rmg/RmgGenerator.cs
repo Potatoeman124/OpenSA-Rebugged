@@ -44,6 +44,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				Symmetry = RmgSymmetry.Rotate180,
 				Archetype = RmgArchetype.CentralContest,
 				GeneratorVersion = profile.GeneratorVersion,
+				LayoutFamily = profile.UsesNaturalTerrainMorphology ? RmgLayoutFamily.NaturalLandscape :
+					profile.UsesCoherentWaterMorphology ?
+						RmgLayoutFamily.StructuredCompetitive : RmgLayoutFamily.ArtificialBattlefield,
 				TopologyPreset = profile.GeneratorVersion switch
 				{
 					2 => RmgTopologyPreset.Mixed,
@@ -51,6 +54,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					4 => RmgTopologyPreset.LandDetails,
 					5 => RmgTopologyPreset.LandCover,
 					6 => RmgTopologyPreset.BattlefieldLayout,
+					7 => RmgTopologyPreset.ParameterizedBattlefield,
+					8 => RmgTopologyPreset.CoherentWater,
+					9 => RmgTopologyPreset.NaturalTerrain,
 					_ => RmgTopologyPreset.Off
 				}
 			};
@@ -84,9 +90,13 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 			if (profile.UsesBattlefieldLayout)
 			{
-				failures.AddRange(RmgPlayerSettingsContract.RunSelfTests());
-				try
+				if (profile.UsesParameterizedBattlefield)
+					failures.AddRange(RmgPlayerSettingsContract.RunSelfTests());
+
+				if (profile.GeneratorVersion == 6)
 				{
+					try
+					{
 					var reportedSeedSettings = new RmgGenerationSettings
 					{
 						Seed = 5058340853825067450,
@@ -105,59 +115,65 @@ namespace OpenRA.Mods.OpenSA.Rmg
 						reportedFirst.ActorHash != reportedRepeat.ActorHash ||
 						reportedFirst.GraphHash != reportedRepeat.GraphHash)
 						failures.Add("Reported UI seed regression is not deterministic.");
-				}
-				catch (Exception e)
-				{
-					failures.Add($"Reported UI seed regression was rejected: {e.Message}");
+					}
+					catch (Exception e)
+					{
+						failures.Add($"Reported UI seed regression was rejected: {e.Message}");
+					}
+
+					var adaptiveRegressions = new[]
+					{
+						(
+							Name: "density-6385527573119186284",
+							Settings: new RmgGenerationSettings
+							{
+								Seed = 6385527573119186284,
+								PlayerCount = 4,
+								NeutralColonyCount = 16,
+								Symmetry = RmgSymmetry.MirrorVertical,
+								Archetype = RmgArchetype.CentralContest,
+								GeneratorVersion = 6,
+								TopologyPreset = RmgTopologyPreset.BattlefieldLayout
+							},
+							Warning: "OBSTACLE_DENSITY_TARGET_MISSED",
+							ExpectedColonies: 16),
+						(
+							Name: "density-16385527573119186284",
+							Settings: new RmgGenerationSettings
+							{
+								Seed = 16385527573119186284,
+								PlayerCount = 4,
+								NeutralColonyCount = 24,
+								Symmetry = RmgSymmetry.Rotate180,
+								Archetype = RmgArchetype.CentralContest,
+								GeneratorVersion = 6,
+								TopologyPreset = RmgTopologyPreset.BattlefieldLayout
+							},
+							Warning: "OBSTACLE_DENSITY_TARGET_MISSED",
+							ExpectedColonies: 24),
+						(
+							Name: "colonies-15782917902311806871",
+							Settings: new RmgGenerationSettings
+							{
+								Seed = 15782917902311806871,
+								PlayerCount = 4,
+								NeutralColonyCount = 24,
+								Symmetry = RmgSymmetry.MirrorVertical,
+								Archetype = RmgArchetype.CentralContest,
+								GeneratorVersion = 6,
+								TopologyPreset = RmgTopologyPreset.BattlefieldLayout
+							},
+							Warning: "COLONY_TARGET_REDUCED",
+							ExpectedColonies: 16)
+					};
+					foreach (var regression in adaptiveRegressions)
+						ValidateAdaptiveRegression(regression.Name, regression.Settings, regression.Warning, regression.ExpectedColonies);
 				}
 
-				var adaptiveRegressions = new[]
-				{
-					(
-						Name: "density-6385527573119186284",
-						Settings: new RmgGenerationSettings
-						{
-							Seed = 6385527573119186284,
-							PlayerCount = 4,
-							NeutralColonyCount = 16,
-							Symmetry = RmgSymmetry.MirrorVertical,
-							Archetype = RmgArchetype.CentralContest,
-							GeneratorVersion = 6,
-							TopologyPreset = RmgTopologyPreset.BattlefieldLayout
-						},
-						Warning: "OBSTACLE_DENSITY_TARGET_MISSED",
-						ExpectedColonies: 16),
-					(
-						Name: "density-16385527573119186284",
-						Settings: new RmgGenerationSettings
-						{
-							Seed = 16385527573119186284,
-							PlayerCount = 4,
-							NeutralColonyCount = 24,
-							Symmetry = RmgSymmetry.Rotate180,
-							Archetype = RmgArchetype.CentralContest,
-							GeneratorVersion = 6,
-							TopologyPreset = RmgTopologyPreset.BattlefieldLayout
-						},
-						Warning: "OBSTACLE_DENSITY_TARGET_MISSED",
-						ExpectedColonies: 24),
-					(
-						Name: "colonies-15782917902311806871",
-						Settings: new RmgGenerationSettings
-						{
-							Seed = 15782917902311806871,
-							PlayerCount = 4,
-							NeutralColonyCount = 24,
-							Symmetry = RmgSymmetry.MirrorVertical,
-							Archetype = RmgArchetype.CentralContest,
-							GeneratorVersion = 6,
-							TopologyPreset = RmgTopologyPreset.BattlefieldLayout
-						},
-						Warning: "COLONY_TARGET_REDUCED",
-						ExpectedColonies: 16)
-				};
-				foreach (var regression in adaptiveRegressions)
-					ValidateAdaptiveRegression(regression.Name, regression.Settings, regression.Warning, regression.ExpectedColonies);
+				if (profile.GeneratorVersion == 7)
+					ValidateParameterizedBattlefield();
+				else if (profile.UsesCoherentWaterMorphology)
+					ValidateStructuredCompetitiveV8();
 
 				if (first.Map.BattlefieldRoles.Any(role => role == RmgBattlefieldRole.None))
 					failures.Add("Battlefield-role planner left unclassified logical cells.");
@@ -185,6 +201,146 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					failures.Add("Version 6 materialized a blocking RMG land decoration.");
 				if (first.Map.TemplateIds.Contains((ushort)93))
 					failures.Add("Version 6 materialized defective square-edged Vegetation detail template 93.");
+			}
+
+			void ValidateParameterizedBattlefield()
+			{
+				var levels = new[] { RmgParameterLevel.Low, RmgParameterLevel.Standard, RmgParameterLevel.High };
+				foreach (var waterAmount in levels)
+					foreach (var tacticalTerrain in levels)
+					{
+						var parameterSettings = new RmgGenerationSettings
+						{
+							Seed = 8100001,
+							PlayerCount = 2,
+							NeutralColonyCount = 10,
+							Symmetry = RmgSymmetry.Rotate180,
+							Archetype = RmgArchetype.CentralContest,
+							GeneratorVersion = 7,
+							TopologyPreset = RmgTopologyPreset.ParameterizedBattlefield,
+							WaterAmount = waterAmount,
+							TacticalTerrain = tacticalTerrain
+						};
+						try
+						{
+							var parameterFirst = Generate(profile, parameterSettings);
+							var parameterRepeat = Generate(profile, parameterSettings);
+							if (!parameterFirst.Validation.Accepted)
+								failures.Add($"Version 7 Water={waterAmount}, Tactical={tacticalTerrain} did not pass hard validation.");
+							if (parameterFirst.LogicalHash != parameterRepeat.LogicalHash ||
+								parameterFirst.ActorHash != parameterRepeat.ActorHash ||
+								parameterFirst.GraphHash != parameterRepeat.GraphHash)
+								failures.Add($"Version 7 Water={waterAmount}, Tactical={tacticalTerrain} is not deterministic.");
+						}
+						catch (Exception e)
+						{
+							failures.Add($"Version 7 Water={waterAmount}, Tactical={tacticalTerrain} was rejected: {e.Message}");
+						}
+					}
+
+				var reportedHighWaterRegressions = new[]
+				{
+					(Seed: 5722426127237601134UL, Symmetry: RmgSymmetry.Rotate180),
+					(Seed: 16542743543062672902UL, Symmetry: RmgSymmetry.MirrorVertical)
+				};
+				foreach (var (seed, symmetry) in reportedHighWaterRegressions)
+					try
+					{
+						var result = Generate(profile, new RmgGenerationSettings
+						{
+							Seed = seed,
+							PlayerCount = 4,
+							NeutralColonyCount = 24,
+							Symmetry = symmetry,
+							Archetype = RmgArchetype.CentralContest,
+							GeneratorVersion = 7,
+							TopologyPreset = RmgTopologyPreset.ParameterizedBattlefield,
+							WaterAmount = RmgParameterLevel.High,
+							TacticalTerrain = RmgParameterLevel.High
+						});
+						var totalWater = result.Validation.Metrics["obstacle_density_percent"];
+						var interiorWater = result.Validation.Metrics["water_interior_density_percent"];
+						var coveredSectors = result.Validation.Metrics["water_interior_covered_sector_count"];
+						if (!result.Validation.Accepted || totalWater < 18D || interiorWater < 10D || coveredSectors < 12D)
+							failures.Add($"Reported High-Water seed {seed} did not meet the total/interior Water contract.");
+					}
+					catch (Exception e)
+					{
+						failures.Add($"Reported High-Water seed {seed} was rejected: {e.Message}");
+					}
+
+				if (!(profile.ObstacleDensityTarget(RmgArchetype.Open, RmgParameterLevel.Low) <
+					profile.ObstacleDensityTarget(RmgArchetype.Open, RmgParameterLevel.Standard) &&
+					profile.ObstacleDensityTarget(RmgArchetype.Open, RmgParameterLevel.Standard) <
+					profile.ObstacleDensityTarget(RmgArchetype.Open, RmgParameterLevel.High)))
+					failures.Add("Version 7 Water Amount targets are not strictly ordered Low, Standard, High.");
+				if (!(profile.RockLandPercentFor(RmgParameterLevel.Low) <
+					profile.RockLandPercentFor(RmgParameterLevel.Standard) &&
+					profile.RockLandPercentFor(RmgParameterLevel.Standard) <
+					profile.RockLandPercentFor(RmgParameterLevel.High)))
+					failures.Add("Version 7 Rock targets are not strictly ordered Low, Standard, High.");
+				if (!(profile.VegetationLandPercentFor(RmgParameterLevel.Low) <
+					profile.VegetationLandPercentFor(RmgParameterLevel.Standard) &&
+					profile.VegetationLandPercentFor(RmgParameterLevel.Standard) <
+					profile.VegetationLandPercentFor(RmgParameterLevel.High)))
+					failures.Add("Version 7 Vegetation targets are not strictly ordered Low, Standard, High.");
+			}
+
+			void ValidateStructuredCompetitiveV8()
+			{
+				var results = new List<RmgGenerationResult>();
+				var cases = new[]
+				{
+					(Seed: 8300001UL, Players: 2, Symmetry: RmgSymmetry.MirrorHorizontal, Archetype: RmgArchetype.Open, Water: RmgParameterLevel.Standard),
+					(Seed: 8300002UL, Players: 4, Symmetry: RmgSymmetry.MirrorVertical, Archetype: RmgArchetype.CentralContest, Water: RmgParameterLevel.Standard),
+					(Seed: 8300003UL, Players: 2, Symmetry: RmgSymmetry.Rotate180, Archetype: RmgArchetype.CentralContest, Water: RmgParameterLevel.High),
+					(Seed: 8300004UL, Players: 4, Symmetry: RmgSymmetry.MirrorHorizontal, Archetype: RmgArchetype.Open, Water: RmgParameterLevel.High),
+					(Seed: 8300005UL, Players: 2, Symmetry: RmgSymmetry.MirrorVertical, Archetype: RmgArchetype.Open, Water: RmgParameterLevel.Low),
+					(Seed: 8300006UL, Players: 4, Symmetry: RmgSymmetry.Rotate180, Archetype: RmgArchetype.CentralContest, Water: RmgParameterLevel.High)
+				};
+				foreach (var (seed, players, symmetry, archetype, water) in cases)
+					try
+					{
+						var structuredSettings = new RmgGenerationSettings
+						{
+							Seed = seed,
+							PlayerCount = players,
+							NeutralColonyCount = players == 2 ? 10 : 16,
+							Symmetry = symmetry,
+							Archetype = archetype,
+							GeneratorVersion = 8,
+							TopologyPreset = RmgTopologyPreset.CoherentWater,
+							LayoutFamily = RmgLayoutFamily.StructuredCompetitive,
+							WaterAmount = water,
+							TacticalTerrain = RmgParameterLevel.Standard
+						};
+						var structured = Generate(profile, structuredSettings);
+						var repeat = Generate(profile, structuredSettings);
+						results.Add(structured);
+						if (!structured.Validation.Accepted)
+							failures.Add($"Version 8 Structured Competitive seed {seed} did not pass hard validation.");
+						if (structured.LogicalHash != repeat.LogicalHash || structured.ActorHash != repeat.ActorHash ||
+							structured.GraphHash != repeat.GraphHash)
+							failures.Add($"Version 8 Structured Competitive seed {seed} is not deterministic.");
+						if (structured.Validation.Metrics["water_body_count"] > 12D ||
+							structured.Validation.Metrics["water_largest_body_share_percent"] < 20D ||
+							structured.Validation.Metrics["water_small_body_share_percent"] > 15D)
+							failures.Add($"Version 8 Structured Competitive seed {seed} missed its morphology envelope.");
+					}
+					catch (Exception e)
+					{
+						failures.Add($"Version 8 Structured Competitive seed {seed} was rejected: {e.Message}");
+					}
+
+				if (results.Count == cases.Length)
+				{
+					var orderedLargest = results.Select(result =>
+						result.Validation.Metrics["water_largest_body_share_percent"]).OrderBy(value => value).ToArray();
+					var medianLargest = (orderedLargest[orderedLargest.Length / 2 - 1] +
+						orderedLargest[orderedLargest.Length / 2]) / 2D;
+					if (medianLargest < 35D)
+						failures.Add($"Version 8 Structured Competitive comparison corpus has only {medianLargest:F2}% median largest-body share.");
+				}
 			}
 
 			void ValidateAdaptiveRegression(string name, RmgGenerationSettings regressionSettings,
@@ -281,6 +437,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public static RmgGenerationResult Generate(RmgProfile profile, RmgGenerationSettings settings)
 		{
 			ValidateSettings(profile, settings);
+			if (profile.UsesNaturalTerrainMorphology)
+				return GenerateNaturalLandscape(profile, settings);
 			if (profile.GeneratorVersion >= 2)
 				return GenerateBlockingTopology(profile, settings);
 
@@ -334,6 +492,21 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				throw new ArgumentException("Generator Version 5 requires TopologyPreset=land-cover.");
 			if (profile.GeneratorVersion == 6 && settings.TopologyPreset != RmgTopologyPreset.BattlefieldLayout)
 				throw new ArgumentException("Generator Version 6 requires TopologyPreset=battlefield-layout.");
+			if (profile.GeneratorVersion == 7 && settings.TopologyPreset != RmgTopologyPreset.ParameterizedBattlefield)
+				throw new ArgumentException("Generator Version 7 requires TopologyPreset=parameterized-battlefield.");
+			if (profile.GeneratorVersion == 8 && settings.TopologyPreset != RmgTopologyPreset.CoherentWater)
+				throw new ArgumentException("Generator Version 8 requires TopologyPreset=coherent-water.");
+			if (profile.GeneratorVersion == 9 && settings.TopologyPreset != RmgTopologyPreset.NaturalTerrain)
+				throw new ArgumentException("Generator Version 9 requires TopologyPreset=natural-terrain.");
+			if (profile.GeneratorVersion == 8 && settings.LayoutFamily != RmgLayoutFamily.StructuredCompetitive)
+				throw new ArgumentException("Generator Version 8 requires LayoutFamily=structured-competitive.");
+			if (profile.GeneratorVersion == 9 && settings.LayoutFamily != RmgLayoutFamily.NaturalLandscape)
+				throw new ArgumentException("Generator Version 9 requires LayoutFamily=natural-landscape.");
+			if (profile.GeneratorVersion < 8 && settings.LayoutFamily != RmgLayoutFamily.ArtificialBattlefield)
+				throw new ArgumentException($"Generator Version {settings.GeneratorVersion} requires LayoutFamily=artificial-battlefield.");
+			if (profile.GeneratorVersion < 7 && (settings.WaterAmount != RmgParameterLevel.Standard ||
+				settings.TacticalTerrain != RmgParameterLevel.Standard))
+				throw new ArgumentException($"Generator Version {settings.GeneratorVersion} supports only Standard Water and tactical terrain.");
 			if (settings.PlayerCount != 2 && settings.PlayerCount != 4)
 				throw new ArgumentException($"Generator Version {settings.GeneratorVersion} supports exactly two or four players.");
 			if (settings.PlayerCount == 2 && (settings.NeutralColonyCount < 8 || settings.NeutralColonyCount > 20 || settings.NeutralColonyCount % 2 != 0))
@@ -478,10 +651,10 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			bool allowCentralRouteOverlap = true, int routeClearanceRadius = 2, bool allowAnyRouteOverlap = false)
 		{
 			var allowTargetReduction = profile.GeneratorVersion >= 6;
-			var maximumSearchNodes = allowTargetReduction ? 256 : 10000;
+			var maximumSearchNodes = profile.UsesParameterizedBattlefield ? 1024 : allowTargetReduction ? 256 : 10000;
 			const int CandidateLimitPerRequest = 64;
 			var initialActorCount = map.Actors.Count;
-			var minimumColonyCount = settings.PlayerCount == 2 ? 8 : 12;
+			var minimumColonyCount = MinimumAdaptiveColonyCount(profile, settings);
 			var bestFallback = Array.Empty<RmgActorPlan>();
 			var searchNodes = 0;
 			var exhaustedBudget = false;
@@ -560,6 +733,13 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				bestFallback = map.Actors.Skip(initialActorCount).ToArray();
 			}
 		}
+
+		static int MinimumAdaptiveColonyCount(RmgProfile profile, RmgGenerationSettings settings) =>
+			profile.UsesNaturalTerrainMorphology ? settings.PlayerCount :
+				profile.UsesCoherentWaterMorphology ? settings.PlayerCount * 2 :
+				profile.UsesParameterizedBattlefield && settings.WaterAmount == RmgParameterLevel.High ?
+				settings.PlayerCount * 2 :
+				settings.PlayerCount == 2 ? 8 : 12;
 
 		static List<ColonyRequest> BuildColonyRequests(RmgLogicalMap map, RmgGenerationSettings settings)
 		{
