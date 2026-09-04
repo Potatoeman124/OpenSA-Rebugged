@@ -45,7 +45,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		readonly TextFieldWidget seedField;
 		readonly SliderWidget playersSlider;
 		readonly LabelWidget playersValueLabel;
-		readonly LabelWidget statusLabel;
+		readonly LabelWithTooltipWidget statusLabel;
 		readonly DropDownButtonWidget presetButton;
 		readonly DropDownButtonWidget terrainButton;
 		readonly DropDownButtonWidget sizeButton;
@@ -102,7 +102,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			seedField = lobby.Get<TextFieldWidget>("RMG_SEED");
 			playersSlider = lobby.Get<SliderWidget>("RMG_PLAYERS");
 			playersValueLabel = lobby.Get<LabelWidget>("RMG_PLAYERS_VALUE");
-			statusLabel = lobby.Get<LabelWidget>("RMG_STATUS");
+			statusLabel = lobby.Get<LabelWithTooltipWidget>("RMG_STATUS");
 			presetButton = lobby.Get<DropDownButtonWidget>("RMG_PRESET");
 			terrainButton = lobby.Get<DropDownButtonWidget>("RMG_TERRAIN");
 			sizeButton = lobby.Get<DropDownButtonWidget>("RMG_SIZE");
@@ -352,7 +352,11 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			foreach (var id in new[] { "RMG_CHOKEPOINTS", "RMG_HOSTILES" })
 				lobby.Get<DropDownButtonWidget>(id).IsDisabled = () => true;
 
-			statusLabel.GetText = () => statusText;
+			var statusLayout = new CachedTransform<(string Text, int Width, int Height), string>(key =>
+				RmgStatusText.Fit(key.Text, key.Width, key.Height,
+					text => Game.Renderer.Fonts[statusLabel.Font].Measure(text)));
+			statusLabel.GetText = () => statusLayout.Update((statusText, statusLabel.Bounds.Width, statusLabel.Bounds.Height));
+			statusLabel.GetTooltipText = () => statusText;
 			statusLabel.GetColor = () => statusKind switch
 			{
 				StatusKind.Success => ChromeMetrics.Get<Color>("NoticeSuccessColor"),

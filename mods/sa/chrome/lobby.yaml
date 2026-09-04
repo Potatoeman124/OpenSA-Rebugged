@@ -156,7 +156,7 @@ Background@SERVER_LOBBY:
 					Height: 28
 					Text: Original surface relations
 					TooltipContainer: TOOLTIP_CONTAINER
-					TooltipText: Natural V9 only. Checked enforces Water-Dirt-Gravel-Moss edge-and-corner transitions.
+					TooltipText: Natural Landscape: Water-Dirt-Gravel-Moss transitions. Starts and colonies must fit existing dirt; terrain is never cleared for placement.
 				Label@RMG_WATER_LABEL:
 					X: 410
 					Y: 35
@@ -196,7 +196,7 @@ Background@SERVER_LOBBY:
 					Width: 220
 					Height: 28
 					TooltipContainer: TOOLTIP_CONTAINER
-					TooltipText: Natural Landscape is experimental V9 organic terrain. Structured Competitive uses V8 coherent Water morphology. Artificial Battlefield preserves frozen V7.
+					TooltipText: Natural Landscape uses experimental organic terrain. Structured Competitive uses V8 coherent Water morphology. Artificial Battlefield preserves frozen V7.
 
 				Label@RMG_CHOKEPOINTS_LABEL:
 					X: 410
@@ -256,15 +256,17 @@ Background@SERVER_LOBBY:
 					Text: Generate Preview
 					TooltipContainer: TOOLTIP_CONTAINER
 					TooltipText: Generate, validate, install, and select this map candidate.
-				Label@RMG_STATUS:
+				LabelWithTooltip@RMG_STATUS:
 					X: 20
 					Y: 308
 					Width: 770
 					Height: 38
 					Font: Regular
-					Align: Center
+					Align: Left
 					VAlign: Top
-					WordWrap: True
+					WordWrap: False
+					TooltipContainer: TOOLTIP_CONTAINER
+					TooltipTemplate: SIMPLE_TOOLTIP
 				Label@RMG_PREVIEW_CAPTION:
 					X: 845
 					Y: 318

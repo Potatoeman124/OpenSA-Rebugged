@@ -66,22 +66,41 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			Shuffle(sideB, random);
 			Shuffle(fixedPoints, random);
 
-			var fixedTarget = Math.Min(fixedPoints.Count, targetCount);
-			var pairedTarget = targetCount - fixedTarget;
-			var sideATarget = pairedTarget / 2;
-			var sideBTarget = pairedTarget - sideATarget;
-			if ((pairedTarget & 1) != 0 && random.NextInt(2) == 0)
-				(sideATarget, sideBTarget) = (sideBTarget, sideATarget);
+			int sideATarget;
+			int sideBTarget;
+			int[] selected;
+			if (profile.UsesNaturalTerrainMorphologyV10)
+			{
+				// V10 terrain is intentionally independent of player symmetry. Requiring
+				// paired cosmetic details on an asymmetric land mask can reject an otherwise
+				// valid map, so sample the eligible Clear stamps directly.
+				var sideASet = sideA.ToHashSet();
+				var candidates = sideA.Concat(sideB).Concat(fixedPoints).ToList();
+				Shuffle(candidates, random);
+				selected = candidates.Take(targetCount).OrderBy(index => index).ToArray();
+				sideATarget = selected.Count(sideASet.Contains);
+				sideBTarget = selected.Length - sideATarget;
+			}
+			else
+			{
+				var fixedTarget = Math.Min(fixedPoints.Count, targetCount);
+				var pairedTarget = targetCount - fixedTarget;
+				sideATarget = pairedTarget / 2;
+				sideBTarget = pairedTarget - sideATarget;
+				if ((pairedTarget & 1) != 0 && random.NextInt(2) == 0)
+					(sideATarget, sideBTarget) = (sideBTarget, sideATarget);
 
-			if (sideATarget > sideA.Count || sideBTarget > sideB.Count)
-				throw new RmgGenerationRejectedException("CLEAR_DETAIL_SELECTION_CAPACITY",
-					$"Cannot select {targetCount} Clear details from {eligibleCount} symmetry-balanced candidates.");
+				if (sideATarget > sideA.Count || sideBTarget > sideB.Count)
+					throw new RmgGenerationRejectedException("CLEAR_DETAIL_SELECTION_CAPACITY",
+						$"Cannot select {targetCount} Clear details from {eligibleCount} symmetry-balanced candidates.");
 
-			var selected = fixedPoints.Take(fixedTarget)
-				.Concat(sideA.Take(sideATarget))
-				.Concat(sideB.Take(sideBTarget))
-				.OrderBy(index => index)
-				.ToArray();
+				selected = fixedPoints.Take(fixedTarget)
+					.Concat(sideA.Take(sideATarget))
+					.Concat(sideB.Take(sideBTarget))
+					.OrderBy(index => index)
+					.ToArray();
+			}
+
 			foreach (var index in selected)
 			{
 				for (var frame = 0; frame < 4; frame++)

@@ -50,6 +50,26 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var rockPriorities = profile.UsesNaturalTerrainMorphology ? map.NaturalRockPriorities : rolePriorities;
 
 			var requestedVegetationTarget = RoundedPercent(landNativeCount, profile.VegetationLandPercentFor(settings.TacticalTerrain));
+			bool[] naturalEnvelope = null;
+			if (profile.UsesNaturalTerrainMorphologyV10)
+			{
+				// Compose the whole geological region before fitting moss inside it.
+				var geologyTarget = requestedVegetationTarget +
+					RoundedPercent(landNativeCount, profile.RockLandPercentFor(settings.TacticalTerrain));
+				naturalEnvelope = GenerateMask(allowedEnvelope, latticeWidth, latticeHeight, geologyTarget,
+					terrainSymmetry, DeterministicRandom.ForStream(settings, profile, "v10-geological-envelope"),
+					3, rockPriorities);
+				var moisture = rockPriorities.Select((rock, index) => vegetationPriorities[index] - rock).ToArray();
+				var middleMoisture = moisture.OrderBy(value => value).ElementAt(moisture.Length / 2);
+				for (var y = 0; y < latticeHeight; y++)
+					for (var x = 0; x < latticeWidth; x++)
+					{
+						var index = y * latticeWidth + x;
+						var margin = moisture[index] < middleMoisture ? 2 : 1;
+						allowedVegetationCore[index] = allowedVegetationCore[index] &&
+							Clearance(naturalEnvelope, latticeWidth, latticeHeight, new RmgPoint(x, y), margin);
+					}
+			}
 			var vegetationCapacity = WeightedCount(allowedVegetationCore, latticeWidth, latticeHeight, map.Width, map.Height);
 			var vegetationTarget = Math.Min(requestedVegetationTarget, vegetationCapacity);
 			var vegetationAttempt = 0;
@@ -88,7 +108,15 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var requestedRockTarget = RoundedPercent(landNativeCount, profile.RockLandPercentFor(settings.TacticalTerrain));
 			var envelopeCapacity = WeightedCount(allowedEnvelope, latticeWidth, latticeHeight, map.Width, map.Height);
 			var combinedTarget = Math.Min(requestedRockTarget + vegetationTarget, envelopeCapacity);
-			var envelope = GenerateMask(allowedEnvelope, latticeWidth, latticeHeight, combinedTarget,
+			// Actual envelope rounding or a reduced moss core must not increase requested targets.
+			// If the retained envelope exceeds the tolerance, refit its fringe around the accepted core.
+			if (naturalEnvelope != null &&
+				WeightedCount(naturalEnvelope, latticeWidth, latticeHeight, map.Width, map.Height) - combinedTarget >
+				Math.Max(8, RoundedPercent(landNativeCount, profile.LandCoverTolerancePercent)))
+				naturalEnvelope = GenerateMask(allowedEnvelope, latticeWidth, latticeHeight, combinedTarget,
+					terrainSymmetry, DeterministicRandom.ForStream(settings, profile, "v10-refit-geology"),
+					3, rockPriorities, requiredEnvelope);
+			var envelope = naturalEnvelope ?? GenerateMask(allowedEnvelope, latticeWidth, latticeHeight, combinedTarget,
 				terrainSymmetry, DeterministicRandom.ForStream(settings, profile, "terrain-land-cover-rock-envelope"), 3,
 				rockPriorities, requiredEnvelope);
 			var envelopeNativeCount = WeightedCount(envelope, latticeWidth, latticeHeight, map.Width, map.Height);
@@ -188,6 +216,21 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public static bool IsSlow(RmgNativeTerrainIntent intent) =>
 			intent == RmgNativeTerrainIntent.Rock || intent == RmgNativeTerrainIntent.Vegetation;
 
+		public static bool IsSlowTerrainProtected(RmgLogicalMap map, RmgProfile profile, int index)
+		{
+			if (profile.UsesBattlefieldLayout)
+				return RmgBattlefieldRolePlanner.MustRemainClear(map.BattlefieldRoles[index]);
+
+			if (!profile.UsesNaturalTerrainMorphologyV10)
+				return RmgClearLandDetailMaterializer.IsProtected(map, index);
+
+			// Natural V10 treats Gravel and Moss as passable landforms, not as blocking
+			// terrain. Only actual repaired/chokepoint apertures stay forced Clear; start,
+			// colony, route, and hub safety masks must not punch square holes into surface
+			// regions. Water keeps its separate strict actor-distance contract.
+			return map.ChokepointIds[index] >= 0 || map.RepairChanges[index];
+		}
+
 		public static string SelectionHash(RmgLogicalMap map)
 		{
 			var text = new StringBuilder();
@@ -224,9 +267,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		{
 			foreach (var (logicalIndex, frame, nativeX, nativeY) in Occurrences(map, latticeX, latticeY))
 			{
-				var protectedClear = profile.UsesBattlefieldLayout ?
-					RmgBattlefieldRolePlanner.MustRemainClear(map.BattlefieldRoles[logicalIndex]) :
-					RmgClearLandDetailMaterializer.IsProtected(map, logicalIndex);
+				var protectedClear = IsSlowTerrainProtected(map, profile, logicalIndex);
 				if (protectedClear || Enumerable.Range(0, 4).Any(candidateFrame =>
 					map.NativeTerrainIntents[4 * logicalIndex + candidateFrame] != RmgNativeTerrainIntent.Clear))
 					return false;

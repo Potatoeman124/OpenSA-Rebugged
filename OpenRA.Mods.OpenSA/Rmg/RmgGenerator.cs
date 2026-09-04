@@ -25,6 +25,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public static IReadOnlyList<string> RunSelfTests(RmgProfile profile)
 		{
 			var failures = new List<string>();
+			if (profile.UsesNaturalTerrainMorphologyV10)
+				failures.AddRange(RunNaturalV10VisualSelfTests(profile));
 			var points = new[] { new RmgPoint(0, 0), new RmgPoint(7, 19), new RmgPoint(31, 32), new RmgPoint(63, 63) };
 			foreach (var symmetry in Enum.GetValues<RmgSymmetry>())
 				foreach (var point in points)
@@ -57,6 +59,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					7 => RmgTopologyPreset.ParameterizedBattlefield,
 					8 => RmgTopologyPreset.CoherentWater,
 					9 => RmgTopologyPreset.NaturalTerrain,
+					10 => RmgTopologyPreset.NaturalTerrainV10,
 					_ => RmgTopologyPreset.Off
 				}
 			};
@@ -78,7 +81,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				if (selected.Any(entry => Enumerable.Range(0, 4).Any(frame =>
 					first.Map.NativeTerrainIntents[4 * entry.index + frame] != RmgNativeTerrainIntent.Clear)))
 					failures.Add("Clear-land-detail selection changed native terrain intent.");
-				if (Math.Abs(first.Map.ClearLandDetailSymmetrySideACount - first.Map.ClearLandDetailSymmetrySideBCount) > 1)
+				if (!profile.UsesNaturalTerrainMorphologyV10 &&
+					Math.Abs(first.Map.ClearLandDetailSymmetrySideACount - first.Map.ClearLandDetailSymmetrySideBCount) > 1)
 					failures.Add("Clear-land-detail selection is not count-balanced across symmetry sides.");
 			}
 
@@ -437,6 +441,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public static RmgGenerationResult Generate(RmgProfile profile, RmgGenerationSettings settings)
 		{
 			ValidateSettings(profile, settings);
+			if (profile.UsesNaturalTerrainMorphologyV10)
+				return GenerateNaturalLandscapeV10(profile, settings);
 			if (profile.UsesNaturalTerrainMorphology)
 				return GenerateNaturalLandscape(profile, settings);
 			if (profile.GeneratorVersion >= 2)
@@ -498,10 +504,13 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				throw new ArgumentException("Generator Version 8 requires TopologyPreset=coherent-water.");
 			if (profile.GeneratorVersion == 9 && settings.TopologyPreset != RmgTopologyPreset.NaturalTerrain)
 				throw new ArgumentException("Generator Version 9 requires TopologyPreset=natural-terrain.");
+			if (profile.GeneratorVersion == 10 && settings.TopologyPreset != RmgTopologyPreset.NaturalTerrainV10)
+				throw new ArgumentException("Generator Version 10 requires TopologyPreset=natural-terrain-v10.");
 			if (profile.GeneratorVersion == 8 && settings.LayoutFamily != RmgLayoutFamily.StructuredCompetitive)
 				throw new ArgumentException("Generator Version 8 requires LayoutFamily=structured-competitive.");
-			if (profile.GeneratorVersion == 9 && settings.LayoutFamily != RmgLayoutFamily.NaturalLandscape)
-				throw new ArgumentException("Generator Version 9 requires LayoutFamily=natural-landscape.");
+			if ((profile.GeneratorVersion == 9 || profile.GeneratorVersion == 10) &&
+				settings.LayoutFamily != RmgLayoutFamily.NaturalLandscape)
+				throw new ArgumentException($"Generator Version {profile.GeneratorVersion} requires LayoutFamily=natural-landscape.");
 			if (profile.GeneratorVersion < 8 && settings.LayoutFamily != RmgLayoutFamily.ArtificialBattlefield)
 				throw new ArgumentException($"Generator Version {settings.GeneratorVersion} requires LayoutFamily=artificial-battlefield.");
 			if (profile.GeneratorVersion < 7 && (settings.WaterAmount != RmgParameterLevel.Standard ||

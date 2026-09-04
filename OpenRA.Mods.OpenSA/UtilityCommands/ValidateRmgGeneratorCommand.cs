@@ -12,6 +12,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using OpenRA.Mods.OpenSA.Widgets.Logic;
 using OpenRA.Mods.OpenSA.Rmg;
 
 namespace OpenRA.Mods.OpenSA.UtilityCommands
@@ -21,13 +22,13 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 		string IUtilityCommand.Name => "--validate-sa-rmg";
 		bool IUtilityCommand.ValidateArguments(string[] args) => args.Length == 1;
 
-		[Desc("Run focused deterministic RMG self-tests for frozen V1-V7, V8 Structured Competitive, and experimental V9 Natural Landscape profiles.")]
+		[Desc("Run focused deterministic RMG self-tests for frozen V1-V9 and experimental V10 Natural Landscape profiles.")]
 		void IUtilityCommand.Run(Utility utility, string[] args)
 		{
 			try
 			{
 				var failures = new List<string>();
-				foreach (var topology in new[] { RmgTopologyPreset.Off, RmgTopologyPreset.Mixed, RmgTopologyPreset.Shoreline, RmgTopologyPreset.LandDetails, RmgTopologyPreset.LandCover, RmgTopologyPreset.BattlefieldLayout, RmgTopologyPreset.ParameterizedBattlefield, RmgTopologyPreset.CoherentWater, RmgTopologyPreset.NaturalTerrain })
+				foreach (var topology in new[] { RmgTopologyPreset.Off, RmgTopologyPreset.Mixed, RmgTopologyPreset.Shoreline, RmgTopologyPreset.LandDetails, RmgTopologyPreset.LandCover, RmgTopologyPreset.BattlefieldLayout, RmgTopologyPreset.ParameterizedBattlefield, RmgTopologyPreset.CoherentWater, RmgTopologyPreset.NaturalTerrain, RmgTopologyPreset.NaturalTerrainV10 })
 				{
 					var profile = RmgProfile.Load(utility.ModData, topology);
 					var profileFailures = RmgGenerator.RunSelfTests(profile);
@@ -108,6 +109,10 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 					GeneratorVersion = profile.GeneratorVersion,
 					TopologyPreset = topology
 				};
+
+				var statusFailures = RmgStatusText.RunSelfTests();
+				failures.AddRange(statusFailures);
+				Console.WriteLine($"rmg-status-layout: {(statusFailures.Count == 0 ? "PASS" : "FAIL")}");
 
 				var nativeFailures = NativeMovementValidator.RunSelfTests();
 				failures.AddRange(nativeFailures.Select(failure => $"native-validator: {failure}"));
