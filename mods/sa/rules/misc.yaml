@@ -240,6 +240,7 @@ World:
 	SpawnStartingUnits:
 	PathFinder:
 	ValidateOrder:
+	LobbyHostiles:
 	MapCreeps:
 		CheckboxLabel: dropdown-map-pirates.label
 		CheckboxDescription: dropdown-map-pirates.description

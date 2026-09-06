@@ -68,7 +68,7 @@ namespace OpenRA.Mods.OpenSA.Traits.World
 
 		void ITick.Tick(Actor self)
 		{
-			if (!enabled)
+			if (self.TraitOrDefault<LobbyHostiles>()?.Active == true || !enabled)
 				return;
 
 			if (info.Tileset != null & self.World.Map.Tileset != info.Tileset)

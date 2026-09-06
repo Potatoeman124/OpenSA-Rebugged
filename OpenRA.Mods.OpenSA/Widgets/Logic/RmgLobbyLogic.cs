@@ -349,7 +349,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			generateButton.IsDisabled = () => !CanConfigure() || UnsupportedReason() != null || !TryGetSeed();
 			generateButton.OnClick = QueueGeneration;
 
-			foreach (var id in new[] { "RMG_CHOKEPOINTS", "RMG_HOSTILES" })
+			foreach (var id in new[] { "RMG_CHOKEPOINTS" })
 				lobby.Get<DropDownButtonWidget>(id).IsDisabled = () => true;
 
 			var statusLayout = new CachedTransform<(string Text, int Width, int Height), string>(key =>

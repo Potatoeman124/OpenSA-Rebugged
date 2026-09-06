@@ -9,9 +9,11 @@
  */
 #endregion
 
+using System;
 using System.Linq;
 using OpenRA.Effects;
 using OpenRA.Mods.OpenSA.Traits.Render;
+using OpenRA.Mods.OpenSA.Traits.World;
 using OpenRA.Primitives;
 using OpenRA.Traits;
 
@@ -47,10 +49,12 @@ namespace OpenRA.Mods.OpenSA.Traits
 		public override object Create(ActorInitializer init) { return new AntHole(init, this); }
 	}
 
-	public class AntHole : INotifyCreated
+	public class AntHole : INotifyCreated, INotifyActorDisposing
 	{
 		readonly AntHoleInfo info;
 		readonly WithAntHoleBody body;
+		LobbyHostiles lobbyHostiles;
+		int pendingPirates;
 
 		public AntHole(ActorInitializer init, AntHoleInfo info)
 		{
@@ -68,7 +72,7 @@ namespace OpenRA.Mods.OpenSA.Traits
 			for (var i = 0; i < shares.Length; i++)
 			{
 				cumulativeShares += shares[i];
-				if (n <= cumulativeShares)
+				if (n < cumulativeShares)
 					return info.Actors[i];
 			}
 
@@ -77,22 +81,47 @@ namespace OpenRA.Mods.OpenSA.Traits
 
 		void INotifyCreated.Created(Actor self)
 		{
+			lobbyHostiles = self.World.WorldActor.TraitOrDefault<LobbyHostiles>();
+			var configured = lobbyHostiles?.Active == true;
+			var amount = 0;
+			if (configured)
+			{
+				var minimum = lobbyHostiles.Number("pirate-min", info.Amount.X);
+				var maximum = lobbyHostiles.Number("pirate-max", info.Amount.Y - 1);
+				(minimum, maximum) = (Math.Min(minimum, maximum), Math.Max(minimum, maximum));
+				amount = lobbyHostiles.ReservePirates(self.World.SharedRandom.Next(minimum, maximum + 1));
+				pendingPirates = amount;
+			}
+
 			Game.Sound.Play(SoundType.World, info.OpenSound, self.CenterPosition);
 
 			body.PlayCustomAnimation(self, info.OpenSequence, () =>
 			{
-				var amount = self.World.SharedRandom.Next(info.Amount.X, info.Amount.Y);
+				if (!configured)
+					amount = self.World.SharedRandom.Next(info.Amount.X, info.Amount.Y);
 				for (var i = 0; i < amount; i++)
 				{
 					self.World.Add(new DelayedAction(info.Delay * i, () =>
 					{
-						var actor = ChooseActor(self);
+						if (self.Disposed)
+							return;
+						var actor = configured ? lobbyHostiles.Choose("pirate", HostileOptions.Pirates) : ChooseActor(self);
+						if (configured)
+							pendingPirates--;
+						if (actor == null)
+						{
+							lobbyHostiles?.ReleasePirates(1);
+							return;
+						}
 						var ant = self.World.CreateActor(true, actor.ToLowerInvariant(), new TypeDictionary
 						{
 							new OwnerInit(self.World.Players.First(x => x.PlayerName == info.Owner)),
 							new LocationInit(self.Location)
 						});
-						ant.Trait<PirateAnt>().AntHoleAmount = amount;
+						if (configured)
+							ant.Trait<PirateAnt>().SpawnBudget = lobbyHostiles;
+						else
+							ant.Trait<PirateAnt>().AntHoleAmount = amount;
 					}));
 				}
 
@@ -103,6 +132,12 @@ namespace OpenRA.Mods.OpenSA.Traits
 					body.PlayCustomAnimation(self, info.CloseSequence, () => { self.Dispose(); });
 				})));
 			});
+		}
+
+		void INotifyActorDisposing.Disposing(Actor self)
+		{
+			lobbyHostiles?.ReleasePirates(pendingPirates);
+			pendingPirates = 0;
 		}
 	}
 }
