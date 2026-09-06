@@ -1,6 +1,6 @@
 # Natural Landscape: 256 x 256
 
-Status: implemented on `codex/rmg-natural-256`, based on main `0f2180e`. The fresh 15-map offline generation and assistant visual-review gates pass; user visual/gameplay review remains pending. No merge or push is part of this change.
+Status: implemented from main `0f2180e` and merged as `5b43f63` after the user accepted all 15 presented maps. Full-match gameplay validation remains separate. The subsequent [generation-speed pass](GENERATION_SPEED_PASS.md) preserves those map identities and supersedes the generation timings below.
 
 ## Scope
 
@@ -56,7 +56,7 @@ The existing V1-V10 self-tests include schema-size rejection/round-trip checks a
 
 The first large seed, `522547010532288443`, exposed an inherited 1024-cell lake capacity. After scaling the capacity, native validation exposed a five-sector start. The terrain-first site preflight corrected that case without weakening native validation or modifying terrain. Fresh-batch seed `720895329115855828` then exposed the old 12-water-body limit (19 bodies on the large map); that batch stopped at run 3 and was not accepted. The large-map body-count allowance was corrected before restarting validation.
 
-Large-map timing is recorded separately from wrapper overhead. `performance.total_ms` includes a full deterministic repeat generation, packaging, reload/lint and native validation, as does the shared lobby path. Candidate-stage measurements under `validation.metrics.large_candidate_*_ms` describe only the chosen candidate, not all attempts or the full repeat.
+Large-map timing is recorded separately from wrapper overhead. `performance.total_ms` includes a full deterministic repeat generation, packaging, reload/lint and native validation, as did the shared lobby path at that checkpoint. The subsequent speed pass moves the duplicate generation to an explicit audit mode. Candidate-stage measurements under `validation.metrics.large_candidate_*_ms` describe only the chosen candidate, not all attempts or the full repeat.
 
 The redundant full-map water count inside each lake-growth candidate check is now computed once per unchanged operation. Broader performance work is outside this feature. Large maps remain substantially slower than 128 x 128. The uninterrupted standard-settings batch took 45.2-96.7 seconds per map (median 76.0 seconds), including the full repeat and validation; timings were collected without other generation tests running. This is a significant current limitation, not an optimized-release claim.
 
@@ -69,7 +69,7 @@ The redundant full-map water count inside each lake-growth candidate check is no
 - Coverage: three fresh seeds per each of the five morphology families, eight four-player and seven two-player maps. Standard water, tactical terrain and colony density; Original surface relations enabled.
 - Actual package bounds: all 15 verified as 256 x 256 playable, 260 x 260 stored. Both native and proxy gates pass.
 - Final placement changed zero native surface, template or water cells in every reviewed map; native dirt-only start and colony footprint checks pass.
-- The complete worksheet retains minor template-scale visual blemishes noted on maps 2, 8 and 15. Assistant acceptance does not replace user review.
+- The complete worksheet retains minor template-scale visual blemishes noted on maps 2, 8 and 15. Assistant acceptance does not replace user review; the user subsequently accepted all 15 presented maps.
 - The earlier `review-01` failure and diagnostic seeds are retained outside the accepted review batch; no favorable replacement seeds were spliced into the successful 15.
 - `scripts/rmg/Test-RmgMapSize.ps1` verifies actual packaged geometry and can compare all five baseline identity hashes.
 

@@ -25,6 +25,8 @@ param(
     [bool]$OriginalSurfaceRelations = $true,
     [ValidateRange(2, 8)]
     [int]$Columns = 5,
+    [switch]$VerifyRepeatability,
+    [switch]$PauseForVisualReview,
     [switch]$Overwrite
 )
 
@@ -283,9 +285,11 @@ for ($index = 0; $index -lt $selectedSeeds.Count; $index++)
     $ErrorActionPreference = "Continue"
     try
     {
+        $auditArguments = @()
+        if ($VerifyRepeatability) { $auditArguments += "-VerifyRepeatability" }
         $output = @(& powershell -NoProfile -ExecutionPolicy Bypass -File $generator `
             -PlayerSettingsPath $settingsPath -OutputPath $mapPath -ReportPath $reportPath `
-            -MovementValidation both -Overwrite 2>&1)
+            -MovementValidation both -Overwrite @auditArguments 2>&1)
         $exitCode = $LASTEXITCODE
     }
     finally
@@ -364,6 +368,24 @@ for ($index = 0; $index -lt $selectedSeeds.Count; $index++)
         visual_status = "UNREVIEWED"
         visual_notes = ""
     }
+    if ($PauseForVisualReview)
+    {
+        $decisionPath = Join-Path $directory "visual-decision.json"
+        $record | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $directory "visual-review-request.json") -Encoding UTF8
+        Write-Host "Awaiting visual review: $previewPath; write ACCEPT/REJECT and notes to $decisionPath"
+        $reviewWait = [Diagnostics.Stopwatch]::StartNew()
+        while (!(Test-Path -LiteralPath $decisionPath))
+        {
+            if ($reviewWait.Elapsed.TotalMinutes -ge 10) { throw "Visual review timed out at run $run; no further map was generated." }
+            Start-Sleep -Milliseconds 250
+        }
+        $decision = Get-Content -LiteralPath $decisionPath -Raw | ConvertFrom-Json
+        if ($decision.visual_status -notin @("ACCEPT", "REJECT") -or [string]::IsNullOrWhiteSpace($decision.visual_notes))
+        { throw "Visual review requires ACCEPT or REJECT plus concrete notes." }
+        $record.visual_status = $decision.visual_status
+        $record.visual_notes = $decision.visual_notes
+        if ($decision.visual_status -eq "REJECT") { throw "Visual review rejected run $run, seed $seed; batch stopped." }
+    }
     $records += $record
     Write-Host ("PASS {0:D2}/{1} seed={2}; preview={3}" -f $run, $selectedSeeds.Count, $seed, $previewPath) -ForegroundColor Green
 }
@@ -401,10 +423,10 @@ $manifestPath = Join-Path $OutputRoot "visual-review-manifest.json"
 $manifest | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $manifestPath -Encoding UTF8
 
 $reviewRows = $records | Select-Object run, seed, mechanical_status, visual_status, `
-    @{ Name = "natural_shapes"; Expression = { "UNREVIEWED" } }, `
-    @{ Name = "boundary_quality"; Expression = { "UNREVIEWED" } }, `
-    @{ Name = "surface_relations"; Expression = { "UNREVIEWED" } }, `
-    @{ Name = "layout_distinctiveness"; Expression = { "UNREVIEWED" } }, visual_notes
+    @{ Name = "natural_shapes"; Expression = { if ($PauseForVisualReview) { $_.visual_status } else { "UNREVIEWED" } } }, `
+    @{ Name = "boundary_quality"; Expression = { if ($PauseForVisualReview) { $_.visual_status } else { "UNREVIEWED" } } }, `
+    @{ Name = "surface_relations"; Expression = { if ($PauseForVisualReview) { $_.visual_status } else { "UNREVIEWED" } } }, `
+    @{ Name = "layout_distinctiveness"; Expression = { if ($PauseForVisualReview) { $_.visual_status } else { "UNREVIEWED" } } }, visual_notes
 $reviewCsvPath = Join-Path $OutputRoot "visual-review.csv"
 $reviewRows | Export-Csv -LiteralPath $reviewCsvPath -NoTypeInformation -Encoding UTF8
 

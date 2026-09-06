@@ -22,6 +22,7 @@ param(
     [int]$NeutralColonies = 0,
     [string]$ReportPath,
     [switch]$InstallForPlay,
+    [switch]$VerifyRepeatability,
     [switch]$Overwrite
 )
 
@@ -130,6 +131,11 @@ else
         "--movement-validation", $MovementValidation,
         "--generator-version", $(if ($Topology -eq "natural-terrain-v10") { "10" } elseif ($Topology -eq "natural-terrain") { "9" } elseif ($Topology -eq "coherent-water") { "8" } elseif ($Topology -eq "parameterized-battlefield") { "7" } elseif ($Topology -eq "battlefield-layout") { "6" } elseif ($Topology -eq "land-cover") { "5" } elseif ($Topology -eq "land-details") { "4" } elseif ($Topology -eq "shoreline") { "3" } elseif ($Topology -eq "mixed") { "2" } else { "1" })
     )
+}
+
+if ($VerifyRepeatability)
+{
+    $arguments += "--verify-repeatability"
 }
 
 if ($Overwrite)

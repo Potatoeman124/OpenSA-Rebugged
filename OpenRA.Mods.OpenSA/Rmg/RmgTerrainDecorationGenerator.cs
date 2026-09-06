@@ -87,23 +87,21 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				terrain => random.NextInt(ActorsForTerrain(profile, terrain).Count));
 			var selectedOrbitCounts = targets.Keys.ToDictionary(terrain => terrain, _ => 0);
 			var selectedPoints = new HashSet<RmgPoint>();
-			var spacedPoints = targets.Keys.ToDictionary(terrain => terrain,
-				_ => new HashSet<RmgPoint>());
+			var spacingMasks = targets.Keys.ToDictionary(terrain => terrain,
+				_ => new bool[profile.PlayableWidth * profile.PlayableHeight]);
 			var covered = new HashSet<int>();
 
 			foreach (var terrain in new[] { RmgNativeTerrainIntent.Vegetation, RmgNativeTerrainIntent.Rock, RmgNativeTerrainIntent.Clear })
 			{
 				var selectedForTerrain = 0;
+				var maximumCoverage = candidates[terrain].Select(orbit => orbit.Sectors.Length).DefaultIfEmpty(0).Max();
 				while (selectedForTerrain < targets[terrain])
 				{
 					var actors = ActorsForTerrain(profile, terrain);
 					var actor = actors[(actorOffsets[terrain] + selectedOrbitCounts[terrain]) % actors.Count];
 					var blocking = profile.BlockingDecorationActors.Contains(actor);
-					var candidate = candidates[terrain]
-						.Where(orbit => !selected.Contains(orbit) && CanSelect(orbit, spacedPoints[terrain]) &&
-							(!blocking || BlockingSafe(map, orbit)))
-						.OrderByDescending(orbit => orbit.Sectors.Count(sector => !covered.Contains(sector)))
-						.FirstOrDefault();
+					var candidate = BestCandidate(candidates[terrain], spacingMasks[terrain], profile.PlayableWidth,
+						covered, maximumCoverage, orbit => !blocking || BlockingSafe(map, orbit));
 					if (candidate == null || selectedForTerrain + candidate.Anchors.Length > targets[terrain])
 						throw new RmgGenerationRejectedException("LAND_DECORATION_CAPACITY",
 							$"Selected {selectedForTerrain}/{targets[terrain]} {terrain} decorations from {candidates[terrain].Count} eligible candidate orbits.");
@@ -146,7 +144,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				foreach (var anchor in orbit.Anchors)
 				{
 					selectedPoints.Add(anchor.Native);
-					spacedPoints[orbit.Terrain].Add(anchor.Native);
+					ExcludeNearby(spacingMasks[orbit.Terrain], profile.PlayableWidth, profile.PlayableHeight, anchor.Native);
 				}
 
 				foreach (var sector in orbit.Sectors)
@@ -198,8 +196,78 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		static RmgNativeTerrainIntent TerrainAt(RmgLogicalMap map, NativeAnchor anchor) =>
 			map.NativeTerrainIntents[4 * map.Index(anchor.Logical) + anchor.Frame];
 
-		static bool CanSelect(CandidateOrbit candidate, IReadOnlyCollection<RmgPoint> selected) =>
-			candidate.Anchors.All(anchor => selected.All(other => anchor.Native.ChebyshevDistance(other) >= MinimumSpacingNative));
+		// Preserve shuffled order and the old stable OrderBy tie-break. Once the exact
+		// coverage upper bound is reached, no later candidate can improve the result.
+		static CandidateOrbit BestCandidate(IEnumerable<CandidateOrbit> candidates, bool[] spacingMask, int width,
+			IReadOnlySet<int> covered, int maximumCoverage, Func<CandidateOrbit, bool> allowed)
+		{
+			CandidateOrbit best = null;
+			var bestScore = -1;
+			var upperBound = Math.Min(SectorGridSize * SectorGridSize - covered.Count, maximumCoverage);
+			foreach (var candidate in candidates)
+			{
+				var score = candidate.Sectors.Count(sector => !covered.Contains(sector));
+				if (score <= bestScore || candidate.Anchors.Any(anchor => spacingMask[NativeIndex(anchor.Native, width)]) || !allowed(candidate))
+					continue;
+				best = candidate;
+				bestScore = score;
+				if (score == upperBound)
+					break;
+			}
+
+			return best;
+		}
+
+		static void ExcludeNearby(bool[] mask, int width, int height, RmgPoint point)
+		{
+			for (var y = Math.Max(0, point.Y - MinimumSpacingNative + 1); y <= Math.Min(height - 1, point.Y + MinimumSpacingNative - 1); y++)
+				for (var x = Math.Max(0, point.X - MinimumSpacingNative + 1); x <= Math.Min(width - 1, point.X + MinimumSpacingNative - 1); x++)
+					mask[y * width + x] = true;
+		}
+
+		public static IReadOnlyList<string> RunSelectionSelfTests()
+		{
+			var failures = new List<string>();
+			var random = new Random(73129);
+			const int Width = 24;
+			for (var scenario = 0; scenario < 100; scenario++)
+			{
+				var candidates = Enumerable.Range(0, 100).Select(_ =>
+				{
+					var anchors = Enumerable.Range(0, 1 + random.Next(2))
+						.Select(_ => ToAnchor(new RmgPoint(random.Next(Width), random.Next(Width)))).ToArray();
+					return new CandidateOrbit(RmgNativeTerrainIntent.Clear, anchors,
+						anchors.Select(anchor => anchor.Native.X / 6 + 4 * (anchor.Native.Y / 6)).Distinct().ToArray());
+				}).ToArray();
+				var selected = new List<RmgPoint>();
+				var mask = new bool[Width * Width];
+				var covered = new HashSet<int>();
+				var maximumCoverage = candidates.Max(candidate => candidate.Sectors.Length);
+				bool Allowed(CandidateOrbit candidate) => candidate.Anchors[0].Native.X % 3 != scenario % 3;
+				for (var round = 0; round < 25; round++)
+				{
+					var expected = candidates.Where(candidate => candidate.Anchors.All(anchor =>
+						selected.All(other => anchor.Native.ChebyshevDistance(other) >= MinimumSpacingNative)) && Allowed(candidate))
+						.OrderByDescending(candidate => candidate.Sectors.Count(sector => !covered.Contains(sector))).FirstOrDefault();
+					var actual = BestCandidate(candidates, mask, Width, covered, maximumCoverage, Allowed);
+					if (!ReferenceEquals(expected, actual))
+					{
+						failures.Add($"Decoration selection changed in scenario {scenario}, round {round}.");
+						break;
+					}
+					if (actual == null)
+						break;
+					foreach (var anchor in actual.Anchors)
+					{
+						selected.Add(anchor.Native);
+						ExcludeNearby(mask, Width, Width, anchor.Native);
+					}
+					covered.UnionWith(actual.Sectors);
+				}
+			}
+
+			return failures;
+		}
 
 		// Blocking decoration footprints must not consume the reserved cells used to measure named route width.
 		// Strategic endpoint regions remain eligible and are checked by the authoritative native movement validator.

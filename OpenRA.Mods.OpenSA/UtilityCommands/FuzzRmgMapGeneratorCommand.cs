@@ -211,7 +211,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 						["yaml_lint_ms"] = Distribution(packagePerformance.Select(value => value.YamlLintMilliseconds)),
 						["native_movement_validation_ms"] = Distribution(packagePerformance.Select(value => value.NativeMovementValidationMilliseconds)),
 						["identity_hash_ms"] = Distribution(packagePerformance.Select(value => value.IdentityHashMilliseconds)),
-						["note"] = "Logical generation samples count each deterministic invocation. Package totals include the adapter's internal logical repeatability generation."
+						["note"] = "Logical generation samples count each deterministic invocation. Package totals describe single-generation adapter calls; package repeatability is checked by the independently generated package pair."
 					},
 					["runtime_package_campaign"] = new JObject
 					{

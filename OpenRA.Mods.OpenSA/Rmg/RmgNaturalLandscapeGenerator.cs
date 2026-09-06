@@ -677,12 +677,16 @@ namespace OpenRA.Mods.OpenSA.Rmg
 							added.Any(point => !ObstacleExtensionCellEligible(map, point, region.Id)))
 							continue;
 
+						var priority = added.Sum(point => waterPriorities[map.Index(point)]) +
+							1000000 * added.Count(point => WaterInteriorSector(map, point) >= 0);
+						// Exact score bound, not an approximation: an extension which cannot
+						// beat the current winner needs no whole-region shoreline analysis.
+						if (priority < bestPriority || (priority == bestPriority && tieBreak >= bestTieBreak))
+							continue;
 						var candidate = cells.Concat(added).ToHashSet();
 						if (!ShorelineShapeIsSupported(candidate))
 							continue;
 
-						var priority = added.Sum(point => waterPriorities[map.Index(point)]) +
-							1000000 * added.Count(point => WaterInteriorSector(map, point) >= 0);
 						if (priority > bestPriority || (priority == bestPriority && tieBreak < bestTieBreak))
 						{
 							bestAdded = added;

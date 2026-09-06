@@ -23,7 +23,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 		string IUtilityCommand.Name => "--generate-sa-map";
 		bool IUtilityCommand.ValidateArguments(string[] args) => args.Length >= 1;
 
-		[Desc("OUTPUT.oramap", "--seed N | --player-settings FILE", "[--players 2|4]", "[--size 128,128|256,256]", "[--symmetry horizontal|vertical|rotational]", "[--archetype open|central-contest]", "[--topology off|mixed|shoreline|land-details|land-cover|battlefield-layout|parameterized-battlefield|coherent-water|natural-terrain|natural-terrain-v10]", "[--neutral-colonies N]", "[--water-amount low|standard|high]", "[--tactical-terrain low|standard|high]", "[--movement-validation proxy|native|both]", "[--report FILE]", "[--overwrite]", "Generate a deterministic OpenSA skirmish map. Schema 3 preserves 128x128 layouts; schema 4 adds 256x256 for experimental Version 10 Natural Landscape only.")]
+		[Desc("OUTPUT.oramap", "--seed N | --player-settings FILE", "[--players 2|4]", "[--size 128,128|256,256]", "[--symmetry horizontal|vertical|rotational]", "[--archetype open|central-contest]", "[--topology off|mixed|shoreline|land-details|land-cover|battlefield-layout|parameterized-battlefield|coherent-water|natural-terrain|natural-terrain-v10]", "[--neutral-colonies N]", "[--water-amount low|standard|high]", "[--tactical-terrain low|standard|high]", "[--movement-validation proxy|native|both]", "[--report FILE]", "[--verify-repeatability]", "[--overwrite]", "Generate a deterministic OpenSA skirmish map. Schema 3 preserves 128x128 layouts; schema 4 adds 256x256 for experimental Version 10 Natural Landscape only.")]
 		void IUtilityCommand.Run(Utility utility, string[] args)
 		{
 			try
@@ -31,7 +31,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				var options = Parse(args);
 				var profile = RmgProfile.Load(utility.ModData, options.Settings);
 				var result = OpenRaRmgMapAdapter.GenerateAndSave(utility.ModData, profile, options.Settings, options.OutputPath,
-					options.Overwrite, options.MovementValidationMode);
+					options.Overwrite, options.MovementValidationMode, options.VerifyRepeatability);
 				var reportPath = options.ReportPath ?? options.OutputPath + ".report.json";
 				var reportDirectory = Path.GetDirectoryName(Path.GetFullPath(reportPath));
 				if (!string.IsNullOrEmpty(reportDirectory))
@@ -94,7 +94,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			{
 				if (!args[i].StartsWith("--", StringComparison.Ordinal))
 					throw new CommandLineException($"Unexpected argument: {args[i]}");
-				if (args[i] == "--overwrite" || args[i] == "--verbose")
+				if (args[i] == "--overwrite" || args[i] == "--verbose" || args[i] == "--verify-repeatability")
 				{
 					flags.Add(args[i]);
 					continue;
@@ -127,6 +127,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 					OutputPath = args[1],
 					ReportPath = values.TryGetValue("--report", out var playerReport) ? playerReport : null,
 					Overwrite = flags.Contains("--overwrite"),
+					VerifyRepeatability = flags.Contains("--verify-repeatability"),
 					MovementValidationMode = ParseMovementValidation(values.TryGetValue("--movement-validation", out var playerMovementValidation) ? playerMovementValidation : "both"),
 					Settings = resolution.Normalized
 				};
@@ -164,6 +165,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				OutputPath = args[1],
 				ReportPath = values.TryGetValue("--report", out var report) ? report : null,
 				Overwrite = flags.Contains("--overwrite"),
+				VerifyRepeatability = flags.Contains("--verify-repeatability"),
 				MovementValidationMode = ParseMovementValidation(values.TryGetValue("--movement-validation", out var movementValidation) ? movementValidation : "both"),
 				Settings = new RmgGenerationSettings
 				{
@@ -262,6 +264,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			public string OutputPath { get; init; }
 			public string ReportPath { get; init; }
 			public bool Overwrite { get; init; }
+			public bool VerifyRepeatability { get; init; }
 			public RmgMovementValidationMode MovementValidationMode { get; init; }
 			public RmgGenerationSettings Settings { get; init; }
 		}

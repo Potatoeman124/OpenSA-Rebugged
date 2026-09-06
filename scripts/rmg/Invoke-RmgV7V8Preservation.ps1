@@ -117,9 +117,14 @@ foreach ($case in @($fixture.cases))
         $caseFailures.Add("layout family expected $($case.layout_family) but found $($first.layout_family)")
     }
 
-    $actualNormalized = $first.player_settings.normalized | ConvertTo-Json -Compress -Depth 8
-    $expectedNormalized = $case.normalized_settings | ConvertTo-Json -Compress -Depth 8
-    if ($actualNormalized -ne $expectedNormalized)
+    $actualNormalized = $first.player_settings.normalized
+    $expectedNormalized = $case.normalized_settings.PSObject.Copy()
+    # Added by the approved V10 UI; inert on the frozen V7/V8 terrain paths.
+    $expectedNormalized | Add-Member -NotePropertyName original_surface_relations -NotePropertyValue $true
+    $actualNames = @($actualNormalized.PSObject.Properties.Name | Sort-Object)
+    $expectedNames = @($expectedNormalized.PSObject.Properties.Name | Sort-Object)
+    $differentValues = @($expectedNames | Where-Object { $actualNormalized.$_ -cne $expectedNormalized.$_ })
+    if (($actualNames -join ",") -cne ($expectedNames -join ",") -or $differentValues.Count -gt 0)
     {
         $caseFailures.Add("normalized player settings differ from the fixture")
     }
@@ -162,9 +167,9 @@ foreach ($case in @($fixture.cases))
     })
 }
 
-$naturalSettingsPath = Join-Path $settingsDirectory "natural-landscape-rejection.json"
-$naturalMapPath = Join-Path $OutputDirectory "natural-landscape-must-not-exist.oramap"
-$naturalReportPath = Join-Path $OutputDirectory "natural-landscape-must-not-exist.json"
+$naturalSettingsPath = Join-Path $settingsDirectory "natural-landscape-v10.json"
+$naturalMapPath = Join-Path $OutputDirectory "natural-landscape-v10.oramap"
+$naturalReportPath = Join-Path $OutputDirectory "natural-landscape-v10.report.json"
 $fixture.natural_landscape.requested_settings | ConvertTo-Json -Depth 8 |
     Set-Content -LiteralPath $naturalSettingsPath -Encoding UTF8
 $naturalArguments = @(
@@ -182,12 +187,20 @@ $ErrorActionPreference = "Continue"
 $naturalOutput = & $powershell $naturalArguments 2>&1 | Out-String
 $naturalExitCode = $LASTEXITCODE
 $ErrorActionPreference = $previousErrorActionPreference
-$naturalRejected = $naturalExitCode -ne 0 -and
-    $naturalOutput.Contains([string]$fixture.natural_landscape.expected_error_contains) -and
-    !(Test-Path -LiteralPath $naturalMapPath -PathType Leaf)
-if (!$naturalRejected)
+# Natural Landscape was subsequently implemented; it must now select V10,
+# never fall back to either frozen family. The historical fixture stays untouched.
+$naturalIsV10 = $false
+if ($naturalExitCode -eq 0 -and (Test-Path -LiteralPath $naturalMapPath) -and (Test-Path -LiteralPath $naturalReportPath))
 {
-    $failures.Add("Natural Landscape did not reject cleanly without producing a V7/V8 map.")
+    $naturalReport = Get-Content -LiteralPath $naturalReportPath -Raw | ConvertFrom-Json
+    $naturalIsV10 = $naturalReport.generator_version -eq 10 -and
+        $naturalReport.layout_family -eq "natural-landscape" -and
+        $naturalReport.validation.accepted -eq $true -and
+        $naturalReport.movement_validation.native.accepted -eq $true
+}
+if (!$naturalIsV10)
+{
+    $failures.Add("Natural Landscape did not generate a validated V10 map independently of V7/V8.")
 }
 
 $summary = [ordered]@{
@@ -195,7 +208,7 @@ $summary = [ordered]@{
     fixture = $fixturePath
     independent_process_runs_per_case = 2
     cases = $results
-    natural_landscape_rejected = $naturalRejected
+    natural_landscape_is_v10 = $naturalIsV10
     total_cases = $results.Count
     accepted_cases = @($results | Where-Object { $_.accepted }).Count
     failures = $failures
@@ -208,5 +221,5 @@ if ($failures.Count -ne 0)
 }
 
 Write-Host "V7/V8 preservation passed: $($results.Count)/$($results.Count) cases matched the fixture across two independent processes." -ForegroundColor Green
-Write-Host "Natural Landscape rejection passed: no V7/V8 fallback map was produced." -ForegroundColor Green
+Write-Host "Natural Landscape isolation passed: a validated V10 map was produced, not a V7/V8 fallback." -ForegroundColor Green
 Write-Host "Summary: $summaryPath" -ForegroundColor Green

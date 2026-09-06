@@ -138,6 +138,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 		static RmgGenerationResult GenerateNaturalLandscapeV10(RmgProfile profile, RmgGenerationSettings settings)
 		{
+			var preparationTimer = Stopwatch.StartNew();
+			var attemptTimings = new Dictionary<string, double>();
 			const int CandidateCount = 12;
 			var terrains = Enumerable.Range(0, CandidateCount)
 				.Select(index => BuildNaturalV10Terrain(profile, settings, index)).ToArray();
@@ -152,6 +154,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				terrain.PreliminaryScore += 4D * Math.Max(0, ConnectedComponents(projected, blocked: false).Count - 1);
 			}
 
+			preparationTimer.Stop();
 			RmgGenerationResult best = null;
 			RmgGenerationResult lastRejected = null;
 			RmgGenerationRejectedException lastFailure = null;
@@ -162,6 +165,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				.ThenBy(candidate => candidate.CandidateIndex))
 			{
 				attempted++;
+				var attemptTimer = Stopwatch.StartNew();
 				try
 				{
 					var candidate = GenerateNaturalLandscapeV10Candidate(profile, settings, terrain);
@@ -187,10 +191,18 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				{
 					lastFailure = e;
 				}
+				finally
+				{
+					attemptTimings[$"natural_candidate_{terrain.CandidateIndex}_ms"] = attemptTimer.Elapsed.TotalMilliseconds;
+				}
 			}
 
 			if (best != null)
 			{
+				best.Validation.Metrics["natural_preparation_ms"] = preparationTimer.Elapsed.TotalMilliseconds;
+				best.Validation.Metrics["natural_all_attempts_ms"] = attemptTimings.Values.Sum();
+				foreach (var (name, milliseconds) in attemptTimings)
+					best.Validation.Metrics[name] = Math.Round(milliseconds, 3);
 				best.Validation.Metrics["natural_candidates_ranked"] = CandidateCount;
 				best.Validation.Metrics["natural_candidates_attempted"] = attempted;
 				best.Validation.Metrics["natural_candidates_accepted"] = accepted;
@@ -271,15 +283,18 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				Stage("terrain_first_placement");
 				// Cosmetic dirt details and actors cannot change surface relations.
 				RmgClearLandDetailMaterializer.Materialize(map, profile, settings);
+				Stage("clear_details");
 				RmgTerrainDecorationGenerator.Materialize(map, profile, settings);
+				Stage("terrain_decorations");
 			}
 			else
+			{
 				MaterializeBlockingTerrain(map, profile, settings);
+				Stage("combined_materialization");
+			}
 
 			var validation = ValidateBlockingTopology(map, profile, settings);
-			Stage("decoration_and_validation");
-			foreach (var (name, milliseconds) in stageMilliseconds)
-				validation.Metrics[$"large_candidate_{name}_ms"] = Math.Round(milliseconds, 3);
+			Stage("logical_validation");
 			validation.Metrics["natural_surface_authority_enforced"] = map.NaturalSurfacesFrozen ? 1 : 0;
 			if (map.NaturalSurfacesFrozen)
 			{
@@ -315,7 +330,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			validation.Metrics["natural_projection_changed_percent"] = alterationPercent;
 			validation.Metrics["natural_visual_risk"] = waterShape.Risk + .25D * rockShape.Risk +
 				.15D * mossShape.Risk + .5D * alterationPercent;
-			return new RmgGenerationResult
+			var result = new RmgGenerationResult
 			{
 				Settings = settings,
 				Profile = profile,
@@ -325,6 +340,10 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				ActorHash = HashActors(map),
 				GraphHash = HashBlockingGraph(map)
 			};
+			Stage("visual_metrics_and_hashes");
+			foreach (var (name, milliseconds) in stageMilliseconds)
+				validation.Metrics[$"large_candidate_{name}_ms"] = Math.Round(milliseconds, 3);
+			return result;
 		}
 
 		static void MarkNaturalV10StrategicRegions(RmgLogicalMap map)

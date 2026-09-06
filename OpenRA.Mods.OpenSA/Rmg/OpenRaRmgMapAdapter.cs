@@ -37,6 +37,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 	{
 		public double ProfileValidationMilliseconds { get; set; }
 		public double LogicalGenerationMilliseconds { get; set; }
+		public double RepeatabilityMilliseconds { get; set; }
+		public bool RepeatabilityChecked { get; set; }
 		public double MaterializationSaveMilliseconds { get; set; }
 		public double PackageReloadMetadataMilliseconds { get; set; }
 		public double YamlLintMilliseconds { get; set; }
@@ -49,7 +51,10 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			return new JObject
 			{
 				["profile_validation_ms"] = Rounded(ProfileValidationMilliseconds),
-				["logical_generation_and_repeat_ms"] = Rounded(LogicalGenerationMilliseconds),
+				["logical_generation_and_repeat_ms"] = Rounded(LogicalGenerationMilliseconds + RepeatabilityMilliseconds),
+				["logical_generation_ms"] = Rounded(LogicalGenerationMilliseconds),
+				["repeatability_ms"] = Rounded(RepeatabilityMilliseconds),
+				["repeatability_checked"] = RepeatabilityChecked,
 				["materialization_and_save_ms"] = Rounded(MaterializationSaveMilliseconds),
 				["package_reload_and_metadata_ms"] = Rounded(PackageReloadMetadataMilliseconds),
 				["yaml_lint_ms"] = Rounded(YamlLintMilliseconds),
@@ -106,7 +111,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 	public static class OpenRaRmgMapAdapter
 	{
 		public static RmgPackageResult GenerateAndSave(ModData modData, RmgProfile profile, RmgGenerationSettings settings, string outputPath,
-			bool overwrite, RmgMovementValidationMode movementValidationMode = RmgMovementValidationMode.Both)
+			bool overwrite, RmgMovementValidationMode movementValidationMode = RmgMovementValidationMode.Both, bool verifyRepeatability = false)
 		{
 			var totalTimer = Stopwatch.StartNew();
 			Game.ModData = modData;
@@ -127,10 +132,17 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 			var generationTimer = Stopwatch.StartNew();
 			var generation = RmgGenerator.Generate(profile, settings);
-			var repeat = RmgGenerator.Generate(profile, settings);
 			generationTimer.Stop();
-			if (generation.LogicalHash != repeat.LogicalHash || generation.ActorHash != repeat.ActorHash || generation.GraphHash != repeat.GraphHash)
-				throw new InvalidOperationException("Same-process repeatability validation failed for the selected seed and settings.");
+			var repeatTimer = new Stopwatch();
+			// Audit-only work: normal lobby generation still runs every map-validity check.
+			if (verifyRepeatability)
+			{
+				repeatTimer.Start();
+				var repeat = RmgGenerator.Generate(profile, settings);
+				repeatTimer.Stop();
+				if (generation.LogicalHash != repeat.LogicalHash || generation.ActorHash != repeat.ActorHash || generation.GraphHash != repeat.GraphHash)
+					throw new InvalidOperationException("Same-process repeatability validation failed for the selected seed and settings.");
+			}
 			if (!generation.Validation.Accepted)
 				throw new InvalidOperationException("Generation failed hard validation: " + string.Join("; ", generation.Validation.HardFailures.Select(f => $"{f.Code}: {f.Message}")));
 
@@ -143,6 +155,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				var packageValidation = ReloadAndValidate(modData, generation, temporaryPath, movementValidationMode);
 				packageValidation.Performance.ProfileValidationMilliseconds = profileTimer.Elapsed.TotalMilliseconds;
 				packageValidation.Performance.LogicalGenerationMilliseconds = generationTimer.Elapsed.TotalMilliseconds;
+				packageValidation.Performance.RepeatabilityMilliseconds = repeatTimer.Elapsed.TotalMilliseconds;
+				packageValidation.Performance.RepeatabilityChecked = verifyRepeatability;
 				packageValidation.Performance.MaterializationSaveMilliseconds = materializationTimer.Elapsed.TotalMilliseconds;
 				packageValidation.Performance.TotalMilliseconds = totalTimer.Elapsed.TotalMilliseconds;
 				if (packageValidation.YamlLintErrors.Length > 0)

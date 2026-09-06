@@ -128,6 +128,10 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 					TopologyPreset = topology
 				};
 
+				var decorationFailures = RmgTerrainDecorationGenerator.RunSelectionSelfTests();
+				failures.AddRange(decorationFailures);
+				Console.WriteLine($"decoration-selection-equivalence: {(decorationFailures.Count == 0 ? "PASS" : "FAIL")}");
+
 				var statusFailures = RmgStatusText.RunSelfTests();
 				failures.AddRange(statusFailures);
 				Console.WriteLine($"rmg-status-layout: {(statusFailures.Count == 0 ? "PASS" : "FAIL")}");

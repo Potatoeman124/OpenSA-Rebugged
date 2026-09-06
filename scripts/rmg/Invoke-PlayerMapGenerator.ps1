@@ -24,6 +24,7 @@ param(
     [string]$OutputPath,
     [string]$ReportPath,
     [switch]$InstallForPlay,
+    [switch]$VerifyRepeatability,
     [switch]$Overwrite
 )
 
@@ -71,6 +72,7 @@ $invokeParameters = @{
     PlayerSettingsPath = $settingsPath
     MovementValidation = $MovementValidation
     InstallForPlay = $InstallForPlay
+    VerifyRepeatability = $VerifyRepeatability
     Overwrite = $Overwrite
 }
 if (![string]::IsNullOrWhiteSpace($OutputPath))
