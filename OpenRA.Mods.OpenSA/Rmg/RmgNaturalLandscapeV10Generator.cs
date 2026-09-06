@@ -11,6 +11,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 namespace OpenRA.Mods.OpenSA.Rmg
@@ -68,6 +69,15 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (RmgNaturalVisualMetrics.Measure(new bool[4096], 64, 64).Risk != 0D ||
 				RmgNaturalVisualMetrics.Measure(Enumerable.Repeat(true, 4096).ToArray(), 64, 64).LongestRunNative != 0D)
 				failures.Add("V10.1 boundary metrics counted empty terrain or the map frame as shoreline.");
+			var largeExitMap = new RmgLogicalMap(128, 128);
+			var exitAnchor = new RmgPoint(64, 64);
+			if (!NaturalLargeStartHasOpenExitRing(largeExitMap, exitAnchor))
+				failures.Add("Large start-exit preflight rejected open terrain.");
+			Array.Fill(largeExitMap.NativeTerrainIntents, RmgNativeTerrainIntent.Water);
+			var exitTerrain = (RmgNativeTerrainIntent[])largeExitMap.NativeTerrainIntents.Clone();
+			if (NaturalLargeStartHasOpenExitRing(largeExitMap, exitAnchor) ||
+				!exitTerrain.SequenceEqual(largeExitMap.NativeTerrainIntents))
+				failures.Add("Large start-exit preflight accepted or modified a blocked exit ring.");
 			failures.AddRange(profile.DirtPlacementRules.RunSelfTests(profile));
 			var authorityMap = new RmgLogicalMap(8, 8);
 			var authorityTerrain = (RmgNativeTerrainIntent[])authorityMap.NativeTerrainIntents.Clone();
@@ -211,12 +221,21 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		static RmgGenerationResult GenerateNaturalLandscapeV10Candidate(RmgProfile profile,
 			RmgGenerationSettings settings, NaturalV10Terrain terrain)
 		{
+			var stageTimer = Stopwatch.StartNew();
+			var stageMilliseconds = new Dictionary<string, double>();
+			void Stage(string name)
+			{
+				if (settings.MapSize == 256)
+					stageMilliseconds[name] = stageTimer.Elapsed.TotalMilliseconds;
+				stageTimer.Restart();
+			}
 			var map = PrepareNaturalV10Map(profile, settings);
 			map.RetryCount = terrain.CandidateIndex;
 
 			var waterPriorities = ProjectNaturalV10Terrain(map, profile, settings, terrain);
 			var projectedWater = (bool[])map.Obstacles.Clone();
 			NormalizeNaturalWater(map, profile, settings, waterPriorities);
+			Stage("initial_water");
 			map.NaturalPreRouteWaterCount = map.Obstacles.Count(value => value);
 			map.NaturalPreRouteInteriorWaterCount = Enumerable.Range(0, map.Obstacles.Length)
 				.Count(index => map.Obstacles[index] &&
@@ -230,6 +249,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			MarkNaturalV10StrategicRegions(map);
 			NormalizeNaturalWater(map, profile, settings, waterPriorities);
 
+			Stage("initial_colonies_and_routes");
+
 			// Optional colony rounds are fitted only after the safety network exists.
 			// If a later balanced round cannot fit, the adaptive placer keeps the
 			// already-valid lower colony count instead of altering terrain or routes.
@@ -240,11 +261,14 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			NormalizeShorelineNeighborhoods(map, waterPriorities);
 			RebuildObstacleRegionMetadata(map);
 			AssignRegions(map);
+			Stage("remaining_colonies_and_water");
 			if (settings.OriginalSurfaceRelations)
 			{
 				RmgShorelineMaterializer.Materialize(map, profile, settings);
 				RmgLandCoverMaterializer.Materialize(map, profile, settings);
+				Stage("surface_materialization");
 				FitNaturalV10PlacementsToSurfaces(map, profile, settings);
+				Stage("terrain_first_placement");
 				// Cosmetic dirt details and actors cannot change surface relations.
 				RmgClearLandDetailMaterializer.Materialize(map, profile, settings);
 				RmgTerrainDecorationGenerator.Materialize(map, profile, settings);
@@ -253,6 +277,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				MaterializeBlockingTerrain(map, profile, settings);
 
 			var validation = ValidateBlockingTopology(map, profile, settings);
+			Stage("decoration_and_validation");
+			foreach (var (name, milliseconds) in stageMilliseconds)
+				validation.Metrics[$"large_candidate_{name}_ms"] = Math.Round(milliseconds, 3);
 			validation.Metrics["natural_surface_authority_enforced"] = map.NaturalSurfacesFrozen ? 1 : 0;
 			if (map.NaturalSurfacesFrozen)
 			{
@@ -328,6 +355,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var width = profile.LogicalWidth;
 			var height = profile.LogicalHeight;
 			var count = width * height;
+			var large = profile.PlayableWidth == 256;
 			var terrainSeed = candidateIndex == 0 ? settings.Seed :
 				V10Mix(settings.Seed, 0x43414E4449444154UL + (ulong)candidateIndex);
 			var morphology = (NaturalV10Morphology)(V10Mix(settings.Seed, 0x4D4F5250484F4C4FUL) % 5UL);
@@ -347,12 +375,16 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				NaturalV10Morphology.Wetlands => 3 + shapeRandom.NextInt(3),
 				_ => 1
 			};
+			if (large && morphology is NaturalV10Morphology.LakeDistrict or NaturalV10Morphology.Wetlands)
+				basinCount *= 2;
 			var basins = new (double X, double Y, double RadiusX, double RadiusY, double Angle, double Weight)[basinCount];
 			for (var i = 0; i < basins.Length; i++)
 			{
 				var major = morphology == NaturalV10Morphology.InlandSea ?
 					23D + 8D * V10Unit(shapeRandom) :
 					11D + 11D * V10Unit(shapeRandom);
+				if (large)
+					major *= morphology == NaturalV10Morphology.InlandSea ? 1.75D : 1.35D;
 				var aspect = 1.05D + 1.15D * V10Unit(shapeRandom);
 				basins[i] = (
 					-4D + (width + 8D) * V10Unit(shapeRandom),
@@ -365,10 +397,10 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 			var geologyRandom = new DeterministicRandom(V10Mix(terrainSeed, 0x47454F424153494EUL));
 			var geologyBasins = new (double X, double Y, double RadiusX, double RadiusY, double Angle, double Weight)[
-				2 + geologyRandom.NextInt(3)];
+				(2 + geologyRandom.NextInt(3)) * (large ? 2 : 1)];
 			for (var i = 0; i < geologyBasins.Length; i++)
 			{
-				var major = 14D + 10D * V10Unit(geologyRandom);
+				var major = (14D + 10D * V10Unit(geologyRandom)) * (large ? 1.25D : 1D);
 				var aspect = 1.15D + 1.1D * V10Unit(geologyRandom);
 				geologyBasins[i] = (
 					-8D + (width + 16D) * V10Unit(geologyRandom),
@@ -381,12 +413,12 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 			var coastAngle = 2D * Math.PI * V10Unit(shapeRandom);
 			var coastPhase = 2D * Math.PI * V10Unit(shapeRandom);
-			var coastBend = 5D + 7D * V10Unit(shapeRandom);
+			var coastBend = (5D + 7D * V10Unit(shapeRandom)) * (large ? 1.5D : 1D);
 			var riverHorizontal = shapeRandom.NextInt(2) == 0;
 			var riverBase = .38D + .24D * V10Unit(shapeRandom);
-			var riverAmplitude = 8D + 6D * V10Unit(shapeRandom);
+			var riverAmplitude = (8D + 6D * V10Unit(shapeRandom)) * (large ? 1.5D : 1D);
 			var riverPhase = 2D * Math.PI * V10Unit(shapeRandom);
-			var riverPeriod = 28D + 22D * V10Unit(shapeRandom);
+			var riverPeriod = (28D + 22D * V10Unit(shapeRandom)) * (large ? 1.35D : 1D);
 
 			for (var y = 0; y < height; y++)
 				for (var x = 0; x < width; x++)

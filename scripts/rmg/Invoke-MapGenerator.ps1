@@ -5,6 +5,8 @@ param(
     [UInt64]$Seed = 1,
     [ValidateSet(2, 4)]
     [int]$Players = 2,
+    [ValidateSet(128, 256)]
+    [int]$MapSize = 128,
     [ValidateSet("horizontal", "vertical", "rotational")]
     [string]$Symmetry = "horizontal",
     [ValidateSet("open", "central-contest")]
@@ -32,7 +34,7 @@ $dotnetRoot = Join-Path $root ".tools\dotnet"
 $usingPlayerSettings = ![string]::IsNullOrWhiteSpace($PlayerSettingsPath)
 if ($usingPlayerSettings)
 {
-    $incompatible = @("Seed", "Players", "Symmetry", "Archetype", "Topology", "WaterAmount", "TacticalTerrain", "NeutralColonies") |
+    $incompatible = @("Seed", "Players", "MapSize", "Symmetry", "Archetype", "Topology", "WaterAmount", "TacticalTerrain", "NeutralColonies") |
         Where-Object { $PSBoundParameters.ContainsKey($_) }
     if ($incompatible.Count -gt 0)
     {
@@ -66,6 +68,7 @@ if (!(Test-Path -LiteralPath (Join-Path $dotnetRoot "dotnet.exe") -PathType Leaf
 if ($NeutralColonies -eq 0)
 {
     $NeutralColonies = if ($Players -eq 2) { 10 } else { 16 }
+    if ($MapSize -eq 256) { $NeutralColonies *= 3 }
 }
 
 if ([string]::IsNullOrWhiteSpace($OutputPath))
@@ -115,7 +118,7 @@ else
         $OutputPath,
         "--report", $ReportPath,
         "--seed", $Seed,
-        "--size", "128,128",
+        "--size", "$MapSize,$MapSize",
         "--players", $Players,
         "--tileset", "NORMAL",
         "--symmetry", $Symmetry,

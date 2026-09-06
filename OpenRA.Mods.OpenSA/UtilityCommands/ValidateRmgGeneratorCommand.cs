@@ -36,6 +36,24 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 					Console.WriteLine($"{profile.ProfileId}: {(profileFailures.Count == 0 ? "PASS" : "FAIL")}");
 				}
 
+				var smallNatural = RmgProfile.Load(utility.ModData, RmgTopologyPreset.NaturalTerrainV10);
+				var largeSettings = new RmgGenerationSettings
+				{
+					MapSize = 256, TopologyPreset = RmgTopologyPreset.NaturalTerrainV10
+				};
+				var largeNatural = RmgProfile.Load(utility.ModData, largeSettings);
+				var sizeContract = largeNatural.PlayableWidth == 256 && largeNatural.PlayableHeight == 256 &&
+					largeNatural.LogicalWidth == 128 && largeNatural.LogicalHeight == 128 &&
+					largeNatural.CordonWidth == smallNatural.CordonWidth &&
+					largeNatural.MinimumRouteWidthNative == smallNatural.MinimumRouteWidthNative &&
+					largeNatural.MajorRouteWidthNative == smallNatural.MajorRouteWidthNative &&
+					largeNatural.ColonyCombatSafetyBufferNative == smallNatural.ColonyCombatSafetyBufferNative &&
+					largeNatural.ObstacleRegionMaximumLogical == smallNatural.ObstacleRegionMaximumLogical * 4 &&
+					largeSettings.Canonical(largeNatural).Contains("size=256,256");
+				if (!sizeContract)
+					failures.Add("256x256 Natural Landscape geometry, native clearances, or identity contract changed.");
+				Console.WriteLine($"natural-256-size-contract: {(sizeContract ? "PASS" : "FAIL")}");
+
 				var shorelineProfile = RmgProfile.Load(utility.ModData, RmgTopologyPreset.Shoreline);
 				var detailProfile = RmgProfile.Load(utility.ModData, RmgTopologyPreset.LandDetails);
 				var shorelineSettings = BaselineSettings(shorelineProfile, RmgTopologyPreset.Shoreline);

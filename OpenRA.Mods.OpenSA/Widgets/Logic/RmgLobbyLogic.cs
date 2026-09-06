@@ -229,7 +229,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 				{
 					new Choice<SizeChoice>(SizeChoice.Small, "64 x 64 (planned)"),
 					new Choice<SizeChoice>(SizeChoice.Standard, "128 x 128"),
-					new Choice<SizeChoice>(SizeChoice.Large, "256 x 256 (planned)")
+					new Choice<SizeChoice>(SizeChoice.Large, "256 x 256 (Natural Landscape)")
 				}, () => size, value => { size = value; MarkStale(); });
 
 			layoutFamilyButton.GetText = () => LayoutFamilyDisplayName(layoutFamily);
@@ -441,8 +441,10 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		{
 			if (terrain != TerrainChoice.Normal)
 				return $"{TerrainDisplayName(terrain)} terrain is a planned placeholder; NORMAL is currently supported.";
-			if (size != SizeChoice.Standard)
-				return $"{SizeDisplayName(size)} maps are a planned placeholder; 128 x 128 is currently supported.";
+			if (size == SizeChoice.Small)
+				return "64 x 64 remains planned.";
+			if (size == SizeChoice.Large && layoutFamily != RmgPlayerLayoutFamily.NaturalLandscape)
+				return "256 x 256 currently requires Natural Landscape.";
 			if (playerCount != 2 && playerCount != 4)
 				return $"{playerCount}-player generation is planned; the current generator supports 2 or 4 players.";
 			if (layout is LayoutChoice.MixedFronts or LayoutChoice.NarrowPassages or LayoutChoice.Chaos)
@@ -491,6 +493,8 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 
 				var playerSettings = new RmgPlayerSettings
 				{
+					SchemaVersion = size == SizeChoice.Large ? 4 : 3,
+					MapSize = size == SizeChoice.Large ? 256 : 128,
 					Preset = preset,
 					Seed = seed,
 					PlayerCount = playerCount,
@@ -503,7 +507,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					OriginalSurfaceRelations = originalSurfaceRelations
 				};
 				var settingsResolution = RmgPlayerSettingsContract.Resolve(playerSettings);
-				var profile = RmgProfile.Load(modData, settingsResolution.Normalized.TopologyPreset);
+				var profile = RmgProfile.Load(modData, settingsResolution.Normalized);
 				var userLocation = modData.MapCache.MapLocations.FirstOrDefault(location => location.Value == MapClassification.User);
 				if (userLocation.Key == null)
 					throw new InvalidOperationException("The OpenSA user map directory is unavailable.");
@@ -642,7 +646,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		{
 			SizeChoice.Small => "64 x 64 (planned)",
 			SizeChoice.Standard => "128 x 128",
-			_ => "256 x 256 (planned)"
+			_ => "256 x 256"
 		};
 
 		static string LayoutFamilyDisplayName(RmgPlayerLayoutFamily value) => value switch

@@ -23,13 +23,13 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 		string IUtilityCommand.Name => "--generate-sa-map";
 		bool IUtilityCommand.ValidateArguments(string[] args) => args.Length >= 1;
 
-		[Desc("OUTPUT.oramap", "--seed N | --player-settings FILE", "[--players 2|4]", "[--symmetry horizontal|vertical|rotational]", "[--archetype open|central-contest]", "[--topology off|mixed|shoreline|land-details|land-cover|battlefield-layout|parameterized-battlefield|coherent-water|natural-terrain|natural-terrain-v10]", "[--neutral-colonies N]", "[--water-amount low|standard|high]", "[--tactical-terrain low|standard|high]", "[--movement-validation proxy|native|both]", "[--report FILE]", "[--overwrite]", "Generate a deterministic OpenSA skirmish map. Schema 3 player settings select experimental Version 10 Natural Landscape, Version 8 Structured Competitive, or frozen Version 7 Artificial Battlefield.")]
+		[Desc("OUTPUT.oramap", "--seed N | --player-settings FILE", "[--players 2|4]", "[--size 128,128|256,256]", "[--symmetry horizontal|vertical|rotational]", "[--archetype open|central-contest]", "[--topology off|mixed|shoreline|land-details|land-cover|battlefield-layout|parameterized-battlefield|coherent-water|natural-terrain|natural-terrain-v10]", "[--neutral-colonies N]", "[--water-amount low|standard|high]", "[--tactical-terrain low|standard|high]", "[--movement-validation proxy|native|both]", "[--report FILE]", "[--overwrite]", "Generate a deterministic OpenSA skirmish map. Schema 3 preserves 128x128 layouts; schema 4 adds 256x256 for experimental Version 10 Natural Landscape only.")]
 		void IUtilityCommand.Run(Utility utility, string[] args)
 		{
 			try
 			{
 				var options = Parse(args);
-				var profile = RmgProfile.Load(utility.ModData, options.Settings.TopologyPreset);
+				var profile = RmgProfile.Load(utility.ModData, options.Settings);
 				var result = OpenRaRmgMapAdapter.GenerateAndSave(utility.ModData, profile, options.Settings, options.OutputPath,
 					options.Overwrite, options.MovementValidationMode);
 				var reportPath = options.ReportPath ?? options.OutputPath + ".report.json";
@@ -135,7 +135,8 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			if (!values.TryGetValue("--seed", out var seedText) || !ulong.TryParse(seedText, out var seed))
 				throw new CommandLineException("Either --seed or --player-settings is required; --seed must be an unsigned integer.");
 			var players = ParseInt(values, "--players", 2);
-			var colonies = ParseInt(values, "--neutral-colonies", players == 2 ? 10 : 16);
+			var mapSize = RmgPlayerSettingsContract.ParseMapSize(values.TryGetValue("--size", out var size) ? size : "128,128");
+			var colonies = ParseInt(values, "--neutral-colonies", (players == 2 ? 10 : 16) * (mapSize == 256 ? 3 : 1));
 			var topology = ParseTopology(values.TryGetValue("--topology", out var topologyValue) ? topologyValue : "off");
 			var generatorVersion = topology switch
 			{
@@ -155,8 +156,8 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				throw new ArgumentException($"--generator-version must be {generatorVersion} when --topology is {TopologyName(topology)}.");
 			if (values.TryGetValue("--tileset", out var tileset) && !string.Equals(tileset, "NORMAL", StringComparison.OrdinalIgnoreCase))
 				throw new ArgumentException("The RMG supports only the NORMAL tileset.");
-			if (values.TryGetValue("--size", out var size) && size != "128,128")
-				throw new ArgumentException("The RMG supports only --size 128,128.");
+			if (mapSize == 256 && topology != RmgTopologyPreset.NaturalTerrainV10)
+				throw new ArgumentException("256x256 is supported only with natural-terrain-v10.");
 
 			return new Options
 			{
@@ -167,6 +168,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				Settings = new RmgGenerationSettings
 				{
 					Seed = seed,
+					MapSize = mapSize,
 					PlayerCount = players,
 					NeutralColonyCount = colonies,
 					GeneratorVersion = generatorVersion,

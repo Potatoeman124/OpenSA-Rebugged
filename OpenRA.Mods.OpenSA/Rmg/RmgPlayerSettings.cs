@@ -69,7 +69,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 	public sealed class RmgPlayerSettings
 	{
-		public int SchemaVersion { get; init; } = RmgPlayerSettingsContract.SchemaVersion;
+		// Keep the 128x128 default and its seed mapping frozen at schema 3.
+		public int SchemaVersion { get; init; } = 3;
+		public int MapSize { get; init; } = 128;
 		public RmgPlayerPreset Preset { get; init; } = RmgPlayerPreset.Balanced;
 		public ulong Seed { get; init; }
 		public int PlayerCount { get; init; } = 2;
@@ -105,6 +107,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				if (LayoutFamily == RmgPlayerLayoutFamily.NaturalLandscape)
 					json["original_surface_relations"] = OriginalSurfaceRelations;
 			}
+
+			if (SchemaVersion >= 4)
+				json["size"] = $"{MapSize},{MapSize}";
 
 			return json;
 		}
@@ -143,7 +148,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				["tactical_terrain"] = RmgPlayerSettingsContract.ParameterLevelName(Normalized.TacticalTerrain),
 				["original_surface_relations"] = Normalized.OriginalSurfaceRelations,
 				["tileset"] = "NORMAL",
-				["size"] = "128,128"
+				["size"] = $"{Normalized.MapSize},{Normalized.MapSize}"
 			},
 			["overrides"] = new JArray(Overrides),
 			["warnings"] = new JArray()
@@ -152,12 +157,13 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 	public static class RmgPlayerSettingsContract
 	{
-		public const int SchemaVersion = 3;
+		public const int SchemaVersion = 4;
 		public const int MinimumSchemaVersion = 1;
 
 		static readonly HashSet<string> AllowedFields = new(new[]
 		{
 			"schema_version",
+			"size",
 			"preset",
 			"seed",
 			"players",
@@ -232,6 +238,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					throw new ArgumentException($"Player settings schema_version 1 does not support field(s): {string.Join(", ", schema1Unknown)}.");
 			}
 
+			if (schemaVersion < 4 && json["size"] != null)
+				throw new ArgumentException("Explicit map size requires player settings schema 4.");
+
 			var seedText = RequiredText(json, "seed");
 			if (!ulong.TryParse(seedText, NumberStyles.None, CultureInfo.InvariantCulture, out var seed))
 				throw new ArgumentException("Player settings seed must be an unsigned integer encoded as a JSON string or integer.");
@@ -245,6 +254,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			return new RmgPlayerSettings
 			{
 				SchemaVersion = schemaVersion,
+				MapSize = schemaVersion >= 4 ? ParseMapSize(OptionalText(json, "size", "128,128")) : 128,
 				Preset = ParsePreset(RequiredText(json, "preset")),
 				Seed = seed,
 				PlayerCount = RequiredInt(json, "players"),
@@ -269,6 +279,10 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (requested.PlayerCount != 2 && requested.PlayerCount != 4)
 				throw new ArgumentException("Player settings players must be 2 or 4.");
 
+			if ((requested.MapSize != 128 && requested.MapSize != 256) ||
+				(requested.MapSize != 128 && (requested.SchemaVersion < 4 || requested.LayoutFamily != RmgPlayerLayoutFamily.NaturalLandscape)))
+				throw new ArgumentException("256x256 requires schema 4 and Natural Landscape; all other supported maps are 128x128.");
+
 			var archetype = requested.Layout switch
 			{
 				RmgPlayerLayout.OpenFields => RmgArchetype.Open,
@@ -278,6 +292,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var colonies = requested.NeutralColonyDensity == RmgPlayerColonyDensity.Preset ?
 				PresetColonies(requested.Preset, requested.PlayerCount) :
 				DensityColonies(requested.NeutralColonyDensity, requested.PlayerCount);
+			// Larger geography supports more objectives without multiplying native combat clearances.
+			if (requested.MapSize == 256)
+				colonies *= 3;
 			var symmetry = requested.Symmetry switch
 			{
 				RmgPlayerSymmetry.Horizontal => RmgSymmetry.MirrorHorizontal,
@@ -299,6 +316,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var normalized = new RmgGenerationSettings
 			{
 				Seed = requested.Seed,
+				MapSize = requested.MapSize,
 				PlayerCount = requested.PlayerCount,
 				Symmetry = symmetry,
 				Archetype = archetype,
@@ -318,6 +336,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				OriginalSurfaceRelations = requested.OriginalSurfaceRelations
 			};
 			var overrides = new List<string>();
+			if (requested.MapSize != 128)
+				overrides.Add("size");
 			if (requested.Layout != RmgPlayerLayout.Preset)
 				overrides.Add("layout");
 			if (requested.LayoutFamily != RmgPlayerLayoutFamily.Preset)
@@ -465,6 +485,57 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				natural.Normalized.LayoutFamily != RmgLayoutFamily.NaturalLandscape ||
 				natural.Normalized.OriginalSurfaceRelations)
 				failures.Add("Natural Landscape did not resolve to the experimental Version 10 contract.");
+			// Schema 4 opts into size support without changing old presets or seed mapping.
+			if (balanced.SchemaVersion != 3 || balanced.ToJson()["size"] != null ||
+				first.Normalized.MapSize != 128)
+				failures.Add("Legacy default settings no longer preserve the 128x128 contract.");
+			foreach (var players in new[] { 2, 4 })
+				foreach (var density in new[] { RmgPlayerColonyDensity.Sparse,
+					RmgPlayerColonyDensity.Standard, RmgPlayerColonyDensity.Dense })
+				{
+					var largeRequest = new RmgPlayerSettings
+					{
+						SchemaVersion = 4,
+						MapSize = 256,
+						Seed = 7300001,
+						PlayerCount = players,
+						LayoutFamily = RmgPlayerLayoutFamily.NaturalLandscape,
+						NeutralColonyDensity = density
+					};
+					var large = Resolve(largeRequest);
+					var roundTrip = Resolve(Parse(largeRequest.ToJson()));
+					var small = Resolve(new RmgPlayerSettings
+					{
+						PlayerCount = players,
+						LayoutFamily = RmgPlayerLayoutFamily.NaturalLandscape,
+						NeutralColonyDensity = density
+					});
+					if (large.Normalized.MapSize != 256 ||
+						large.Normalized.NeutralColonyCount != small.Normalized.NeutralColonyCount * 3 ||
+						NormalizedSignature(large.Normalized) != NormalizedSignature(roundTrip.Normalized) ||
+						!large.Overrides.Contains("size"))
+						failures.Add($"256x256 settings failed the {players}-player {density} round-trip/count contract.");
+				}
+			foreach (var schema in new[] { 1, 2, 3 })
+			{
+				var oldJson = new RmgPlayerSettings { SchemaVersion = schema }.ToJson();
+				oldJson["size"] = "256,256";
+				ExpectRejected($"size in schema {schema}", () => Parse(oldJson));
+			}
+			foreach (var family in new[] { RmgPlayerLayoutFamily.Preset,
+				RmgPlayerLayoutFamily.ArtificialBattlefield, RmgPlayerLayoutFamily.StructuredCompetitive })
+				ExpectRejected($"256x256 {family}", () => Resolve(new RmgPlayerSettings
+				{
+					SchemaVersion = 4, MapSize = 256, LayoutFamily = family
+				}));
+			foreach (var size in new[] { "64,64", "128,256", "512,512", "256" })
+				ExpectRejected($"size {size}", () => ParseMapSize(size));
+			foreach (var players in new[] { 1, 3, 8 })
+				ExpectRejected($"256x256 with {players} players", () => Resolve(new RmgPlayerSettings
+				{
+					SchemaVersion = 4, MapSize = 256, PlayerCount = players,
+					LayoutFamily = RmgPlayerLayoutFamily.NaturalLandscape
+				}));
 			return failures;
 
 			void ExpectRejected(string label, Action action)
@@ -691,6 +762,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 		static string NormalizedSignature(RmgGenerationSettings settings) => string.Join("\n", new[]
 		{
+			$"size={settings.MapSize}",
 			$"generator={settings.GeneratorVersion}",
 			$"topology={settings.TopologyPreset}",
 			$"layout-family={settings.LayoutFamily}",
@@ -703,6 +775,13 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			$"tactical-terrain={settings.TacticalTerrain}",
 			$"original-surface-relations={settings.OriginalSurfaceRelations}"
 		});
+
+		public static int ParseMapSize(string value) => value switch
+		{
+			"128,128" => 128,
+			"256,256" => 256,
+			_ => throw new ArgumentException("Map size must be 128,128 or 256,256.")
+		};
 
 		static int RequiredInt(JObject json, string name)
 		{

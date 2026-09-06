@@ -283,6 +283,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				Categories = new[] { "Conquest" }
 			};
 
+			if (generation.Settings.MapSize != 128)
+				map.Title += $" ({generation.Settings.MapSize}x{generation.Settings.MapSize})";
+
 			var topLeft = new PPos(profile.CordonWidth, profile.CordonWidth);
 			var bottomRight = new PPos(profile.CordonWidth + profile.PlayableWidth - 1, profile.CordonWidth + profile.PlayableHeight - 1);
 			map.SetBounds(topLeft, bottomRight);

@@ -630,11 +630,12 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			RebuildObstacleRegionMetadata(map);
 			for (var operation = 0; operation < map.Obstacles.Length; operation++)
 			{
+				var currentWaterCount = map.Obstacles.Count(value => value);
 				var (interiorDensity, interiorShare, interiorCoveredSectors, _) = WaterInteriorMetrics(map);
 				var needsInteriorProgress = profile.UsesNaturalTerrainMorphologyV10 &&
 					(interiorDensity < interiorMinimumDensity || interiorCoveredSectors < interiorMinimumSectors ||
 						interiorShare < 40D);
-				if (map.Obstacles.Count(value => value) >= desiredTarget &&
+				if (currentWaterCount >= desiredTarget &&
 					interiorDensity >= interiorMinimumDensity && interiorCoveredSectors >= interiorMinimumSectors &&
 					(!profile.UsesNaturalTerrainMorphologyV10 || interiorShare >= 40D))
 					break;
@@ -671,7 +672,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 						var added = block.Where(point => !cells.Contains(point)).Distinct().ToArray();
 						if (needsInteriorProgress && !added.Any(point => WaterInteriorSector(map, point) >= 0))
 							continue;
-						if (added.Length == 0 || map.Obstacles.Count(value => value) + added.Length > maximumTarget ||
+						if (added.Length == 0 || currentWaterCount + added.Length > maximumTarget ||
 							cells.Count + added.Length > profile.ObstacleRegionMaximumLogical ||
 							added.Any(point => !ObstacleExtensionCellEligible(map, point, region.Id)))
 							continue;

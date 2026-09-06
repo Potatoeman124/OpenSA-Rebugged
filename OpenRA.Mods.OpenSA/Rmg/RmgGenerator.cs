@@ -484,6 +484,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 		static void ValidateSettings(RmgProfile profile, RmgGenerationSettings settings)
 		{
+			if (settings.MapSize != profile.PlayableWidth || settings.MapSize != profile.PlayableHeight)
+				throw new ArgumentException("Requested map size does not match the generation profile.");
 			if (settings.GeneratorVersion != profile.GeneratorVersion)
 				throw new ArgumentException($"Generator Version {settings.GeneratorVersion} is not supported by profile {profile.ProfileId}.");
 			if (profile.GeneratorVersion == 1 && settings.TopologyPreset != RmgTopologyPreset.Off)
@@ -518,16 +520,16 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				throw new ArgumentException($"Generator Version {settings.GeneratorVersion} supports only Standard Water and tactical terrain.");
 			if (settings.PlayerCount != 2 && settings.PlayerCount != 4)
 				throw new ArgumentException($"Generator Version {settings.GeneratorVersion} supports exactly two or four players.");
-			if (settings.PlayerCount == 2 && (settings.NeutralColonyCount < 8 || settings.NeutralColonyCount > 20 || settings.NeutralColonyCount % 2 != 0))
-				throw new ArgumentException("Two-player maps require an even neutral-colony count from 8 through 20.");
-			if (settings.PlayerCount == 4 && (settings.NeutralColonyCount < 12 || settings.NeutralColonyCount > 24 || settings.NeutralColonyCount % 4 != 0))
-				throw new ArgumentException("Four-player maps require a neutral-colony count from 12 through 24, divisible by four.");
+			if (settings.PlayerCount == 2 && (settings.NeutralColonyCount < (settings.MapSize == 256 ? 24 : 8) || settings.NeutralColonyCount > (settings.MapSize == 256 ? 60 : 20) || settings.NeutralColonyCount % 2 != 0))
+				throw new ArgumentException(settings.MapSize == 256 ? "Large two-player maps require an even neutral-colony target from 24 through 60." : "Two-player maps require an even neutral-colony count from 8 through 20.");
+			if (settings.PlayerCount == 4 && (settings.NeutralColonyCount < (settings.MapSize == 256 ? 36 : 12) || settings.NeutralColonyCount > (settings.MapSize == 256 ? 72 : 24) || settings.NeutralColonyCount % 4 != 0))
+				throw new ArgumentException(settings.MapSize == 256 ? "Large four-player maps require a neutral-colony target from 36 through 72, divisible by four." : "Four-player maps require a neutral-colony count from 12 through 24, divisible by four.");
 		}
 
 		static void GenerateStartsAndTopology(RmgLogicalMap map, RmgProfile profile, RmgGenerationSettings settings)
 		{
 			var random = DeterministicRandom.ForStream(settings, profile, "topology");
-			RmgPoint Jitter(int x, int y) => new(x + random.NextInt(-2, 3), y + random.NextInt(-2, 3));
+			RmgPoint Jitter(int x, int y) => new(x * (map.Width / 64) + random.NextInt(-2, 3), y * (map.Height / 64) + random.NextInt(-2, 3));
 
 			if (settings.PlayerCount == 2)
 			{
@@ -567,7 +569,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				ReserveSquare(map.StartReservations, map, start, 3);
 			}
 
-			var hub = new RmgPoint(30, 31);
+			var hub = new RmgPoint(map.Width / 2 - 2, map.Height / 2 - 1);
 			var hubs = new List<RmgPoint>();
 			AddOrbit(hubs, hub, settings.Symmetry, map.Width, map.Height);
 			for (var i = 0; i < hubs.Count; i++)

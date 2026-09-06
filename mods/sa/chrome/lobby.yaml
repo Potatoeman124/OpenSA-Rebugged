@@ -84,7 +84,7 @@ Background@SERVER_LOBBY:
 					Width: 220
 					Height: 28
 					TooltipContainer: TOOLTIP_CONTAINER
-					TooltipText: 128 x 128 is implemented. Other sizes are visible placeholders.
+					TooltipText: 128 x 128 supports all layout families. 256 x 256 supports Natural Landscape with 2 or 4 players. 64 x 64 is planned.
 				Label@RMG_PLAYERS_LABEL:
 					X: 20
 					Y: 155

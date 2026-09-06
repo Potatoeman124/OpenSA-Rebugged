@@ -52,7 +52,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				Enumerable.Range(8, map.Height - 16)
 					.SelectMany(y => Enumerable.Range(8, map.Width - 16).Select(x => new RmgPoint(x, y)))
 					.Where(point => routeComponent.Contains(map.Index(point)) &&
-						rules.StartFits(map, point, waterDistance))
+						rules.StartFits(map, point, waterDistance) &&
+						(settings.MapSize == 128 || NaturalLargeStartHasOpenExitRing(map, point)))
 					.OrderBy(point => point.ManhattanDistance(original))
 					.ThenBy(point => point.Y).ThenBy(point => point.X).Take(192).ToArray()).ToArray();
 			var selected = new RmgPoint[provisionalStarts.Length];
@@ -118,6 +119,31 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				assigned.Remove(next.Index);
 				return false;
 			}
+		}
+
+		// Preflight the native validator's radius-12 exit ring on the completed surface.
+		// Large maps have more coastline and colonies; prefer all eight dry sectors so
+		// subsequent static footprints have headroom above the six-sector native gate.
+		// This only chooses a site; it never clears a safety disc or paints dirt.
+		static bool NaturalLargeStartHasOpenExitRing(RmgLogicalMap map, RmgPoint anchor)
+		{
+			var sectors = new bool[8];
+			for (var dy = -12; dy <= 12; dy++)
+				for (var dx = -12; dx <= 12; dx++)
+				{
+					var squaredDistance = dx * dx + dy * dy;
+					if (squaredDistance < 121 || squaredDistance > 156)
+						continue;
+					var x = 2 * anchor.X + dx;
+					var y = 2 * anchor.Y + dy;
+					if (x < 0 || y < 0 || x >= map.Width * 2 || y >= map.Height * 2 ||
+						map.NativeTerrainIntents[4 * ((y / 2) * map.Width + x / 2) + (y % 2) * 2 + x % 2] ==
+							RmgNativeTerrainIntent.Water)
+						continue;
+					var angle = Math.Atan2(dy, dx) + Math.PI;
+					sectors[Math.Min(7, (int)(angle / (Math.PI / 4)))] = true;
+				}
+			return sectors.All(open => open);
 		}
 
 		static void AssertNaturalV10SurfaceAuthority(RmgLogicalMap map, RmgNativeTerrainIntent[] terrain,

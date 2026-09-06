@@ -7,6 +7,9 @@ param(
     [string]$OutputRoot,
     [ValidateRange(1, 8)]
     [int]$Players = 4,
+    [ValidateSet(128, 256)]
+    [int]$MapSize = 128,
+    [switch]$AlternatePlayers,
     [ValidateSet("balanced", "open-conflict", "tactical-crossroads")]
     [string]$Preset = "balanced",
     [ValidateSet("open-fields", "contested-center")]
@@ -257,10 +260,10 @@ for ($index = 0; $index -lt $selectedSeeds.Count; $index++)
     $debugPreviewPath = Join-Path $directory "debug-preview.png"
 
     $settings = [ordered]@{
-        schema_version = 3
+        schema_version = $(if ($MapSize -eq 256) { 4 } else { 3 })
         preset = $Preset
         seed = $seed.ToString([Globalization.CultureInfo]::InvariantCulture)
-        players = $Players
+        players = $(if ($AlternatePlayers) { if ($index % 2 -eq 0) { 4 } else { 2 } } else { $Players })
         symmetry = "automatic"
         layout = $BattlefieldPlan
         layout_family = $LayoutFamily
@@ -273,6 +276,7 @@ for ($index = 0; $index -lt $selectedSeeds.Count; $index++)
         $settings.original_surface_relations = $OriginalSurfaceRelations
     }
 
+    if ($MapSize -eq 256) { $settings.size = "256,256" }
     $settings | ConvertTo-Json | Set-Content -LiteralPath $settingsPath -Encoding UTF8
     $stopwatch = [Diagnostics.Stopwatch]::StartNew()
     $previousErrorActionPreference = $ErrorActionPreference
@@ -338,11 +342,14 @@ for ($index = 0; $index -lt $selectedSeeds.Count; $index++)
         run = $run
         seed = $seed.ToString([Globalization.CultureInfo]::InvariantCulture)
         mechanical_status = "passed"
+        map_size = $MapSize
+        players = $settings.players
         morphology = $report.natural_landscape.variant
         boundary_risk = $report.validation.metrics.natural_visual_risk
         longest_water_run = $report.validation.metrics.natural_water_longest_run_native
         projection_changed_percent = $report.validation.metrics.natural_projection_changed_percent
         generation_ms = [Math]::Round($stopwatch.Elapsed.TotalMilliseconds, 1)
+        engine_generation_ms = $report.performance.total_ms
         water_percent = [Math]::Round([double]$report.blocking_topology.obstacle_density_percent, 3)
         interior_water_percent = [Math]::Round([double]$report.blocking_topology.interior_density_percent, 3)
         water_bodies = [int]$report.blocking_topology.water_body_count
@@ -377,6 +384,8 @@ $manifest = [ordered]@{
     configuration = [ordered]@{
         preset = $Preset
         players = $Players
+        alternate_players = [bool]$AlternatePlayers
+        map_size = $MapSize
         battlefield_plan = $BattlefieldPlan
         layout_family = $LayoutFamily
         neutral_colony_density = $NeutralColonyDensity

@@ -81,6 +81,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 	public sealed class RmgGenerationSettings
 	{
 		public ulong Seed { get; set; }
+		public int MapSize { get; set; } = 128;
 		public int PlayerCount { get; set; } = 2;
 		public RmgSymmetry Symmetry { get; set; } = RmgSymmetry.MirrorHorizontal;
 		public RmgArchetype Archetype { get; set; } = RmgArchetype.Open;
@@ -118,6 +119,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				fields.Add($"layout-family={RmgPlayerSettingsContract.LayoutFamilyName(LayoutFamily)}");
 			if (GeneratorVersion >= 9)
 				fields.Add($"original-surface-relations={OriginalSurfaceRelations.ToString().ToLowerInvariant()}");
+
+			if (MapSize != 128)
+				fields.Add($"size={MapSize},{MapSize}");
 
 			return string.Join("\n", fields);
 		}
@@ -241,6 +245,15 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			_ => 0
 		};
 
+		public static RmgProfile Load(ModData modData, RmgGenerationSettings settings)
+		{
+			if (settings.MapSize == 128)
+				return Load(modData, settings.TopologyPreset);
+			if (settings.MapSize == 256 && settings.TopologyPreset == RmgTopologyPreset.NaturalTerrainV10)
+				return Load(modData, "sa|rmg/normal-natural-landscape-v10-256.yaml");
+			throw new ArgumentException("256x256 is supported only by Natural Landscape V10; other sizes remain unsupported.");
+		}
+
 		public static RmgProfile Load(ModData modData, RmgTopologyPreset topologyPreset) =>
 			Load(modData, topologyPreset switch
 			{
@@ -357,10 +370,12 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var version7 = ProfileId == "normal-parameterized-battlefield-v7" && ConfigurationVersion == 1 && GeneratorVersion == 7;
 			var version8 = ProfileId == "normal-coherent-water-v8" && ConfigurationVersion == 1 && GeneratorVersion == 8;
 			var version9 = ProfileId == "normal-natural-landscape-v9" && ConfigurationVersion == 1 && GeneratorVersion == 9;
-			var version10 = ProfileId == "normal-natural-landscape-v10" && ConfigurationVersion == 1 && GeneratorVersion == 10;
+			var largeNatural = ProfileId == "normal-natural-landscape-v10-256" && ConfigurationVersion == 1 && GeneratorVersion == 10;
+			var version10 = (ProfileId == "normal-natural-landscape-v10" || largeNatural) && ConfigurationVersion == 1 && GeneratorVersion == 10;
 			if (!version1 && !version2 && !version3 && !version4 && !version5 && !version6 && !version7 && !version8 && !version9 && !version10)
 				throw new InvalidOperationException("Only frozen Generator Versions 1 through 9 and opt-in Version 10 layout-family profiles are supported.");
-			if (Tileset != "NORMAL" || PlayableWidth != 128 || PlayableHeight != 128 || CordonWidth != 2 || LogicalWidth != 64 || LogicalHeight != 64)
+			var size = largeNatural ? 256 : 128;
+			if (Tileset != "NORMAL" || PlayableWidth != size || PlayableHeight != size || CordonWidth != 2 || LogicalWidth != size / 2 || LogicalHeight != size / 2)
 				throw new InvalidOperationException("The Version 1 geometry or tileset was changed without a contract revision.");
 			if (version1 && (ObstacleDensity != 0 || VegetationDensity != 0))
 				throw new InvalidOperationException("Version 1 is Clear-only: obstacle and vegetation density must be zero.");
@@ -373,7 +388,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				ObstacleRegionMinimumLogical != 8)) || MaximumTopologyAttempts != 4 ||
 				MaximumRepairOperations != 8 || MaximumRepairCellsLogical != 64 || ColonyCombatSafetyBufferNative != 1))
 				throw new InvalidOperationException("The blocking-topology or combat-space constants do not match the accepted contract.");
-			if ((!version1 && !version8 && !version9 && !version10 && ObstacleRegionMaximumLogical != 64) || ((version8 || version9 || version10) && ObstacleRegionMaximumLogical != 1024))
+			if ((!version1 && !version8 && !version9 && !version10 && ObstacleRegionMaximumLogical != 64) || ((version8 || version9 || version10) && ObstacleRegionMaximumLogical != (largeNatural ? 4096 : 1024)))
 				throw new InvalidOperationException("Obstacle-region capacity does not match the selected frozen layout-family contract.");
 			if (version2 && (OpenWaterDetailTemplateIds.Length != 0 || ShorelineDecorationPercent != 0 || OpenWaterDetailPercent != 0))
 				throw new InvalidOperationException("The frozen Version 2 profile cannot enable Version 3 visual decoration.");

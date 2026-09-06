@@ -4,9 +4,9 @@
 
 Phase 8C provides the merged in-game Random Map Generator panel and player-settings schema version 3. Structured Competitive Version 8 and frozen Artificial Battlefield Version 7 are functional. Natural Landscape Version 10 is the user-approved integration checkpoint, with the experimental UI label retained; Version 9 remains available as a historical generator baseline. Balanced, Open Conflict, and Tactical Crossroads presets; 2/4 players; Automatic or explicit symmetry; Open Fields or Contested Center battlefield plan; constrained neutral-colony density; Water Amount; Tactical Terrain; and seed are implemented. The [corrected Phase 8C contract](PHASE_8C_STRUCTURED_COMPETITIVE_COHERENT_WATER.md) remains authoritative for the frozen V7/V8 schema-version-3 baseline; schema versions 1 and 2 remain compatibility contracts.
 
-Chokepoint intensity, hostile amount, cosmetic-detail intensity, additional sizes, and tilesets remain proposals or disabled placeholders. They must not be presented as functional until their generator contracts and validation gates exist. V10 Natural Landscape remains explicitly experimental after this checkpoint; broader setting coverage and live gameplay validation are still ongoing.
+Natural Landscape now has a size-specific 256 x 256 implementation for 2/4 players using schema 4; see [the large-map contract and verification record](NATURAL_LANDSCAPE_256.md). Existing 128 x 128 requests keep schema 3. Hostile controls and game-option presets are independent lobby settings, not RMG parameters. Chokepoint intensity, cosmetic-detail intensity, 64 x 64, and other tilesets remain proposals or disabled placeholders. They must not be presented as functional until their generator contracts and validation gates exist. V10 Natural Landscape remains explicitly experimental after this checkpoint; broader setting coverage and live gameplay validation are still ongoing.
 
-The objective is to let a player choose recognizable gameplay outcomes without exposing coupled generator internals. Connectivity, combat-space safety, production exits, symmetry fairness, weighted movement parity, legal asset boundaries, and bounded validation remain mandatory and must never become optional player settings.
+The objective is to let a player choose recognizable gameplay outcomes without exposing coupled generator internals. Connectivity, combat-space safety, production exits, legal asset boundaries, and bounded validation remain mandatory. Symmetry fairness and weighted movement parity belong to Structured Competitive and Artificial Battlefield; Natural Landscape is intentionally asymmetric and is not bounded by competitive fairness.
 
 ## Recommended interface model
 
@@ -22,6 +22,7 @@ Most players should be able to choose a preset, press Generate, inspect a previe
 | Parameter | Recommended control | Initial choices | Player-facing meaning | Readiness |
 | --- | --- | --- | --- | --- |
 | Generation preset | Dropdown | Balanced, Open Conflict, Tactical Crossroads, Narrow Passages | Sets a coherent combination of layout, Water, slow terrain, colonies, and chokepoints | First three implemented; Narrow Passages deferred |
+| Map size | Dropdown | 128 x 128; 256 x 256 for Natural Landscape | Changes playable area, not native unit or building scale | 128 retained; 256 implementation and validation described in the large-map contract |
 | Players | Segmented buttons | 2, 4 | Number of supported starting positions | Implemented in schema v1 |
 | Layout family | Dropdown | Natural Landscape, Structured Competitive, Artificial Battlefield | Selects the organic terrain-first family, V8 coherent-Water competitive layout, or frozen V7 engineered tactical-pool layout | Natural V10 approved checkpoint, still experimental; Structured and Artificial implemented in schema v3 |
 | Battlefield plan | Dropdown | Open Fields, Contested Center, Mixed Fronts, Narrow Passages | Controls battlefield regions, likely travel lanes, flank structure, and contest areas inside the selected family | Open Fields and Contested Center implemented; others deferred |
@@ -41,7 +42,7 @@ With **Original surface relations** enabled in experimental V10 Natural Landscap
 | Parameter | Recommended control | Choices | Notes |
 | --- | --- | --- | --- |
 | Symmetry | Dropdown | Automatic, Horizontal, Vertical, Rotational | Implemented in schema v1; Automatic deterministically chooses a legal mode. |
-| Exact neutral colonies | Constrained numeric selector | Legal values derived from player count | Two-player maps currently support even values from 8 through 20; four-player maps support values from 12 through 24 divisible by four. |
+| Exact neutral colonies | Constrained numeric selector | Legal values derived from player count | At 128 x 128, targets are even values 8-20 for two players and multiples of four 12-24 for four players. At 256 x 256 Natural Landscape, corresponding target ranges are 24-60 and 36-72. Actual colony counts may be reduced safely. |
 | Starting distance | Three-state selector | Close, Standard, Far | Add only after the layout generator can preserve combat safety and useful intermediate objectives at every distance. |
 | Slow-terrain character | Dropdown | Mixed, Rock-heavy, Vegetation-heavy | Add only after independent coverage ranges and transition capacity are validated. Vegetation must retain a Rock envelope. |
 | Map name | Optional text field | Generated default or user value | The seed and preset should remain visible in metadata even when a custom title is used. |
@@ -52,7 +53,7 @@ Advanced choices should override the selected preset visibly. The UI should offe
 
 ### Map size
 
-The current generator and test contracts are fixed at 128 by 128 native cells. A disabled `Large (128 x 128)` readout is acceptable during development, but an active size selector would promise unsupported behavior. Add Small and Medium only after colony clearances, route width, terrain morphology, performance limits, previews, and validation campaigns are recalibrated for each size.
+The 128 x 128 baseline remains unchanged. The new 256 x 256 Natural Landscape profile is covered by its [separate contract](NATURAL_LANDSCAPE_256.md); it does not extend frozen V7/V8 sizes. 64 x 64 and larger sizes remain deferred. Do not infer support for additional player counts from the larger area.
 
 ### Tileset or biome
 

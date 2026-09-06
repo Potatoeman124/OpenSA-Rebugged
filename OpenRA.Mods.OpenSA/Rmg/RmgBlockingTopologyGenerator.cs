@@ -1461,11 +1461,12 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var smallWaterBodyShare = totalWaterComponentCells == 0 ? 0D :
 				100D * components.Where(component => component.Count < smallWaterBodyThreshold)
 					.Sum(component => component.Count) / totalWaterComponentCells;
+			var maximumWaterBodies = settings.MapSize == 256 ? 24 : 12;
 			if ((profile.UsesCoherentWaterMorphology || profile.UsesNaturalTerrainMorphology) &&
-				(components.Count > 12 || largestWaterBodyShare < 20D || smallWaterBodyShare > 15D))
+				(components.Count > maximumWaterBodies || largestWaterBodyShare < 20D || smallWaterBodyShare > 15D))
 				Hard("NATURAL_WATER_MORPHOLOGY",
 					$"{(profile.UsesNaturalTerrainMorphology ? "Natural Landscape" : "Structured Competitive")} produced " +
-					$"{components.Count} Water bodies, {largestWaterBodyShare:F2}% largest-body share, " +
+					$"{components.Count} Water bodies (maximum {maximumWaterBodies}), {largestWaterBodyShare:F2}% largest-body share, " +
 					$"and {smallWaterBodyShare:F2}% small-body share.");
 			foreach (var component in components)
 				if (component.Count < profile.ObstacleRegionMinimumLogical || component.Count > profile.ObstacleRegionMaximumLogical)

@@ -90,7 +90,7 @@ The ignored V9 negative-control corpus at `artifacts/rmg/visual-review/v10-harne
 
 ## Current first-iteration limitation
 
-The NORMAL materializer still selects 2x2 native transition templates from a 64x64 logical semantic lattice. V10 now generates continuous-valued fields directly on that lattice and retains their priorities through terrain-aware gameplay embedding, but it does not yet assign 128x128 native terrain semantics independently. Finer-than-template morphology would require a separate transition-catalogue and materializer expansion rather than another field-weight adjustment.
+The NORMAL materializer still selects 2x2 native transition templates: a 64x64 logical semantic lattice for 128x128 maps, or a 128x128 lattice for the [256x256 extension](NATURAL_LANDSCAPE_256.md). V10 now generates continuous-valued fields directly on that lattice and retains their priorities through terrain-aware gameplay embedding, but it does not yet assign 128x128 native terrain semantics independently. Finer-than-template morphology would require a separate transition-catalogue and materializer expansion rather than another field-weight adjustment.
 
 ## V10.1 candidate and boundary revision
 
