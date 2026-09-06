@@ -20,18 +20,19 @@ namespace OpenRA.Mods.OpenSA.Traits
 		public override object Create(ActorInitializer init) { return new PirateAnt(init.Self); }
 	}
 
-	class PirateAnt : INotifyAddedToWorld, INotifyActorDisposing
+	class PirateAnt : INotifyAddedToWorld, INotifyActorDisposing, INotifyKilled, INotifyRemovedFromWorld
 	{
 		readonly PirateSpawner spawner;
 		readonly Mobile mobile;
 		bool disposed;
 
 		public int AntHoleAmount;
+		public LobbyHostiles SpawnBudget;
 
 		public PirateAnt(Actor self)
 		{
 			mobile = self.Trait<Mobile>();
-			spawner = self.World.WorldActor.Trait<PirateSpawner>();
+			spawner = self.World.WorldActor.TraitOrDefault<PirateSpawner>();
 		}
 
 		void INotifyAddedToWorld.AddedToWorld(Actor self)
@@ -44,15 +45,19 @@ namespace OpenRA.Mods.OpenSA.Traits
 				mobile.Nudge(self);
 		}
 
-		void INotifyActorDisposing.Disposing(Actor self)
+		void INotifyKilled.Killed(Actor self, AttackInfo e) => Release();
+		void INotifyRemovedFromWorld.RemovedFromWorld(Actor self) => Release();
+		void INotifyActorDisposing.Disposing(Actor self) => Release();
+
+		void Release()
 		{
 			if (disposed)
 				return;
 
-			if (AntHoleAmount == 0)
-				return;
-
-			spawner.DecreaseActorCount(1 / AntHoleAmount);
+			if (SpawnBudget != null)
+				SpawnBudget.ReleasePirates(1);
+			else if (AntHoleAmount > 0)
+				spawner?.DecreaseActorCount(1f / AntHoleAmount);
 			disposed = true;
 		}
 	}

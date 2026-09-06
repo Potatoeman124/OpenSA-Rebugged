@@ -132,7 +132,9 @@ ChromeLayout:
 	common|chrome/lobby-mappreview.yaml
 	common|chrome/playerprofile.yaml
 	sa|chrome/lobby-players.yaml
-	common|chrome/lobby-options.yaml
+	sa|chrome/lobby-options.yaml
+	sa|chrome/hostile-options.yaml
+	sa|chrome/lobby-presets.yaml
 	common|chrome/lobby-music.yaml
 	common|chrome/lobby-servers.yaml
 	common|chrome/lobby-kickdialogs.yaml

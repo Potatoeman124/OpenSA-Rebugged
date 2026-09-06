@@ -212,20 +212,12 @@ Background@SERVER_LOBBY:
 					Text: Standard (planned)
 					TooltipContainer: TOOLTIP_CONTAINER
 					TooltipText: Placeholder only. Chokepoint amount is not connected to the current generator contract.
-				Label@RMG_HOSTILES_LABEL:
+				Label@RMG_HOSTILES_NOTE:
 					X: 410
 					Y: 195
-					Width: 155
+					Width: 380
 					Height: 28
-					Text: Amount of Hostiles
-				DropDownButton@RMG_HOSTILES:
-					X: 570
-					Y: 195
-					Width: 220
-					Height: 28
-					Text: Standard (planned)
-					TooltipContainer: TOOLTIP_CONTAINER
-					TooltipText: Placeholder only. Hostile amount is not connected to the current generator contract.
+					Text: Hostiles are configured in lobby Options.
 				Label@RMG_SEED_LABEL:
 					X: 410
 					Y: 235

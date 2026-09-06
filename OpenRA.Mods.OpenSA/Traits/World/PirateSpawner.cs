@@ -73,7 +73,7 @@ namespace OpenRA.Mods.OpenSA.Traits.World
 
 		void ITick.Tick(Actor self)
 		{
-			if (IsTraitDisabled || !enabled)
+			if (self.TraitOrDefault<LobbyHostiles>()?.Active == true || IsTraitDisabled || !enabled)
 				return;
 
 			if (info.Maximum < 1 || actorsPresent >= info.Maximum)

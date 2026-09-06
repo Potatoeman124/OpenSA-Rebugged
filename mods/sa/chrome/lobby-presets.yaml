@@ -1,0 +1,105 @@
+Background@LOBBY_PRESETS_PANEL:
+	Logic: LobbyOptionPresetsLogic
+	X: (WINDOW_RIGHT - WIDTH) / 2
+	Y: (WINDOW_BOTTOM - HEIGHT) / 2
+	Width: 760
+	Height: 540
+	Background: dialog
+	Children:
+		Label@TITLE:
+			X: 20
+			Y: 14
+			Width: PARENT_RIGHT - 40
+			Height: 26
+			Text: Game Option Presets
+			Font: Bold
+			Align: Center
+		Label@HELP:
+			X: 20
+			Y: 48
+			Width: PARENT_RIGHT - 40
+			Height: 44
+			VAlign: Top
+			WordWrap: True
+			Text: Saves all applied game options and hostile settings. Apply hostile edits first. Player slots, the map and RMG generation settings are not included.
+		Label@SAVED_LABEL:
+			X: 20
+			Y: 97
+			Width: 500
+			Height: 22
+			Text: Saved preset
+			Font: Bold
+		DropDownButton@PRESETS:
+			X: 20
+			Y: 121
+			Width: 560
+			Height: 28
+		Button@REFRESH:
+			X: 600
+			Y: 121
+			Width: 140
+			Height: 28
+			Text: Refresh list
+		Button@LOAD:
+			X: 20
+			Y: 159
+			Width: 140
+			Height: 28
+			Text: Load preset
+		Label@LOAD_HELP:
+			X: 172
+			Y: 161
+			Width: 568
+			Height: 36
+			VAlign: Top
+			WordWrap: True
+			Text: Host only. Applies compatible values; locked or unavailable options are skipped and listed below.
+		Label@NAME_LABEL:
+			X: 20
+			Y: 202
+			Width: 550
+			Height: 22
+			Text: Save current options as (letters, digits, spaces, - or _)
+			Font: Bold
+		TextField@NAME:
+			X: 20
+			Y: 227
+			Width: 560
+			Height: 28
+			MaxLength: 80
+		Button@SAVE:
+			X: 600
+			Y: 227
+			Width: 140
+			Height: 28
+			Text: Save to file
+		Checkbox@REPLACE:
+			X: 24
+			Y: 267
+			Width: 650
+			Height: 22
+			Text: Replace existing file with this name
+		ScrollPanel@DETAILS:
+			X: 20
+			Y: 302
+			Width: PARENT_RIGHT - 40
+			Height: 160
+			Children:
+				Label@STATUS:
+					X: 10
+					Y: 8
+					Width: PARENT_RIGHT - 40
+					Height: 130
+					VAlign: Top
+		Button@COPY_FOLDER:
+			X: 20
+			Y: PARENT_BOTTOM - 46
+			Width: 190
+			Height: 28
+			Text: Copy folder path
+		Button@CLOSE:
+			X: PARENT_RIGHT - 160
+			Y: PARENT_BOTTOM - 46
+			Width: 140
+			Height: 28
+			Text: Close
