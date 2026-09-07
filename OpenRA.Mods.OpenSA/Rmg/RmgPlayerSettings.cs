@@ -110,7 +110,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			}
 
 			if (SchemaVersion >= 5 && LayoutFamily == RmgPlayerLayoutFamily.NaturalLandscape)
-				json["terrain_complexity"] = TerrainComplexity.ToString().ToLowerInvariant();
+				json["terrain_complexity"] = RmgPlayerSettingsContract.ComplexityName(TerrainComplexity, SchemaVersion >= 7);
 
 			if (SchemaVersion >= 4)
 				json["size"] = $"{MapSize},{MapSize}";
@@ -159,14 +159,14 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			["overrides"] = new JArray(Overrides),
 			["warnings"] = new JArray()
 			};
-			if (Normalized.GeneratorVersion is 11 or 12)
+			if (Normalized.GeneratorVersion is 11 or 12 or 13)
 			{
 				var normalized = (JObject)json["normalized"];
 				normalized.Remove("tactical_terrain");
 				normalized.Remove("symmetry");
 				normalized.Remove("archetype");
 				normalized["gravel_moss_amount"] = RmgPlayerSettingsContract.ParameterLevelName(Normalized.TacticalTerrain);
-				normalized["terrain_complexity"] = Normalized.TerrainComplexity.ToString().ToLowerInvariant();
+				normalized["terrain_complexity"] = RmgPlayerSettingsContract.ComplexityName(Normalized.TerrainComplexity, Normalized.GeneratorVersion == 13);
 			}
 			return json;
 		}
@@ -174,7 +174,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 	public static class RmgPlayerSettingsContract
 	{
-		public const int SchemaVersion = 6;
+		public const int SchemaVersion = 7;
 		public const int MinimumSchemaVersion = 1;
 
 		static readonly HashSet<string> AllowedFields = new(new[]
@@ -294,7 +294,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				TacticalTerrain = schemaVersion >= 2 ?
 					ParsePlayerParameterLevel(OptionalText(json, schemaVersion >= 5 ? "gravel_moss_amount" : "tactical_terrain", "preset"), "gravel_moss_amount") :
 					RmgPlayerParameterLevel.Preset,
-				TerrainComplexity = ParseComplexity(OptionalText(json, "terrain_complexity", "standard")),
+				TerrainComplexity = ParseComplexity(OptionalText(json, "terrain_complexity", schemaVersion >= 7 ? "medium" : "standard"), schemaVersion),
 				OriginalSurfaceRelations = OptionalBool(json, "original_surface_relations", true)
 			};
 		}
@@ -336,24 +336,27 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				RmgLayoutFamily.ArtificialBattlefield;
 			var version = layoutFamily switch
 			{
-				RmgLayoutFamily.NaturalLandscape => requested.SchemaVersion >= 6 ? 12 : requested.SchemaVersion >= 5 ? 11 : 10,
+				RmgLayoutFamily.NaturalLandscape => requested.SchemaVersion >= 7 ? 13 : requested.SchemaVersion >= 6 ? 12 : requested.SchemaVersion >= 5 ? 11 : 10,
 				RmgLayoutFamily.StructuredCompetitive => 8,
 				_ => requested.SchemaVersion >= 2 ? 7 : 6
 			};
-			if (version is 11 or 12 && (requested.Layout != RmgPlayerLayout.Preset || requested.Symmetry != RmgPlayerSymmetry.Automatic))
+			if (version is 11 or 12 or 13 && (requested.Layout != RmgPlayerLayout.Preset || requested.Symmetry != RmgPlayerSymmetry.Automatic))
 				throw new ArgumentException("Regions has no Battlefield Plan or symmetry setting; use preset layout and automatic symmetry.");
+			if (!Enum.IsDefined(requested.TerrainComplexity) ||
+				(requested.TerrainComplexity > Reassessment.TerrainComplexity.High && version != 13))
+				throw new ArgumentException("Extended Terrain Complexity requires schema 7 and Natural Landscape.");
 			var normalized = new RmgGenerationSettings
 			{
 				Seed = requested.Seed,
 				MapSize = requested.MapSize,
 				PlayerCount = requested.PlayerCount,
-				Symmetry = version is 11 or 12 ? RmgSymmetry.MirrorHorizontal : symmetry,
-				Archetype = version is 11 or 12 ? RmgArchetype.Open : archetype,
+				Symmetry = version is 11 or 12 or 13 ? RmgSymmetry.MirrorHorizontal : symmetry,
+				Archetype = version is 11 or 12 or 13 ? RmgArchetype.Open : archetype,
 				NeutralColonyCount = colonies,
 				GeneratorVersion = version,
 				TopologyPreset = version switch
 				{
-					11 or 12 => RmgTopologyPreset.NaturalRegions,
+					11 or 12 or 13 => RmgTopologyPreset.NaturalRegions,
 					10 => RmgTopologyPreset.NaturalTerrainV10,
 					9 => RmgTopologyPreset.NaturalTerrain,
 					8 => RmgTopologyPreset.CoherentWater,
@@ -378,23 +381,42 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (requested.WaterAmount != RmgPlayerParameterLevel.Preset)
 				overrides.Add("water_amount");
 			if (requested.TacticalTerrain != RmgPlayerParameterLevel.Preset)
-				overrides.Add(version is 11 or 12 ? "gravel_moss_amount" : "tactical_terrain");
+				overrides.Add(version is 11 or 12 or 13 ? "gravel_moss_amount" : "tactical_terrain");
 			if (requested.Symmetry != RmgPlayerSymmetry.Automatic)
 				overrides.Add("symmetry");
 
-			if (version is 11 or 12)
+			if (version is 11 or 12 or 13)
 				overrides.Add("terrain_complexity");
 			var resolution = new RmgPlayerSettingsResolution(requested, normalized, overrides);
 			normalized.PlayerSettingsResolution = resolution;
 			return resolution;
 		}
 
-		static Reassessment.TerrainComplexity ParseComplexity(string text) => text switch
+		public static string ComplexityName(Reassessment.TerrainComplexity value, bool extended) => value switch
 		{
-			"low" => Reassessment.TerrainComplexity.Low,
-			"standard" => Reassessment.TerrainComplexity.Standard,
+			Reassessment.TerrainComplexity.Low => extended ? "small" : "low",
+			Reassessment.TerrainComplexity.Standard => extended ? "medium" : "standard",
+			Reassessment.TerrainComplexity.High => "high",
+			Reassessment.TerrainComplexity.Extreme when extended => "extreme",
+			Reassessment.TerrainComplexity.Ultra when extended => "ultra",
+			_ => throw new ArgumentException("Unsupported Terrain Complexity.")
+		};
+
+		public static string ComplexityDisplayName(Reassessment.TerrainComplexity value, bool extended) =>
+			extended && value == Reassessment.TerrainComplexity.Low ? "Small" :
+			extended && value == Reassessment.TerrainComplexity.Standard ? "Medium" : value.ToString();
+
+		static Reassessment.TerrainComplexity ParseComplexity(string text, int schema) => text switch
+		{
+			"small" when schema >= 7 => Reassessment.TerrainComplexity.Low,
+			"medium" when schema >= 7 => Reassessment.TerrainComplexity.Standard,
+			"extreme" when schema >= 7 => Reassessment.TerrainComplexity.Extreme,
+			"ultra" when schema >= 7 => Reassessment.TerrainComplexity.Ultra,
+			"low" when schema < 7 => Reassessment.TerrainComplexity.Low,
+			"standard" when schema < 7 => Reassessment.TerrainComplexity.Standard,
 			"high" => Reassessment.TerrainComplexity.High,
-			_ => throw new ArgumentException("terrain_complexity must be low, standard, or high.")
+			_ => throw new ArgumentException(schema >= 7 ? "terrain_complexity must be small, medium, high, extreme, or ultra." :
+				"terrain_complexity must be low, standard, or high.")
 		};
 
 		public static IReadOnlyList<string> RunSelfTests()

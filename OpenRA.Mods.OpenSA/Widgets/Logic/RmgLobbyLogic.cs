@@ -305,12 +305,14 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					MarkStale();
 				});
 
-			complexityButton.GetText = () => complexity.ToString();
+			complexityButton.GetText = () => RmgPlayerSettingsContract.ComplexityDisplayName(complexity, true);
 			BindDropDown(complexityButton, new[]
 			{
-				new Choice<TerrainComplexity>(TerrainComplexity.Low, "Low"),
-				new Choice<TerrainComplexity>(TerrainComplexity.Standard, "Standard"),
-				new Choice<TerrainComplexity>(TerrainComplexity.High, "High")
+				new Choice<TerrainComplexity>(TerrainComplexity.Low, "Small"),
+				new Choice<TerrainComplexity>(TerrainComplexity.Standard, "Medium"),
+				new Choice<TerrainComplexity>(TerrainComplexity.High, "High"),
+				new Choice<TerrainComplexity>(TerrainComplexity.Extreme, "Extreme"),
+				new Choice<TerrainComplexity>(TerrainComplexity.Ultra, "Ultra")
 			}, () => complexity, value => { complexity = value; presetCustomized = true; MarkStale(); });
 			foreach (var id in new[] { "RMG_LAYOUT", "RMG_LAYOUT_LABEL" })
 				lobby.Get(id).IsVisible = () => layoutFamily != RmgPlayerLayoutFamily.NaturalLandscape;
@@ -501,7 +503,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 
 				var playerSettings = new RmgPlayerSettings
 				{
-					SchemaVersion = layoutFamily == RmgPlayerLayoutFamily.NaturalLandscape ? 6 : 3,
+					SchemaVersion = layoutFamily == RmgPlayerLayoutFamily.NaturalLandscape ? 7 : 3,
 					MapSize = size == SizeChoice.Large ? 256 : 128,
 					Preset = preset,
 					Seed = seed,
@@ -513,7 +515,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					NeutralColonyDensity = colonyDensity,
 					WaterAmount = waterAmount,
 					TacticalTerrain = tacticalTerrain,
-					TerrainComplexity = complexity,
+					TerrainComplexity = layoutFamily == RmgPlayerLayoutFamily.NaturalLandscape ? complexity : TerrainComplexity.Standard,
 					OriginalSurfaceRelations = originalSurfaceRelations
 				};
 				var settingsResolution = RmgPlayerSettingsContract.Resolve(playerSettings);
@@ -546,7 +548,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					var land = cells.Length - water;
 					var gravel = cells.Count(cell => cell == RmgNativeTerrainIntent.Rock);
 					var moss = cells.Count(cell => cell == RmgNativeTerrainIntent.Vegetation);
-					SetStatus($"Ready: Regions / {complexity} ({result.Performance.TotalMilliseconds / 1000d:0.0}s). " +
+					SetStatus($"Ready: Regions / {RmgPlayerSettingsContract.ComplexityDisplayName(complexity, true)} ({result.Performance.TotalMilliseconds / 1000d:0.0}s). " +
 						$"Water {100D * water / cells.Length:0.0}%; gravel/moss {100D * gravel / land:0.0}/{100D * moss / land:0.0}% of land; " +
 						$"colonies {placedColonies}/{settingsResolution.Normalized.NeutralColonyCount}. Land connections are not required.",
 						result.Generation.Validation.Warnings.Count > 0 ? StatusKind.Warning : StatusKind.Success);

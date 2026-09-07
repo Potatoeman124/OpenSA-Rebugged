@@ -491,7 +491,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (settings.GeneratorVersion != profile.GeneratorVersion)
 				throw new ArgumentException($"Generator Version {settings.GeneratorVersion} is not supported by profile {profile.ProfileId}.");
 			if (profile.UsesRegionsTerrain && (settings.TopologyPreset != RmgTopologyPreset.NaturalRegions ||
-				settings.LayoutFamily != RmgLayoutFamily.NaturalLandscape || !Enum.IsDefined(settings.TerrainComplexity)))
+				settings.LayoutFamily != RmgLayoutFamily.NaturalLandscape || (!Enum.IsDefined(settings.TerrainComplexity) ||
+				(settings.GeneratorVersion != 13 && settings.TerrainComplexity > Reassessment.TerrainComplexity.High))))
 				throw new ArgumentException("Regions requires Natural Landscape and a valid Terrain Complexity.");
 			if (profile.GeneratorVersion == 1 && settings.TopologyPreset != RmgTopologyPreset.Off)
 				throw new ArgumentException("Generator Version 1 requires TopologyPreset=off.");

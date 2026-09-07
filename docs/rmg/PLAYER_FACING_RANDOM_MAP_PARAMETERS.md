@@ -1,11 +1,13 @@
 # Player-facing random map parameters
 
-Current override (2026-09-07): the in-game Natural Landscape selection is [Regions V12](NATURAL_REGIONS_V12_CONTINUITY.md).
-Terrain Complexity retains Low / Standard / High and now varies secondary terrain within stable seeded
-geography. Additional levels and recalibration are deferred. Gravel and Moss Amount remains independent;
-global connectivity and fairness parity are not requirements for Regions. RMG initializes Explored Map On
-and Fog of War Off after its first generated-map selection. Historical proposals below remain context for
-older generators; schema 5 still replays V11 and schema 6 selects V12.
+Current development override (2026-09-07): the in-game Natural Landscape selection on the extended-options
+branch is [Regions V13](NATURAL_REGIONS_V13_EXTENDED_OPTIONS.md). Terrain Complexity offers **Small / Medium /
+High / Extreme / Ultra**, with Medium as the default and equivalent to accepted V12 High terrain. The seed's
+broad regional layout is shared across levels. Water Amount, Gravel and Moss Amount, and Neutral Colony
+Density retain their existing ranges. Global connectivity and fairness parity are not requirements for
+Regions. RMG initializes Explored Map On and Fog of War Off after its first generated-map selection.
+The user-accepted V12 checkpoint is frozen on main. Schema 5 replays V11, schema 6 replays V12 and schema 7
+selects V13; historical proposals below remain context for older generators.
 
 ## Status
 

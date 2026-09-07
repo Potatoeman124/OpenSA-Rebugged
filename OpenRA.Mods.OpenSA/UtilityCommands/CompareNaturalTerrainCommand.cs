@@ -28,7 +28,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			return ulong.TryParse(args[2], out _) &&
 				int.TryParse(args[3], out var size) && size is 128 or 256 &&
 				Enum.TryParse<TerrainConstruction>(args[4], true, out var method) && Enum.IsDefined(method) &&
-				Enum.TryParse<TerrainComplexity>(args[5], true, out var complexity) && Enum.IsDefined(complexity);
+				Enum.TryParse<TerrainComplexity>(args[5], true, out var complexity) && complexity is TerrainComplexity.Low or TerrainComplexity.Standard or TerrainComplexity.High;
 		}
 
 		[Desc("OUTPUT_DIR SEED SIZE Fields|Regions Low|Standard|High (or --self-test [FIXTURE_DIR])",
@@ -51,8 +51,8 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			if (args[1] == "--player-evidence")
 			{
 				var requested = RmgPlayerSettingsContract.Load(Path.GetFullPath(args[2])).Normalized;
-				if (requested.GeneratorVersion is not (11 or 12))
-					throw new ArgumentException("Player terrain evidence requires Regions V11/V12 settings.");
+				if (requested.GeneratorVersion is not (11 or 12 or 13))
+					throw new ArgumentException("Player terrain evidence requires Regions V11/V12/V13 settings.");
 				var profile = RmgProfile.Load(utility.ModData, requested);
 				var evidenceSettings = new TerrainComparisonSettings(requested.Seed, requested.MapSize,
 					TerrainConstruction.Regions, requested.TerrainComplexity)
@@ -61,7 +61,8 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 					GravelPercent = profile.RockLandPercentFor(requested.TacticalTerrain),
 					MossPercent = profile.VegetationLandPercentFor(requested.TacticalTerrain),
 					OriginalSurfaceRelations = requested.OriginalSurfaceRelations,
-					Continuity = requested.GeneratorVersion == 12
+					Continuity = requested.GeneratorVersion is 12 or 13,
+					ExtendedComplexity = requested.GeneratorVersion == 13
 				};
 				TerrainComparisonExport.Write(utility.ModData, TerrainComparison.Generate(utility.ModData, evidenceSettings), Path.GetFullPath(args[3]));
 				return;

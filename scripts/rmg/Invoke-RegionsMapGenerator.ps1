@@ -3,7 +3,7 @@ param(
     [Parameter(Mandatory = $true)][UInt64]$Seed,
     [ValidateSet(128, 256)][int]$MapSize = 256,
     [ValidateSet(2, 4)][int]$Players = 4,
-    [ValidateSet("low", "standard", "high")][string]$TerrainComplexity = "standard",
+    [ValidateSet("small", "medium", "high", "extreme", "ultra")][string]$TerrainComplexity = "medium",
     [ValidateSet("low", "standard", "high")][string]$WaterAmount = "standard",
     [ValidateSet("low", "standard", "high")][string]$GravelMossAmount = "standard",
     [ValidateSet("sparse", "standard", "dense")][string]$NeutralColonyDensity = "standard",
@@ -15,7 +15,7 @@ param(
 $ErrorActionPreference = "Stop"
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
-    $OutputDirectory = Join-Path $root "artifacts\rmg\regions-v12\$Seed-$MapSize-$Players-$TerrainComplexity-W$WaterAmount-G$GravelMossAmount-N$NeutralColonyDensity-R$OriginalSurfaceRelations"
+    $OutputDirectory = Join-Path $root "artifacts\rmg\regions-v13\$Seed-$MapSize-$Players-$TerrainComplexity-W$WaterAmount-G$GravelMossAmount-N$NeutralColonyDensity-R$OriginalSurfaceRelations"
 }
 [IO.Directory]::CreateDirectory($OutputDirectory) | Out-Null
 $settingsPath = Join-Path $OutputDirectory "settings.json"
@@ -23,7 +23,7 @@ if ((Test-Path -LiteralPath $settingsPath) -and !$Overwrite) {
     throw "Output already exists. Choose a new directory or pass -Overwrite."
 }
 [ordered]@{
-    schema_version = 6
+    schema_version = 7
     preset = "balanced"
     seed = $Seed.ToString([Globalization.CultureInfo]::InvariantCulture)
     size = "$MapSize,$MapSize"

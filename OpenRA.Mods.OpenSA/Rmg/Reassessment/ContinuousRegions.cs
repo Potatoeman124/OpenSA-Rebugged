@@ -33,17 +33,37 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 				regions.Add((x, y, r, aspect, Math.Cos(angle), Math.Sin(angle)));
 			}
 
-			var strength = settings.Complexity switch
+			var strength = settings.ExtendedComplexity ? settings.Complexity switch
+			{
+				TerrainComplexity.Low => .65,
+				TerrainComplexity.Standard => 1.15,
+				TerrainComplexity.High => 1.4,
+				TerrainComplexity.Extreme => 1.65,
+				TerrainComplexity.Ultra => 1.9,
+				_ => throw new ArgumentOutOfRangeException(nameof(settings))
+			} : settings.Complexity switch
 			{
 				TerrainComplexity.Low => 0D,
 				TerrainComplexity.Standard => .65,
 				TerrainComplexity.High => 1.15,
 				_ => throw new ArgumentOutOfRangeException(nameof(settings))
 			};
+			// Above Medium, add a fixed finer band rather than allowing the coarse
+			// displacement alone to dominate. Its positions/frequencies are seed-stable.
+			var fineStrength = settings.ExtendedComplexity ? settings.Complexity switch
+			{
+				TerrainComplexity.High => .4,
+				TerrainComplexity.Extreme => .85,
+				TerrainComplexity.Ultra => 1.3,
+				_ => 0D
+			} : 0D;
 			// Geological envelopes need broader interiors for the nested moss bank.
 			// Their detail contribution must not displace those interiors wholesale.
 			if (stream != 11)
+			{
 				strength *= .6;
+				fineStrength *= .6;
+			}
 			var result = new double[width * height];
 			for (var y = 0; y < height; y++)
 				for (var x = 0; x < width; x++)
@@ -71,6 +91,10 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 					// and shallower interiors split, branch, or acquire satellite patches.
 					var detailWeight = .25 + .75 * (1 - Math.Clamp(value, 0, 1));
 					result[y * width + x] = value + baseDetail + strength * detailWeight * detail;
+					if (fineStrength > 0)
+						result[y * width + x] += fineStrength * detailWeight *
+							(.75 * Noise(Mix(seed, 19), nx / 12D, ny / 12D) +
+							.25 * Noise(Mix(seed, 23), nx / 6D, ny / 6D));
 				}
 
 			return result;

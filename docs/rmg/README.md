@@ -10,18 +10,23 @@ The RMG must preserve that boundary: it may refer to terrain and actor identifie
 
 ## Current integration checkpoint
 
-Natural Landscape now uses **Regions V12** from the in-game RMG panel. The existing Low / Standard / High
-complexity levels share their seed's broad geography, with increasing secondary terrain variation and
-stable preferred starting sites. New complexity levels and middle-level recalibration are deferred.
+The accepted three-level **Regions V12** checkpoint was merged and pushed to `main` at
+`c34387a6f12a232418e80df6ba89d71fc8e13480` after user in-game acceptance on 2026-09-07.
 
-See [Regions V12 continuity](NATURAL_REGIONS_V12_CONTINUITY.md) for implementation, defaults, reproduction,
-verification and live-test limits. The panel retains 256 x 256, four players, Standard controls and grey neutral
-markers. The first generated-map selection initializes Explored Map On and Fog of War Off; later
-regenerations preserve deliberate user changes.
+Development on `codex/rmg-extended-options` now integrates **Regions V13** with five Terrain Complexity
+levels: **Small / Medium / High / Extreme / Ultra**. Medium is the default and reproduces V12 High terrain;
+Small reproduces V12 Standard terrain. Higher levels introduce stronger secondary features at fixed seeded
+positions. Water Amount, Gravel and Moss Amount, and Neutral Colony Density retain their existing ranges.
 
-Schema 6 selects V12. Schema 5 preserves [Regions V11](NATURAL_REGIONS_V11.md), and schemas 1-4 preserve their
-historical generator selections, including V10. Earlier phase reports below are chronological records;
-their global connectivity and competitive fairness rules do not govern Regions.
+See [Regions V13 extended complexity](NATURAL_REGIONS_V13_EXTENDED_OPTIONS.md) for the calibration,
+compatibility and verification record. The panel retains NORMAL, 256 x 256, four players, Balanced, Standard
+quantities, Original Surface Relations On and grey neutral markers. The first generated-map selection
+initializes Explored Map On and Fog of War Off; later regenerations preserve deliberate user changes.
+
+Schema 7 selects V13; schema 6 replays [Regions V12](NATURAL_REGIONS_V12_CONTINUITY.md); schema 5 preserves
+[Regions V11](NATURAL_REGIONS_V11.md). Schemas 1-4 retain their historical generator selections, including V10.
+Earlier phase reports below are chronological records; their global connectivity and competitive fairness
+rules do not govern Regions.
 
 ## Current map contract
 

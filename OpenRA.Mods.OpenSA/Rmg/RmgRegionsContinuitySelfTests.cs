@@ -25,7 +25,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 			foreach (var schema in new[] { 5, 6 })
 				foreach (var size in new[] { 128, 256 })
-					foreach (var complexity in Enum.GetValues<TerrainComplexity>())
+					foreach (var complexity in new[] { TerrainComplexity.Low, TerrainComplexity.Standard, TerrainComplexity.High })
 					{
 						var requested = new RmgPlayerSettings
 						{

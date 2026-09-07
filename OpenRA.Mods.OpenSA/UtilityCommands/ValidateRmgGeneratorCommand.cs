@@ -148,6 +148,10 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				failures.AddRange(continuityFailures);
 				Console.WriteLine($"regions-continuity-contract: {(continuityFailures.Count == 0 ? "PASS" : "FAIL")}");
 
+				var extendedFailures = RmgGenerator.RunRegionsExtendedSelfTests(utility.ModData);
+				failures.AddRange(extendedFailures);
+				Console.WriteLine($"regions-extended-contract: {(extendedFailures.Count == 0 ? "PASS" : "FAIL")}");
+
 				if (failures.Count > 0)
 				{
 					foreach (var failure in failures)

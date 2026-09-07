@@ -15,7 +15,7 @@ using Newtonsoft.Json.Linq;
 namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 {
 	public enum TerrainConstruction { Fields, Regions }
-	public enum TerrainComplexity { Low, Standard, High }
+	public enum TerrainComplexity { Low, Standard, High, Extreme, Ultra }
 
 	public sealed record TerrainComparisonSettings(ulong Seed, int Size, TerrainConstruction Method, TerrainComplexity Complexity)
 	{
@@ -24,9 +24,11 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 		public int MossPercent { get; init; } = 8;
 		public bool OriginalSurfaceRelations { get; init; } = true;
 		public bool Continuity { get; init; }
-		public string ConstructionId => Continuity ? "natural-regions-continuity-v12" : ExperimentId;
+		public bool ExtendedComplexity { get; init; }
+		public TerrainComparisonSettings ContinuityReference => this with { Complexity = TerrainComplexity.Low, ExtendedComplexity = false };
+		public string ConstructionId => ExtendedComplexity ? "natural-regions-extended-v13" : Continuity ? "natural-regions-continuity-v12" : ExperimentId;
 		public const string ExperimentId = "natural-reassessment-comparison-v1";
-		public string Identity => $"{ConstructionId}/seed={Seed}/size={Size}/method={Method}/complexity={Complexity}/water={WaterPercent}/rock={GravelPercent}/moss={MossPercent}/original={OriginalSurfaceRelations.ToString().ToLowerInvariant()}";
+		public string Identity => $"{ConstructionId}/seed={Seed}/size={Size}/method={Method}/complexity={RmgPlayerSettingsContract.ComplexityDisplayName(Complexity, ExtendedComplexity)}/water={WaterPercent}/rock={GravelPercent}/moss={MossPercent}/original={OriginalSurfaceRelations.ToString().ToLowerInvariant()}";
 
 		// Native cells: fixed gameplay scale, independent of map dimensions.
 		public double Scale => Continuity ? 64D : Complexity switch
@@ -54,10 +56,14 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 		{
 			if (settings.Size is not (128 or 256))
 				throw new ArgumentException("Terrain comparison supports 128 or 256 native cells.");
+			if (settings.ExtendedComplexity && !settings.Continuity)
+				throw new ArgumentException("Extended complexity requires continuous Regions.");
+			if (!Enum.IsDefined(settings.Complexity) || (!settings.ExtendedComplexity && settings.Complexity > TerrainComplexity.High))
+				throw new ArgumentException("This construction does not support the requested complexity.");
 			if (settings.Continuity && settings.Method != TerrainConstruction.Regions)
 				throw new ArgumentException("Continuity is supported only by Regions.");
-			if (settings.Continuity && settings.Complexity != TerrainComplexity.Low && reference == null)
-				reference = Generate(modData, settings with { Complexity = TerrainComplexity.Low }).Map;
+			if (settings.Continuity && (settings.ExtendedComplexity || settings.Complexity != TerrainComplexity.Low) && reference == null)
+				reference = Generate(modData, settings.ContinuityReference).Map;
 			var timer = Stopwatch.StartNew();
 			var width = settings.Size / 2;
 			var map = new RmgLogicalMap(width, width);
@@ -66,7 +72,7 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 			var mossFraction = settings.MossPercent / 100D;
 			var water = BuildPriorities(settings, width, width, 2, 11, waterFraction);
 			var geology = BuildPriorities(settings, width + 1, width + 1, 2, 29, geologyFraction);
-			var moistureSettings = settings.Continuity ? settings with { Complexity = TerrainComplexity.Low } : settings;
+			var moistureSettings = settings.Continuity ? settings.ContinuityReference : settings;
 			var moisture = BuildPriorities(moistureSettings, width + 1, width + 1, 2, 53, mossFraction);
 			var waterMask = Top(water, Enumerable.Repeat(true, water.Length).ToArray(), (int)Math.Round(water.Length * waterFraction));
 			Array.Copy(waterMask, map.Obstacles, waterMask.Length);
@@ -132,7 +138,7 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 			// grown to compensate for a moss shortfall.
 			// V12 keeps moisture centers tied to the seed's broad geology. Using the
 			// perturbed envelope priority here can relocate whole moss regions.
-			var mossGeology = settings.Continuity && settings.Complexity != TerrainComplexity.Low ?
+			var mossGeology = settings.Continuity && (settings.ExtendedComplexity || settings.Complexity != TerrainComplexity.Low) ?
 				BuildPriorities(moistureSettings, width + 1, width + 1, 2, 29, geologyFraction) : geology;
 			var mossPriority = mossGeology.Select((value, i) => value + .35 * moisture[i]).ToArray();
 			if (settings.Continuity && reference != null)
@@ -184,7 +190,7 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 				["seed"] = settings.Seed.ToString(),
 				["size"] = settings.Size,
 				["method"] = settings.Method.ToString(),
-				["complexity"] = settings.Complexity.ToString(),
+				["complexity"] = RmgPlayerSettingsContract.ComplexityDisplayName(settings.Complexity, settings.ExtendedComplexity),
 				["characteristic_scale_native"] = settings.Scale,
 				["status"] = "TERRAIN_COMPARISON_ONLY",
 				["accessibility_requirement"] = "NOT_REQUIRED",

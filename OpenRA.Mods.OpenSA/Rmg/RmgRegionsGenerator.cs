@@ -25,11 +25,12 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				GravelPercent = profile.RockLandPercentFor(settings.TacticalTerrain),
 				MossPercent = profile.VegetationLandPercentFor(settings.TacticalTerrain),
 				OriginalSurfaceRelations = settings.OriginalSurfaceRelations,
-				Continuity = settings.GeneratorVersion == 12
+				Continuity = settings.GeneratorVersion is 12 or 13,
+				ExtendedComplexity = settings.GeneratorVersion == 13
 			};
 			RmgLogicalMap reference = null;
-			if (settings.GeneratorVersion == 12 && settings.TerrainComplexity != TerrainComplexity.Low)
-				reference = TerrainComparison.Generate(Game.ModData, terrainSettings with { Complexity = TerrainComplexity.Low }).Map;
+			if (settings.GeneratorVersion == 13 || (settings.GeneratorVersion == 12 && settings.TerrainComplexity != TerrainComplexity.Low))
+				reference = TerrainComparison.Generate(Game.ModData, terrainSettings.ContinuityReference).Map;
 			var terrain = TerrainComparison.Generate(Game.ModData, terrainSettings, reference);
 			if (settings.GeneratorVersion == 12 && reference == null)
 				reference = terrain.Map;
@@ -52,7 +53,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				(candidates[i], candidates[j]) = (candidates[j], candidates[i]);
 			}
 
-			// V12 starts are anchored to the same Low-complexity terrain for every
+			// V12/V13 starts are anchored to the same Low-complexity terrain for every
 			// selection, so relocating one start cannot reorder the whole map.
 			var preferred = reference == null ? null : PreferredRegionStarts(profile, settings, reference, candidates);
 			var startCandidates = candidates.Where(sites.StartFits).ToArray();
@@ -149,8 +150,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			map.RegionsReport["placement_candidates"] = candidates.Count;
 			if (reference != null)
 			{
-				map.RegionsReport["geography_contract"] = "fixed-regions-bounded-detail-v12";
-				map.RegionsReport["preferred_start_reference"] = "same-settings-low-complexity";
+				map.RegionsReport["geography_contract"] = settings.GeneratorVersion == 13 ? "fixed-regions-extended-detail-v13" : "fixed-regions-bounded-detail-v12";
+				map.RegionsReport["preferred_start_reference"] = settings.GeneratorVersion == 13 ? "same-settings-v12-low-complexity" : "same-settings-low-complexity";
 				map.RegionsReport["start_displacement_native"] = new JArray(map.Starts.Select((point, i) =>
 					i < preferred.Count ? 2 * Math.Sqrt(RegionDistanceSquared(point, preferred[i])) : (double?)null));
 			}

@@ -109,18 +109,18 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				$"archetype={Archetype}",
 				$"colonies={NeutralColonyCount}"
 			};
-			if (GeneratorVersion is 11 or 12)
+			if (GeneratorVersion is 11 or 12 or 13)
 				fields.RemoveAll(field => field.StartsWith("symmetry=", StringComparison.Ordinal) || field.StartsWith("archetype=", StringComparison.Ordinal));
 			if (GeneratorVersion >= 2)
 				fields.Add($"topology={TopologyPreset}");
 			if (GeneratorVersion >= 7)
 			{
 				fields.Add($"water={RmgPlayerSettingsContract.ParameterLevelName(WaterAmount)}");
-				fields.Add($"{(GeneratorVersion is 11 or 12 ? "gravel-moss-amount" : "tactical-terrain")}={RmgPlayerSettingsContract.ParameterLevelName(TacticalTerrain)}");
+				fields.Add($"{(GeneratorVersion is 11 or 12 or 13 ? "gravel-moss-amount" : "tactical-terrain")}={RmgPlayerSettingsContract.ParameterLevelName(TacticalTerrain)}");
 			}
 
-			if (GeneratorVersion is 11 or 12)
-				fields.Add($"terrain-complexity={TerrainComplexity}");
+			if (GeneratorVersion is 11 or 12 or 13)
+				fields.Add($"terrain-complexity={RmgPlayerSettingsContract.ComplexityDisplayName(TerrainComplexity, GeneratorVersion == 13)}");
 
 			if (GeneratorVersion >= 8)
 				fields.Add($"layout-family={RmgPlayerSettingsContract.LayoutFamilyName(LayoutFamily)}");
@@ -207,8 +207,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public bool UsesParameterizedBattlefield => GeneratorVersion >= 7;
 		public bool UsesCoherentWaterMorphology => GeneratorVersion == 8;
 		public bool UsesNaturalTerrainMorphologyV10 => GeneratorVersion == 10;
-		public bool UsesRegionsTerrain => GeneratorVersion is 11 or 12;
-		public bool UsesNaturalTerrainMorphology => GeneratorVersion is 9 or 10 or 11 or 12;
+		public bool UsesRegionsTerrain => GeneratorVersion is 11 or 12 or 13;
+		public bool UsesNaturalTerrainMorphology => GeneratorVersion is 9 or 10 or 11 or 12 or 13;
 
 		public int ObstacleDensityTarget(RmgArchetype archetype, RmgParameterLevel waterAmount)
 		{
@@ -256,7 +256,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public static RmgProfile Load(ModData modData, RmgGenerationSettings settings)
 		{
 			if (settings.TopologyPreset == RmgTopologyPreset.NaturalRegions && settings.MapSize is 128 or 256)
-				return Load(modData, $"sa|rmg/normal-natural-regions-v{(settings.GeneratorVersion == 12 ? 12 : 11)}{(settings.MapSize == 256 ? "-256" : string.Empty)}.yaml");
+				return Load(modData, $"sa|rmg/normal-natural-regions-v{(settings.GeneratorVersion is 12 or 13 ? settings.GeneratorVersion : 11)}{(settings.MapSize == 256 ? "-256" : string.Empty)}.yaml");
 			if (settings.MapSize == 128)
 				return Load(modData, settings.TopologyPreset);
 			if (settings.MapSize == 256 && settings.TopologyPreset == RmgTopologyPreset.NaturalTerrainV10)
