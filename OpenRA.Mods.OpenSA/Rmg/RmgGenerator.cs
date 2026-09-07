@@ -492,7 +492,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				throw new ArgumentException($"Generator Version {settings.GeneratorVersion} is not supported by profile {profile.ProfileId}.");
 			if (profile.UsesRegionsTerrain && (settings.TopologyPreset != RmgTopologyPreset.NaturalRegions ||
 				settings.LayoutFamily != RmgLayoutFamily.NaturalLandscape || (!Enum.IsDefined(settings.TerrainComplexity) ||
-				(settings.GeneratorVersion != 13 && settings.TerrainComplexity > Reassessment.TerrainComplexity.High))))
+				(settings.GeneratorVersion is not (13 or 14) && settings.TerrainComplexity > Reassessment.TerrainComplexity.High))))
 				throw new ArgumentException("Regions requires Natural Landscape and a valid Terrain Complexity.");
 			if (profile.GeneratorVersion == 1 && settings.TopologyPreset != RmgTopologyPreset.Off)
 				throw new ArgumentException("Generator Version 1 requires TopologyPreset=off.");
@@ -524,8 +524,22 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (profile.GeneratorVersion < 7 && (settings.WaterAmount != RmgParameterLevel.Standard ||
 				settings.TacticalTerrain != RmgParameterLevel.Standard))
 				throw new ArgumentException($"Generator Version {settings.GeneratorVersion} supports only Standard Water and tactical terrain.");
+			if (!Enum.IsDefined(settings.WaterAmount) || !Enum.IsDefined(settings.TacticalTerrain) ||
+				(settings.GeneratorVersion != 14 && (settings.WaterAmount > RmgParameterLevel.High ||
+				settings.TacticalTerrain > RmgParameterLevel.High || !settings.PreventColonyOverlapping)))
+				throw new ArgumentException("Extended quantities and relaxed spacing require Regions V14.");
 			if (settings.PlayerCount != 2 && settings.PlayerCount != 4)
 				throw new ArgumentException($"Generator Version {settings.GeneratorVersion} supports exactly two or four players.");
+			if (settings.GeneratorVersion == 14)
+			{
+				var multiplier = settings.MapSize == 256 ? 3 : 1;
+				var minimum = (settings.PlayerCount == 2 ? 8 : 12) * multiplier;
+				var maximum = (settings.PlayerCount == 2 ? 52 : 64) * multiplier;
+				if (settings.NeutralColonyCount < minimum || settings.NeutralColonyCount > maximum ||
+					settings.NeutralColonyCount % settings.PlayerCount != 0)
+					throw new ArgumentException($"Regions V14 colony target must be {minimum}-{maximum}, divisible by player count.");
+				return;
+			}
 			if (settings.PlayerCount == 2 && (settings.NeutralColonyCount < (settings.MapSize == 256 ? 24 : 8) || settings.NeutralColonyCount > (settings.MapSize == 256 ? 60 : 20) || settings.NeutralColonyCount % 2 != 0))
 				throw new ArgumentException(settings.MapSize == 256 ? "Large two-player maps require an even neutral-colony target from 24 through 60." : "Two-player maps require an even neutral-colony count from 8 through 20.");
 			if (settings.PlayerCount == 4 && (settings.NeutralColonyCount < (settings.MapSize == 256 ? 36 : 12) || settings.NeutralColonyCount > (settings.MapSize == 256 ? 72 : 24) || settings.NeutralColonyCount % 4 != 0))

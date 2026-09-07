@@ -57,6 +57,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		readonly DropDownButtonWidget tacticalTerrainButton;
 		readonly DropDownButtonWidget complexityButton;
 		readonly CheckboxWidget originalSurfaceRelationsCheckbox;
+		readonly CheckboxWidget preventColonyOverlappingCheckbox;
 		readonly ButtonWidget rmgToggleButton;
 
 		RmgPlayerPreset preset = RmgPlayerPreset.Balanced;
@@ -71,6 +72,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		int playerCount = 4;
 		bool presetCustomized;
 		bool originalSurfaceRelations = true;
+		bool preventColonyOverlapping = true;
 		bool stale;
 		bool rmgView;
 		bool rmgMode;
@@ -117,6 +119,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			tacticalTerrainButton = lobby.Get<DropDownButtonWidget>("RMG_GRAVEL_MOSS_AMOUNT");
 			complexityButton = lobby.Get<DropDownButtonWidget>("RMG_TERRAIN_COMPLEXITY");
 			originalSurfaceRelationsCheckbox = lobby.Get<CheckboxWidget>("RMG_ORIGINAL_SURFACE_RELATIONS");
+			preventColonyOverlappingCheckbox = lobby.Get<CheckboxWidget>("RMG_PREVENT_COLONY_OVERLAPPING");
 
 			BindControls();
 			rmgToggleButton.GetText = () => rmgView ? "Return to Skirmish" : "Random Map Generator";
@@ -245,7 +248,15 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 				{
 					layoutFamily = value;
 					if (value != RmgPlayerLayoutFamily.NaturalLandscape)
+					{
 						size = SizeChoice.Standard;
+						if (waterAmount > RmgPlayerParameterLevel.High)
+							waterAmount = RmgPlayerParameterLevel.High;
+						if (tacticalTerrain > RmgPlayerParameterLevel.High)
+							tacticalTerrain = RmgPlayerParameterLevel.High;
+						if (colonyDensity > RmgPlayerColonyDensity.Dense)
+							colonyDensity = RmgPlayerColonyDensity.Dense;
+					}
 					presetCustomized = true;
 					MarkStale();
 				});
@@ -269,13 +280,15 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 				{
 					new Choice<RmgPlayerColonyDensity>(RmgPlayerColonyDensity.Sparse, "Sparse"),
 					new Choice<RmgPlayerColonyDensity>(RmgPlayerColonyDensity.Standard, "Standard"),
-					new Choice<RmgPlayerColonyDensity>(RmgPlayerColonyDensity.Dense, "Dense")
+					new Choice<RmgPlayerColonyDensity>(RmgPlayerColonyDensity.Dense, "Dense"),
+					new Choice<RmgPlayerColonyDensity>(RmgPlayerColonyDensity.Extreme, "Extreme"),
+					new Choice<RmgPlayerColonyDensity>(RmgPlayerColonyDensity.Ultra, "Ultra")
 				}, () => colonyDensity, value =>
 				{
 					colonyDensity = value;
 					presetCustomized = true;
 					MarkStale();
-				});
+				}, value => value <= RmgPlayerColonyDensity.Dense || layoutFamily == RmgPlayerLayoutFamily.NaturalLandscape);
 
 			waterButton.GetText = () => ParameterLevelDisplayName(waterAmount);
 			BindDropDown(waterButton,
@@ -283,13 +296,15 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 				{
 					new Choice<RmgPlayerParameterLevel>(RmgPlayerParameterLevel.Low, "Low"),
 					new Choice<RmgPlayerParameterLevel>(RmgPlayerParameterLevel.Standard, "Standard"),
-					new Choice<RmgPlayerParameterLevel>(RmgPlayerParameterLevel.High, "High")
+					new Choice<RmgPlayerParameterLevel>(RmgPlayerParameterLevel.High, "High"),
+					new Choice<RmgPlayerParameterLevel>(RmgPlayerParameterLevel.Extreme, "Extreme"),
+					new Choice<RmgPlayerParameterLevel>(RmgPlayerParameterLevel.Ultra, "Ultra")
 				}, () => waterAmount, value =>
 				{
 					waterAmount = value;
 					presetCustomized = true;
 					MarkStale();
-				});
+				}, value => value <= RmgPlayerParameterLevel.High || layoutFamily == RmgPlayerLayoutFamily.NaturalLandscape);
 
 			tacticalTerrainButton.GetText = () => ParameterLevelDisplayName(tacticalTerrain);
 			BindDropDown(tacticalTerrainButton,
@@ -297,13 +312,15 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 				{
 					new Choice<RmgPlayerParameterLevel>(RmgPlayerParameterLevel.Low, "Low"),
 					new Choice<RmgPlayerParameterLevel>(RmgPlayerParameterLevel.Standard, "Standard"),
-					new Choice<RmgPlayerParameterLevel>(RmgPlayerParameterLevel.High, "High")
+					new Choice<RmgPlayerParameterLevel>(RmgPlayerParameterLevel.High, "High"),
+					new Choice<RmgPlayerParameterLevel>(RmgPlayerParameterLevel.Extreme, "Extreme"),
+					new Choice<RmgPlayerParameterLevel>(RmgPlayerParameterLevel.Ultra, "Ultra")
 				}, () => tacticalTerrain, value =>
 				{
 					tacticalTerrain = value;
 					presetCustomized = true;
 					MarkStale();
-				});
+				}, value => value <= RmgPlayerParameterLevel.High || layoutFamily == RmgPlayerLayoutFamily.NaturalLandscape);
 
 			complexityButton.GetText = () => RmgPlayerSettingsContract.ComplexityDisplayName(complexity, true);
 			BindDropDown(complexityButton, new[]
@@ -316,7 +333,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			}, () => complexity, value => { complexity = value; presetCustomized = true; MarkStale(); });
 			foreach (var id in new[] { "RMG_LAYOUT", "RMG_LAYOUT_LABEL" })
 				lobby.Get(id).IsVisible = () => layoutFamily != RmgPlayerLayoutFamily.NaturalLandscape;
-			foreach (var id in new[] { "RMG_TERRAIN_COMPLEXITY", "RMG_TERRAIN_COMPLEXITY_LABEL", "RMG_NATURAL_NOTE" })
+			foreach (var id in new[] { "RMG_TERRAIN_COMPLEXITY", "RMG_TERRAIN_COMPLEXITY_LABEL", "RMG_PREVENT_COLONY_OVERLAPPING" })
 				lobby.Get(id).IsVisible = () => layoutFamily == RmgPlayerLayoutFamily.NaturalLandscape;
 
 			originalSurfaceRelationsCheckbox.IsChecked = () => originalSurfaceRelations;
@@ -328,6 +345,18 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					return;
 
 				originalSurfaceRelations ^= true;
+				presetCustomized = true;
+				MarkStale();
+			};
+
+			preventColonyOverlappingCheckbox.IsChecked = () => preventColonyOverlapping;
+			preventColonyOverlappingCheckbox.IsDisabled = () =>
+				!CanConfigure() || layoutFamily != RmgPlayerLayoutFamily.NaturalLandscape;
+			preventColonyOverlappingCheckbox.OnClick = () =>
+			{
+				if (preventColonyOverlappingCheckbox.IsDisabled())
+					return;
+				preventColonyOverlapping ^= true;
 				presetCustomized = true;
 				MarkStale();
 			};
@@ -405,6 +434,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			layoutFamily = RmgPlayerLayoutFamily.NaturalLandscape;
 			layout = LayoutChoice.OpenFields;
 			originalSurfaceRelations = true;
+			preventColonyOverlapping = true;
 			complexity = selected switch
 			{
 				RmgPlayerPreset.OpenConflict => TerrainComplexity.Low,
@@ -503,7 +533,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 
 				var playerSettings = new RmgPlayerSettings
 				{
-					SchemaVersion = layoutFamily == RmgPlayerLayoutFamily.NaturalLandscape ? 7 : 3,
+					SchemaVersion = layoutFamily == RmgPlayerLayoutFamily.NaturalLandscape ? 8 : 3,
 					MapSize = size == SizeChoice.Large ? 256 : 128,
 					Preset = preset,
 					Seed = seed,
@@ -516,7 +546,8 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					WaterAmount = waterAmount,
 					TacticalTerrain = tacticalTerrain,
 					TerrainComplexity = layoutFamily == RmgPlayerLayoutFamily.NaturalLandscape ? complexity : TerrainComplexity.Standard,
-					OriginalSurfaceRelations = originalSurfaceRelations
+					OriginalSurfaceRelations = originalSurfaceRelations,
+					PreventColonyOverlapping = layoutFamily != RmgPlayerLayoutFamily.NaturalLandscape || preventColonyOverlapping
 				};
 				var settingsResolution = RmgPlayerSettingsContract.Resolve(playerSettings);
 				var profile = RmgProfile.Load(modData, settingsResolution.Normalized);
@@ -548,9 +579,11 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					var land = cells.Length - water;
 					var gravel = cells.Count(cell => cell == RmgNativeTerrainIntent.Rock);
 					var moss = cells.Count(cell => cell == RmgNativeTerrainIntent.Vegetation);
+					var closerColonies = (int?)result.Generation.Map.RegionsReport["neutral_colonies_fallback"] ?? 0;
+					var spacingSummary = closerColonies > 0 ? $" {closerColonies} placed with closer spacing." : string.Empty;
 					SetStatus($"Ready: Regions / {RmgPlayerSettingsContract.ComplexityDisplayName(complexity, true)} ({result.Performance.TotalMilliseconds / 1000d:0.0}s). " +
 						$"Water {100D * water / cells.Length:0.0}%; gravel/moss {100D * gravel / land:0.0}/{100D * moss / land:0.0}% of land; " +
-						$"colonies {placedColonies}/{settingsResolution.Normalized.NeutralColonyCount}. Land connections are not required.",
+						$"colonies {placedColonies}/{settingsResolution.Normalized.NeutralColonyCount}.{spacingSummary}",
 						result.Generation.Validation.Warnings.Count > 0 ? StatusKind.Warning : StatusKind.Success);
 				}
 				else
@@ -712,6 +745,8 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		{
 			RmgPlayerParameterLevel.Low => "Low",
 			RmgPlayerParameterLevel.High => "High",
+			RmgPlayerParameterLevel.Extreme => "Extreme",
+			RmgPlayerParameterLevel.Ultra => "Ultra",
 			_ => "Standard"
 		};
 
@@ -719,6 +754,8 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		{
 			RmgPlayerColonyDensity.Sparse => "Sparse",
 			RmgPlayerColonyDensity.Dense => "Dense",
+			RmgPlayerColonyDensity.Extreme => "Extreme",
+			RmgPlayerColonyDensity.Ultra => "Ultra",
 			_ => "Standard"
 		};
 	}

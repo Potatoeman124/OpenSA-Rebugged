@@ -13,17 +13,20 @@ The RMG must preserve that boundary: it may refer to terrain and actor identifie
 The accepted three-level **Regions V12** checkpoint was merged and pushed to `main` at
 `c34387a6f12a232418e80df6ba89d71fc8e13480` after user in-game acceptance on 2026-09-07.
 
-Development on `codex/rmg-extended-options` now integrates **Regions V13** with five Terrain Complexity
-levels: **Small / Medium / High / Extreme / Ultra**. Medium remains the default; configuration revision 4 sets Ultra to 2.70 broad / 2.60 fine per user request.
-Small remains unchanged and reproduces V12 Standard terrain. Higher levels introduce stronger secondary features at fixed seeded
-positions. Water Amount, Gravel and Moss Amount, and Neutral Colony Density retain their existing ranges.
+Development on `codex/rmg-extended-options` now integrates **Regions V14**. It preserves the accepted
+V13 configuration-4 Terrain Complexity calibration (Ultra 2.70 broad / 2.60 fine), extends Water Amount,
+**Surface Modifiers** (formerly Gravel and Moss Amount), and Neutral Colony Density with **Extreme / Ultra**,
+and adds **Prevent Colony Overlapping**, enabled by default.
 
-See [Regions V13 extended complexity](NATURAL_REGIONS_V13_EXTENDED_OPTIONS.md) for the calibration,
-compatibility and verification record. The panel retains NORMAL, 256 x 256, four players, Balanced, Standard
-quantities, Original Surface Relations On and grey neutral markers. The first generated-map selection
-initializes Explored Map On and Fog of War Off; later regenerations preserve deliberate user changes.
+See [Regions V14 quantities and colony spacing](NATURAL_REGIONS_V14_QUANTITIES_AND_SPACING.md) for values,
+placement behavior and verification. The panel retains NORMAL, 256 x 256, four players, Balanced, Medium
+complexity, Standard quantities, Original Surface Relations On and grey neutral markers. The first
+generated-map selection initializes Explored Map On and Fog of War Off; later regenerations preserve
+user changes. With overlap prevention off, the generator fills neutral-colony shortfalls using the smallest
+available turret-spacing overlaps while retaining physical clearance and all player-start protections.
 
-Schema 7 selects V13; schema 6 replays [Regions V12](NATURAL_REGIONS_V12_CONTINUITY.md); schema 5 preserves
+Schema 8 selects V14; schema 7 preserves [accepted V13 complexity](NATURAL_REGIONS_V13_EXTENDED_OPTIONS.md);
+schema 6 replays [Regions V12](NATURAL_REGIONS_V12_CONTINUITY.md); schema 5 preserves
 [Regions V11](NATURAL_REGIONS_V11.md). Schemas 1-4 retain their historical generator selections, including V10.
 Earlier phase reports below are chronological records; their global connectivity and competitive fairness
 rules do not govern Regions.

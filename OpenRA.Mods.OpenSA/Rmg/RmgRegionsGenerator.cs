@@ -17,19 +17,29 @@ namespace OpenRA.Mods.OpenSA.Rmg
 {
 	public static partial class RmgGenerator
 	{
+		public static int RegionsWaterPercent(RmgParameterLevel level) => level switch
+		{
+			RmgParameterLevel.Low => 16,
+			RmgParameterLevel.Standard => 20,
+			RmgParameterLevel.High => 24,
+			RmgParameterLevel.Extreme => 32,
+			RmgParameterLevel.Ultra => 44,
+			_ => throw new ArgumentOutOfRangeException(nameof(level))
+		};
+
 		static RmgGenerationResult GenerateRegions(RmgProfile profile, RmgGenerationSettings settings)
 		{
 			var terrainSettings = new TerrainComparisonSettings(settings.Seed, settings.MapSize, TerrainConstruction.Regions, settings.TerrainComplexity)
 			{
-				WaterPercent = settings.WaterAmount switch { RmgParameterLevel.Low => 16, RmgParameterLevel.High => 24, _ => 20 },
+				WaterPercent = RegionsWaterPercent(settings.WaterAmount),
 				GravelPercent = profile.RockLandPercentFor(settings.TacticalTerrain),
 				MossPercent = profile.VegetationLandPercentFor(settings.TacticalTerrain),
 				OriginalSurfaceRelations = settings.OriginalSurfaceRelations,
-				Continuity = settings.GeneratorVersion is 12 or 13,
-				ExtendedComplexity = settings.GeneratorVersion == 13
+				Continuity = settings.GeneratorVersion is 12 or 13 or 14,
+				ExtendedComplexity = settings.GeneratorVersion is 13 or 14
 			};
 			RmgLogicalMap reference = null;
-			if (settings.GeneratorVersion == 13 || (settings.GeneratorVersion == 12 && settings.TerrainComplexity != TerrainComplexity.Low))
+			if (settings.GeneratorVersion is 13 or 14 || (settings.GeneratorVersion == 12 && settings.TerrainComplexity != TerrainComplexity.Low))
 				reference = TerrainComparison.Generate(Game.ModData, terrainSettings.ContinuityReference).Map;
 			var terrain = TerrainComparison.Generate(Game.ModData, terrainSettings, reference);
 			if (settings.GeneratorVersion == 12 && reference == null)
@@ -53,7 +63,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				(candidates[i], candidates[j]) = (candidates[j], candidates[i]);
 			}
 
-			// V12/V13 starts are anchored to the same Low-complexity terrain for every
+			// V12+ starts are anchored to the same Low-complexity terrain for every
 			// selection, so relocating one start cannot reorder the whole map.
 			var preferred = reference == null ? null : PreferredRegionStarts(profile, settings, reference, candidates);
 			var startCandidates = candidates.Where(sites.StartFits).ToArray();
@@ -93,6 +103,13 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				}
 			}
 
+			var strictColonyCount = colonyCount;
+			long fallbackEvaluations = 0;
+			var allowNeutralOverlap = settings.GeneratorVersion == 14 && !settings.PreventColonyOverlapping;
+			if (allowNeutralOverlap && colonyCount < settings.NeutralColonyCount)
+				colonyCount += FillRegionsColonyShortfall(map, profile, settings, sites, candidates,
+					firstType + colonyCount, out fallbackEvaluations);
+
 			var placementMs = timer.Elapsed.TotalMilliseconds;
 			timer.Restart();
 			var decorationRandom = DeterministicRandom.ForStream(settings, profile, "regions-doodads");
@@ -131,7 +148,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				throw new InvalidOperationException("Regions placement or doodads modified completed terrain.");
 			map.NaturalSurfacesFrozen = true;
 			var validation = new RmgValidationReport();
-			ValidateColonyCombatSpace(map, profile, validation);
+			ValidateColonyCombatSpace(map, profile, validation, allowNeutralOverlap);
 			if (colonyCount < settings.NeutralColonyCount)
 				validation.Warnings.Add(new RmgValidationIssue("NEUTRAL_CAPACITY",
 					$"Placed {colonyCount}/{settings.NeutralColonyCount} neutral colonies on valid existing terrain."));
@@ -143,6 +160,15 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			map.RegionsReport["doodads_ms"] = timer.Elapsed.TotalMilliseconds;
 			map.RegionsReport["neutral_colonies_requested"] = settings.NeutralColonyCount;
 			map.RegionsReport["neutral_colonies_placed"] = colonyCount;
+			if (settings.GeneratorVersion == 14)
+			{
+				map.RegionsReport["prevent_colony_overlapping"] = settings.PreventColonyOverlapping;
+				map.RegionsReport["neutral_colonies_strict"] = strictColonyCount;
+				map.RegionsReport["neutral_colonies_fallback"] = colonyCount - strictColonyCount;
+				map.RegionsReport["fallback_pair_evaluations"] = fallbackEvaluations;
+				map.RegionsReport["neutral_overlapping_pairs"] = validation.Metrics.GetValueOrDefault("neutral_overlapping_pairs");
+				map.RegionsReport["maximum_neutral_overlap_native"] = validation.Metrics.GetValueOrDefault("maximum_neutral_overlap_native");
+			}
 			map.RegionsReport["doodads_requested"] = decorationTarget;
 			map.RegionsReport["doodads_placed"] = decorations.Count;
 			map.RegionsReport["symmetry_requirement"] = "NOT_REQUIRED";
@@ -150,8 +176,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			map.RegionsReport["placement_candidates"] = candidates.Count;
 			if (reference != null)
 			{
-				map.RegionsReport["geography_contract"] = settings.GeneratorVersion == 13 ? "fixed-regions-extended-detail-v13" : "fixed-regions-bounded-detail-v12";
-				map.RegionsReport["preferred_start_reference"] = settings.GeneratorVersion == 13 ? "same-settings-v12-low-complexity" : "same-settings-low-complexity";
+				map.RegionsReport["geography_contract"] = settings.GeneratorVersion is 13 or 14 ? "fixed-regions-extended-detail-v13" : "fixed-regions-bounded-detail-v12";
+				map.RegionsReport["preferred_start_reference"] = settings.GeneratorVersion is 13 or 14 ? "same-settings-v12-low-complexity" : "same-settings-low-complexity";
 				map.RegionsReport["start_displacement_native"] = new JArray(map.Starts.Select((point, i) =>
 					i < preferred.Count ? 2 * Math.Sqrt(RegionDistanceSquared(point, preferred[i])) : (double?)null));
 			}
@@ -161,6 +187,78 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				LogicalHash = HashLogicalMap(map), ActorHash = HashActors(map), GraphHash = HashGraph(map)
 			};
 		}
+		// Penalties only increase as colonies are added. Lazy queue updates therefore select
+		// the globally smallest current penalty without rescanning every site on every placement.
+		static int FillRegionsColonyShortfall(RmgLogicalMap map, RmgProfile profile, RmgGenerationSettings settings,
+			RegionsSites sites, List<RmgPoint> candidates, int firstType, out long pairEvaluations)
+		{
+			var colonies = map.Actors.Where(actor => actor.Role == "neutral-colony").ToList();
+			var initialCount = colonies.Count;
+			var rules = profile.ColonyCombatRules;
+			var queue = new PriorityQueue<RegionsColonyCandidate, (int Depth, long SquaredDepth, int Pairs, int Rank)>();
+			pairEvaluations = 0;
+			for (var i = 0; i < candidates.Count; i++)
+				for (var offset = 0; offset < profile.NeutralColonyActors.Length; offset++)
+				{
+					var type = profile.NeutralColonyActors[(firstType + offset) % profile.NeutralColonyActors.Length];
+					var point = candidates[i];
+					if (!sites.ColonyFits(type, point) || map.Starts.Any(start =>
+						!rules.CombatSpaceIsSafeFromAnyStartingActor(type, point, start)))
+						continue;
+					var candidate = new RegionsColonyCandidate(type, point, i * profile.NeutralColonyActors.Length + offset);
+					queue.Enqueue(candidate, candidate.Priority);
+				}
+
+			while (colonies.Count < settings.NeutralColonyCount && queue.TryDequeue(out var candidate, out var previous))
+			{
+				if (!sites.ColonyFits(candidate.Type, candidate.Point))
+					continue;
+				for (; candidate.ScoredColonies < colonies.Count; candidate.ScoredColonies++)
+				{
+					var other = colonies[candidate.ScoredColonies];
+					var depth = Math.Max(0, -rules.CombatSpaceMarginNative(candidate.Type, candidate.Point, other.Type, other.LogicalLocation));
+					pairEvaluations++;
+					candidate.Depth = Math.Max(candidate.Depth, depth);
+					candidate.SquaredDepth += (long)depth * depth;
+					if (depth > 0)
+						candidate.Pairs++;
+				}
+
+				if (candidate.Priority != previous)
+				{
+					queue.Enqueue(candidate, candidate.Priority);
+					continue;
+				}
+
+				var actor = new RmgActorPlan(candidate.Type, profile.ColonyOwner, "neutral-colony",
+					candidate.Point, settings.PlayerCount + colonies.Count);
+				map.Actors.Add(actor);
+				colonies.Add(actor);
+				sites.ReserveColony(candidate.Type, candidate.Point);
+			}
+
+			return colonies.Count - initialCount;
+		}
+
+		sealed class RegionsColonyCandidate
+		{
+			public readonly string Type;
+			public readonly RmgPoint Point;
+			public readonly int Rank;
+			public int ScoredColonies;
+			public int Depth;
+			public long SquaredDepth;
+			public int Pairs;
+			public (int, long, int, int) Priority => (Depth, SquaredDepth, Pairs, Rank);
+
+			public RegionsColonyCandidate(string type, RmgPoint point, int rank)
+			{
+				Type = type;
+				Point = point;
+				Rank = rank;
+			}
+		}
+
 		static long RegionDistanceSquared(RmgPoint a, RmgPoint b) =>
 			(long)(a.X - b.X) * (a.X - b.X) + (long)(a.Y - b.Y) * (a.Y - b.Y);
 

@@ -20,14 +20,22 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 	sealed class ValidateRmgGeneratorCommand : IUtilityCommand
 	{
 		string IUtilityCommand.Name => "--validate-sa-rmg";
-		bool IUtilityCommand.ValidateArguments(string[] args) => args.Length == 1;
+		bool IUtilityCommand.ValidateArguments(string[] args) => args.Length == 1 || (args.Length == 2 && args[1] == "--regions-options");
 
-		[Desc("Run focused deterministic RMG self-tests for frozen V1-V9 and V10 Natural Landscape and playable V11/V12 Regions profiles.")]
+		[Desc("[--regions-options]", "Run focused deterministic RMG self-tests for frozen V1-V9 and V10 Natural Landscape and playable V11-V14 Regions profiles.")]
 		void IUtilityCommand.Run(Utility utility, string[] args)
 		{
 			try
 			{
 				var failures = new List<string>();
+				if (args.Length == 2)
+				{
+					var optionsOnly = RmgGenerator.RunRegionsOptionsSelfTests(utility.ModData);
+					Console.WriteLine($"regions-options-contract: {(optionsOnly.Count == 0 ? "PASS" : "FAIL")}");
+					foreach (var failure in optionsOnly) Console.Error.WriteLine(failure);
+					Environment.ExitCode = optionsOnly.Count == 0 ? 0 : 4;
+					return;
+				}
 				foreach (var topology in new[] { RmgTopologyPreset.Off, RmgTopologyPreset.Mixed, RmgTopologyPreset.Shoreline, RmgTopologyPreset.LandDetails, RmgTopologyPreset.LandCover, RmgTopologyPreset.BattlefieldLayout, RmgTopologyPreset.ParameterizedBattlefield, RmgTopologyPreset.CoherentWater, RmgTopologyPreset.NaturalTerrain, RmgTopologyPreset.NaturalTerrainV10 })
 				{
 					var profile = RmgProfile.Load(utility.ModData, topology);
@@ -151,6 +159,10 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				var extendedFailures = RmgGenerator.RunRegionsExtendedSelfTests(utility.ModData);
 				failures.AddRange(extendedFailures);
 				Console.WriteLine($"regions-extended-contract: {(extendedFailures.Count == 0 ? "PASS" : "FAIL")}");
+
+				var optionsFailures = RmgGenerator.RunRegionsOptionsSelfTests(utility.ModData);
+				failures.AddRange(optionsFailures);
+				Console.WriteLine($"regions-options-contract: {(optionsFailures.Count == 0 ? "PASS" : "FAIL")}");
 
 				if (failures.Count > 0)
 				{

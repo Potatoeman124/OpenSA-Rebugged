@@ -122,12 +122,14 @@ Background@SERVER_LOBBY:
 					Align: Right
 					Font: Tiny
 					Text: 4
-				Label@RMG_NATURAL_NOTE:
+				Checkbox@RMG_PREVENT_COLONY_OVERLAPPING:
 					X: 20
 					Y: 195
 					Width: 355
 					Height: 28
-					Text: Natural terrain can separate land areas.
+					Text: Prevent Colony Overlapping
+					TooltipContainer: TOOLTIP_CONTAINER
+					TooltipText: On: keep colonies outside one another's turret range. Off: if the target cannot be reached, add colonies with the least possible range overlap. Buildings, exits and player starts stay clear.
 				Label@RMG_LAYOUT_LABEL:
 					X: 20
 					Y: 195
@@ -146,7 +148,7 @@ Background@SERVER_LOBBY:
 					Y: 235
 					Width: 195
 					Height: 28
-					Text: Gravel and Moss Amount
+					Text: Surface Modifiers
 				DropDownButton@RMG_GRAVEL_MOSS_AMOUNT:
 					X: 220
 					Y: 235
@@ -154,7 +156,7 @@ Background@SERVER_LOBBY:
 					Height: 28
 					Text: Standard
 					TooltipContainer: TOOLTIP_CONTAINER
-					TooltipText: Target percentages of non-water land: Low 10% gravel / 5% moss; Standard 14% / 8%; High 18% / 11%. Separate from Terrain Complexity.
+					TooltipText: Target percentages of non-water land: Low 10% gravel / 5% moss; Standard 14% / 8%; High 18% / 11%; Extreme 24% / 16%; Ultra 36% / 25%. Separate from Terrain Complexity.
 				Checkbox@RMG_ORIGINAL_SURFACE_RELATIONS:
 					X: 155
 					Y: 275
@@ -176,7 +178,7 @@ Background@SERVER_LOBBY:
 					Height: 28
 					Text: Standard
 					TooltipContainer: TOOLTIP_CONTAINER
-					TooltipText: Blocking water target: Regions Low 16%, Standard 20%, High 24%. Fixed tile transitions can reduce the achieved amount.
+					TooltipText: Blocking water target: Regions Low 16%, Standard 20%, High 24%, Extreme 32%, Ultra 44%. Fixed tile transitions can reduce the achieved amount.
 				Label@RMG_COLONY_LABEL:
 					X: 410
 					Y: 75
@@ -189,7 +191,7 @@ Background@SERVER_LOBBY:
 					Width: 220
 					Height: 28
 					TooltipContainer: TOOLTIP_CONTAINER
-					TooltipText: Select the neutral colony target. Regions places as many as existing terrain and combat spacing allow; grey preview squares show actual colonies.
+					TooltipText: Select the neutral colony target. At 128 x 128, Extreme targets 32/40 colonies for 2/4 players; Ultra 52/64. At 256 x 256, targets triple. Existing terrain and the overlap setting determine capacity. Grey squares show placed colonies.
 				Label@RMG_LAYOUT_FAMILY_LABEL:
 					X: 410
 					Y: 115
@@ -217,7 +219,7 @@ Background@SERVER_LOBBY:
 					Height: 28
 					Text: Standard
 					TooltipContainer: TOOLTIP_CONTAINER
-					TooltipText: Low creates broad features; Standard adds regional variation; High creates smaller, more distributed terrain features. Water and gravel/moss amounts are separate.
+					TooltipText: Small through Ultra increase terrain detail within the same seed geography. Water Amount and Surface Modifiers control coverage separately. Land areas may be disconnected.
 				Label@RMG_HOSTILES_NOTE:
 					X: 410
 					Y: 195

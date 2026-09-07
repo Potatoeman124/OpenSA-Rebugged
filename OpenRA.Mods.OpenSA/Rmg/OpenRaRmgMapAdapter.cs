@@ -298,7 +298,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			};
 
 			if (profile.UsesRegionsTerrain)
-				map.Title = $"OpenSA Regions C-{RmgPlayerSettingsContract.ComplexityDisplayName(generation.Settings.TerrainComplexity, generation.Settings.GeneratorVersion == 13)} W-{generation.Settings.WaterAmount} G-{generation.Settings.TacticalTerrain} {generation.Settings.Seed}";
+				map.Title = $"OpenSA Regions C-{RmgPlayerSettingsContract.ComplexityDisplayName(generation.Settings.TerrainComplexity, generation.Settings.GeneratorVersion is 13 or 14)} W-{generation.Settings.WaterAmount} G-{generation.Settings.TacticalTerrain} {generation.Settings.Seed}";
 			if (generation.Settings.MapSize != 128)
 				map.Title += $" ({generation.Settings.MapSize}x{generation.Settings.MapSize})";
 

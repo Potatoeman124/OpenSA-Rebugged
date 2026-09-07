@@ -56,7 +56,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		Preset,
 		Sparse,
 		Standard,
-		Dense
+		Dense,
+		Extreme,
+		Ultra
 	}
 
 	public enum RmgPlayerParameterLevel
@@ -64,7 +66,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		Preset,
 		Low,
 		Standard,
-		High
+		High,
+		Extreme,
+		Ultra
 	}
 
 	public sealed class RmgPlayerSettings
@@ -83,6 +87,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public Reassessment.TerrainComplexity TerrainComplexity { get; init; } = Reassessment.TerrainComplexity.Standard;
 		public RmgPlayerParameterLevel TacticalTerrain { get; init; } = RmgPlayerParameterLevel.Preset;
 		public bool OriginalSurfaceRelations { get; init; } = true;
+		public bool PreventColonyOverlapping { get; init; } = true;
 
 		public JObject ToJson()
 		{
@@ -111,6 +116,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 			if (SchemaVersion >= 5 && LayoutFamily == RmgPlayerLayoutFamily.NaturalLandscape)
 				json["terrain_complexity"] = RmgPlayerSettingsContract.ComplexityName(TerrainComplexity, SchemaVersion >= 7);
+
+			if (SchemaVersion >= 8 && LayoutFamily == RmgPlayerLayoutFamily.NaturalLandscape)
+				json["prevent_colony_overlapping"] = PreventColonyOverlapping;
 
 			if (SchemaVersion >= 4)
 				json["size"] = $"{MapSize},{MapSize}";
@@ -159,22 +167,24 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			["overrides"] = new JArray(Overrides),
 			["warnings"] = new JArray()
 			};
-			if (Normalized.GeneratorVersion is 11 or 12 or 13)
+			if (Normalized.GeneratorVersion is 11 or 12 or 13 or 14)
 			{
 				var normalized = (JObject)json["normalized"];
 				normalized.Remove("tactical_terrain");
 				normalized.Remove("symmetry");
 				normalized.Remove("archetype");
 				normalized["gravel_moss_amount"] = RmgPlayerSettingsContract.ParameterLevelName(Normalized.TacticalTerrain);
-				normalized["terrain_complexity"] = RmgPlayerSettingsContract.ComplexityName(Normalized.TerrainComplexity, Normalized.GeneratorVersion == 13);
+				normalized["terrain_complexity"] = RmgPlayerSettingsContract.ComplexityName(Normalized.TerrainComplexity, Normalized.GeneratorVersion is 13 or 14);
 			}
+			if (Normalized.GeneratorVersion == 14)
+				json["normalized"]["prevent_colony_overlapping"] = Normalized.PreventColonyOverlapping;
 			return json;
 		}
 	}
 
 	public static class RmgPlayerSettingsContract
 	{
-		public const int SchemaVersion = 7;
+		public const int SchemaVersion = 8;
 		public const int MinimumSchemaVersion = 1;
 
 		static readonly HashSet<string> AllowedFields = new(new[]
@@ -188,6 +198,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			"layout",
 			"layout_family",
 			"original_surface_relations",
+			"prevent_colony_overlapping",
 			"neutral_colony_density",
 			"water_amount",
 			"gravel_moss_amount",
@@ -241,6 +252,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var schemaVersion = RequiredInt(json, "schema_version");
 			if (schemaVersion < MinimumSchemaVersion || schemaVersion > SchemaVersion)
 				throw new ArgumentException($"Player settings schema_version must be from {MinimumSchemaVersion} through {SchemaVersion}.");
+			if (json.ContainsKey("prevent_colony_overlapping") && (schemaVersion < 8 ||
+				OptionalText(json, "layout_family", "preset") != "natural-landscape"))
+				throw new ArgumentException("prevent_colony_overlapping requires schema 8 and Natural Landscape.");
 			if (schemaVersion < 5 && (json.ContainsKey("gravel_moss_amount") || json.ContainsKey("terrain_complexity")))
 				throw new ArgumentException("Gravel/moss amount and terrain complexity require schema 5.");
 			if (schemaVersion >= 5 && json.ContainsKey("tactical_terrain"))
@@ -271,6 +285,11 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (!ulong.TryParse(seedText, NumberStyles.None, CultureInfo.InvariantCulture, out var seed))
 				throw new ArgumentException("Player settings seed must be an unsigned integer encoded as a JSON string or integer.");
 
+			if (schemaVersion < 8 || OptionalText(json, "layout_family", "preset") != "natural-landscape")
+				foreach (var field in new[] { "water_amount", "gravel_moss_amount", "tactical_terrain", "neutral_colony_density" })
+					if (OptionalText(json, field, "preset") is "extreme" or "ultra")
+						throw new ArgumentException("Extreme/Ultra quantities require schema 8 and Natural Landscape.");
+
 			var layoutFamily = schemaVersion >= 3 ?
 				ParsePlayerLayoutFamily(OptionalText(json, "layout_family", "preset")) :
 				RmgPlayerLayoutFamily.Preset;
@@ -295,7 +314,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					ParsePlayerParameterLevel(OptionalText(json, schemaVersion >= 5 ? "gravel_moss_amount" : "tactical_terrain", "preset"), "gravel_moss_amount") :
 					RmgPlayerParameterLevel.Preset,
 				TerrainComplexity = ParseComplexity(OptionalText(json, "terrain_complexity", schemaVersion >= 7 ? "medium" : "standard"), schemaVersion),
-				OriginalSurfaceRelations = OptionalBool(json, "original_surface_relations", true)
+				OriginalSurfaceRelations = OptionalBool(json, "original_surface_relations", true),
+				PreventColonyOverlapping = OptionalBool(json, "prevent_colony_overlapping", true)
 			};
 		}
 
@@ -336,27 +356,32 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				RmgLayoutFamily.ArtificialBattlefield;
 			var version = layoutFamily switch
 			{
-				RmgLayoutFamily.NaturalLandscape => requested.SchemaVersion >= 7 ? 13 : requested.SchemaVersion >= 6 ? 12 : requested.SchemaVersion >= 5 ? 11 : 10,
+				RmgLayoutFamily.NaturalLandscape => requested.SchemaVersion >= 8 ? 14 : requested.SchemaVersion >= 7 ? 13 : requested.SchemaVersion >= 6 ? 12 : requested.SchemaVersion >= 5 ? 11 : 10,
 				RmgLayoutFamily.StructuredCompetitive => 8,
 				_ => requested.SchemaVersion >= 2 ? 7 : 6
 			};
-			if (version is 11 or 12 or 13 && (requested.Layout != RmgPlayerLayout.Preset || requested.Symmetry != RmgPlayerSymmetry.Automatic))
+			if (version is 11 or 12 or 13 or 14 && (requested.Layout != RmgPlayerLayout.Preset || requested.Symmetry != RmgPlayerSymmetry.Automatic))
 				throw new ArgumentException("Regions has no Battlefield Plan or symmetry setting; use preset layout and automatic symmetry.");
 			if (!Enum.IsDefined(requested.TerrainComplexity) ||
-				(requested.TerrainComplexity > Reassessment.TerrainComplexity.High && version != 13))
+				(requested.TerrainComplexity > Reassessment.TerrainComplexity.High && version is not (13 or 14)))
 				throw new ArgumentException("Extended Terrain Complexity requires schema 7 and Natural Landscape.");
+			if (!Enum.IsDefined(requested.WaterAmount) || !Enum.IsDefined(requested.TacticalTerrain) ||
+				!Enum.IsDefined(requested.NeutralColonyDensity) || (version != 14 &&
+				(requested.WaterAmount > RmgPlayerParameterLevel.High || requested.TacticalTerrain > RmgPlayerParameterLevel.High ||
+				requested.NeutralColonyDensity > RmgPlayerColonyDensity.Dense || !requested.PreventColonyOverlapping)))
+				throw new ArgumentException("Extreme/Ultra quantities and relaxed colony spacing require schema 8 and Natural Landscape.");
 			var normalized = new RmgGenerationSettings
 			{
 				Seed = requested.Seed,
 				MapSize = requested.MapSize,
 				PlayerCount = requested.PlayerCount,
-				Symmetry = version is 11 or 12 or 13 ? RmgSymmetry.MirrorHorizontal : symmetry,
-				Archetype = version is 11 or 12 or 13 ? RmgArchetype.Open : archetype,
+				Symmetry = version is 11 or 12 or 13 or 14 ? RmgSymmetry.MirrorHorizontal : symmetry,
+				Archetype = version is 11 or 12 or 13 or 14 ? RmgArchetype.Open : archetype,
 				NeutralColonyCount = colonies,
 				GeneratorVersion = version,
 				TopologyPreset = version switch
 				{
-					11 or 12 or 13 => RmgTopologyPreset.NaturalRegions,
+					11 or 12 or 13 or 14 => RmgTopologyPreset.NaturalRegions,
 					10 => RmgTopologyPreset.NaturalTerrainV10,
 					9 => RmgTopologyPreset.NaturalTerrain,
 					8 => RmgTopologyPreset.CoherentWater,
@@ -367,7 +392,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				LayoutFamily = layoutFamily,
 				TacticalTerrain = tacticalTerrain,
 				TerrainComplexity = requested.TerrainComplexity,
-				OriginalSurfaceRelations = requested.OriginalSurfaceRelations
+				OriginalSurfaceRelations = requested.OriginalSurfaceRelations,
+				PreventColonyOverlapping = requested.PreventColonyOverlapping
 			};
 			var overrides = new List<string>();
 			if (requested.MapSize != 128)
@@ -381,12 +407,14 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (requested.WaterAmount != RmgPlayerParameterLevel.Preset)
 				overrides.Add("water_amount");
 			if (requested.TacticalTerrain != RmgPlayerParameterLevel.Preset)
-				overrides.Add(version is 11 or 12 or 13 ? "gravel_moss_amount" : "tactical_terrain");
+				overrides.Add(version is 11 or 12 or 13 or 14 ? "gravel_moss_amount" : "tactical_terrain");
 			if (requested.Symmetry != RmgPlayerSymmetry.Automatic)
 				overrides.Add("symmetry");
 
-			if (version is 11 or 12 or 13)
+			if (version is 11 or 12 or 13 or 14)
 				overrides.Add("terrain_complexity");
+			if (version == 14 && !requested.PreventColonyOverlapping)
+				overrides.Add("prevent_colony_overlapping");
 			var resolution = new RmgPlayerSettingsResolution(requested, normalized, overrides);
 			normalized.PlayerSettingsResolution = resolution;
 			return resolution;
@@ -678,6 +706,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			RmgPlayerColonyDensity.Sparse => "sparse",
 			RmgPlayerColonyDensity.Standard => "standard",
 			RmgPlayerColonyDensity.Dense => "dense",
+			RmgPlayerColonyDensity.Extreme => "extreme",
+			RmgPlayerColonyDensity.Ultra => "ultra",
 			_ => throw new ArgumentOutOfRangeException(nameof(value))
 		};
 
@@ -687,6 +717,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			RmgPlayerParameterLevel.Low => "low",
 			RmgPlayerParameterLevel.Standard => "standard",
 			RmgPlayerParameterLevel.High => "high",
+			RmgPlayerParameterLevel.Extreme => "extreme",
+			RmgPlayerParameterLevel.Ultra => "ultra",
 			_ => throw new ArgumentOutOfRangeException(nameof(value))
 		};
 
@@ -695,6 +727,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			RmgParameterLevel.Low => "low",
 			RmgParameterLevel.Standard => "standard",
 			RmgParameterLevel.High => "high",
+			RmgParameterLevel.Extreme => "extreme",
+			RmgParameterLevel.Ultra => "ultra",
 			_ => throw new ArgumentOutOfRangeException(nameof(value))
 		};
 
@@ -740,7 +774,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			"sparse" => RmgPlayerColonyDensity.Sparse,
 			"standard" => RmgPlayerColonyDensity.Standard,
 			"dense" => RmgPlayerColonyDensity.Dense,
-			_ => throw new ArgumentException("Player settings neutral_colony_density must be preset, sparse, standard, or dense.")
+			"extreme" => RmgPlayerColonyDensity.Extreme,
+			"ultra" => RmgPlayerColonyDensity.Ultra,
+			_ => throw new ArgumentException("Player settings neutral_colony_density must be preset, sparse, standard, dense, extreme, or ultra.")
 		};
 
 		static RmgPlayerParameterLevel ParsePlayerParameterLevel(string value, string field) => value.ToLowerInvariant() switch
@@ -749,7 +785,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			"low" => RmgPlayerParameterLevel.Low,
 			"standard" => RmgPlayerParameterLevel.Standard,
 			"high" => RmgPlayerParameterLevel.High,
-			_ => throw new ArgumentException($"Player settings {field} must be preset, low, standard, or high.")
+			"extreme" => RmgPlayerParameterLevel.Extreme,
+			"ultra" => RmgPlayerParameterLevel.Ultra,
+			_ => throw new ArgumentException($"Player settings {field} must be preset, low, standard, high, extreme, or ultra.")
 		};
 
 		static RmgArchetype PresetArchetype(RmgPlayerPreset preset) => preset switch
@@ -799,6 +837,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			RmgPlayerParameterLevel.Low => RmgParameterLevel.Low,
 			RmgPlayerParameterLevel.Standard => RmgParameterLevel.Standard,
 			RmgPlayerParameterLevel.High => RmgParameterLevel.High,
+			RmgPlayerParameterLevel.Extreme => RmgParameterLevel.Extreme,
+			RmgPlayerParameterLevel.Ultra => RmgParameterLevel.Ultra,
 			_ => throw new ArgumentOutOfRangeException(nameof(requested))
 		};
 
@@ -807,6 +847,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			RmgPlayerColonyDensity.Sparse => players == 2 ? 8 : 12,
 			RmgPlayerColonyDensity.Standard => players == 2 ? 10 : 16,
 			RmgPlayerColonyDensity.Dense => players == 2 ? 20 : 24,
+			RmgPlayerColonyDensity.Extreme => players == 2 ? 32 : 40,
+			RmgPlayerColonyDensity.Ultra => players == 2 ? 52 : 64,
 			_ => throw new ArgumentOutOfRangeException(nameof(density))
 		};
 

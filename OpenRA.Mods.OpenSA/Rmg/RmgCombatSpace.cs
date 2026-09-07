@@ -257,7 +257,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				!rules.CombatSpaceIsSafe(actorType, point, actor.Type, actor.LogicalLocation));
 		}
 
-		static void ValidateColonyCombatSpace(RmgLogicalMap map, RmgProfile profile, RmgValidationReport report)
+		static void ValidateColonyCombatSpace(RmgLogicalMap map, RmgProfile profile, RmgValidationReport report, bool allowNeutralOverlap = false)
 		{
 			if (profile.GeneratorVersion < 2)
 				return;
@@ -265,6 +265,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var rules = profile.ColonyCombatRules;
 			var colonies = map.Actors.Where(actor => actor.Owner == profile.ColonyOwner).ToArray();
 			var minimumMargin = int.MaxValue;
+			var overlappingPairs = 0;
+			var maximumOverlap = 0;
 
 			foreach (var colony in colonies)
 				foreach (var start in map.Starts)
@@ -283,6 +285,11 @@ namespace OpenRA.Mods.OpenSA.Rmg
 						colonies[j].Type, colonies[j].LogicalLocation);
 					minimumMargin = Math.Min(minimumMargin, margin);
 					if (margin < 0)
+					{
+						overlappingPairs++;
+						maximumOverlap = Math.Max(maximumOverlap, -margin);
+					}
+					if (margin < 0 && !allowNeutralOverlap)
 						report.HardFailures.Add(new RmgValidationIssue("COLONY_COMBAT_SPACE",
 							$"{colonies[i].Type} at {colonies[i].LogicalLocation} and {colonies[j].Type} at {colonies[j].LogicalLocation} violate their bidirectional turret envelopes by {-margin} native cells."));
 				}
@@ -296,6 +303,12 @@ namespace OpenRA.Mods.OpenSA.Rmg
 						report.HardFailures.Add(new RmgValidationIssue("START_COMBAT_SPACE",
 							$"Starts {map.Starts[i]} and {map.Starts[j]} violate a possible pair of starting-colony turret/production envelopes by {-margin} native cells."));
 				}
+
+			if (profile.GeneratorVersion == 14)
+			{
+				report.Metrics["neutral_overlapping_pairs"] = overlappingPairs;
+				report.Metrics["maximum_neutral_overlap_native"] = maximumOverlap;
+			}
 
 			report.Metrics["maximum_colony_attack_range_native"] = rules.MaximumAttackRangeNative;
 			report.Metrics["colony_combat_safety_buffer_native"] = rules.SafetyBufferNative;

@@ -1,6 +1,7 @@
 # Regions V13: extended Terrain Complexity
 
-Status: configuration revision 4 sets Ultra to the user-requested 2.70 broad / 2.60 fine.
+Status: the user accepted configuration revision 4 on 2026-09-07. V14 now supplies the lobby controls;
+schema 7 preserves this V13 checkpoint. Configuration revision 4 sets Ultra to the user-requested 2.70 broad / 2.60 fine.
 Release build and focused native checks passed. The unchanged Small-to-Ultra continuity check flags
 three cases; the exact requested coefficients remain in place for user testing.
 
@@ -60,13 +61,10 @@ Profiles are `normal-natural-regions-v13.yaml` and `normal-natural-regions-v13-2
 Fields/Regions reassessment command remains a historical three-level experiment; use `--player-evidence`
 with schema-7 settings or `--reference` on a saved V13 map for current evidence.
 
-```powershell
-.\scripts\rmg\Invoke-RegionsMapGenerator.ps1 -Seed 397716241463670640 `
-    -MapSize 256 -Players 4 -TerrainComplexity ultra -GravelMossAmount high -VerifyRepeatability
-```
-
-`Invoke-RegionsMapGenerator.ps1` now defaults to V13 Medium. Historical replay uses the generic
-`Invoke-MapGenerator.ps1 -PlayerSettingsPath ...` with the saved schema-5/schema-6 JSON, not renamed levels.
+The current `Invoke-RegionsMapGenerator.ps1` wrapper now selects V14; see the
+[V14 usage example](NATURAL_REGIONS_V14_QUANTITIES_AND_SPACING.md). Reproduce this V13 checkpoint with the
+generic `Invoke-MapGenerator.ps1 -PlayerSettingsPath ...` and saved schema-7 JSON. Older replay uses saved
+schema-5/schema-6 JSON, not renamed levels.
 
 ## Configuration revision 4: Ultra 2.70 / 2.60
 
