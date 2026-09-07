@@ -39,7 +39,7 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 				TerrainComplexity.Standard => 1.35,
 				TerrainComplexity.High => 1.6,
 				TerrainComplexity.Extreme => 2.0,
-				TerrainComplexity.Ultra => 2.2,
+				TerrainComplexity.Ultra => 2.45,
 				_ => throw new ArgumentOutOfRangeException(nameof(settings))
 			} : settings.Complexity switch
 			{
@@ -55,7 +55,7 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 				TerrainComplexity.Standard => .3,
 				TerrainComplexity.High => .75,
 				TerrainComplexity.Extreme => 1.45,
-				TerrainComplexity.Ultra => 1.8,
+				TerrainComplexity.Ultra => 2.2375,
 				_ => 0D
 			} : 0D;
 			// Geological envelopes need broader interiors for the nested moss bank.

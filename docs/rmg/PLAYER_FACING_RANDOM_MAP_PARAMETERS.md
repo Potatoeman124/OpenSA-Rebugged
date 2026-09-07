@@ -2,7 +2,7 @@
 
 Current development override (2026-09-07): the in-game Natural Landscape selection on the extended-options
 branch is [Regions V13](NATURAL_REGIONS_V13_EXTENDED_OPTIONS.md). Terrain Complexity offers **Small / Medium /
-High / Extreme / Ultra**, with Medium as the default. Configuration revision 2 raises Medium through Ultra; Small is unchanged. The seed's
+High / Extreme / Ultra**, with Medium as the default. Configuration revision 3 increases only the Extreme-to-Ultra coefficient gap by 2.25; all lower levels are unchanged. The seed's
 broad regional layout is shared across levels. Water Amount, Gravel and Moss Amount, and Neutral Colony
 Density retain their existing ranges. Global connectivity and fairness parity are not requirements for
 Regions. RMG initializes Explored Map On and Fog of War Off after its first generated-map selection.

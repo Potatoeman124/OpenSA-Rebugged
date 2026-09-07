@@ -1,7 +1,9 @@
 # Regions V13: extended Terrain Complexity
 
-Status: configuration revision 2 applies the user-requested numerical rescaling on `codex/rmg-extended-options`.
-The retest build and automated checks passed; the user will assess this scaling in game before further changes.
+Status: configuration revision 3 applies the exact requested 2.25 multiplier to the Extreme-to-Ultra
+coefficient gap on `codex/rmg-extended-options`. Build and focused native validation passed; the existing
+Small-to-Ultra continuity test fails on the maximum seed at both sizes. The requested coefficients are retained
+for user testing; this is not an all-green regression checkpoint.
 
 ## Accepted checkpoint and scope
 
@@ -21,7 +23,7 @@ connectivity requirements, change native surface relations, or turn doodads into
 | Medium | Just below revision-1 High; default | 1.35 | 0.30 |
 | High | Just below revision-1 Extreme | 1.60 | 0.75 |
 | Extreme | Just above revision-1 Ultra | 2.00 | 1.45 |
-| Ultra | Higher intensity with a smaller final increment | 2.20 | 1.80 |
+| Ultra | Revision-2 Extreme-to-Ultra gap multiplied by 2.25 | 2.45 | 2.2375 |
 
 These coefficients are implementation values, not feature diameters or additional user controls. Fixed
 region centers, radii, rotations, characteristic scale (64 native cells), seed streams and detail frequencies
@@ -67,10 +69,41 @@ with schema-7 settings or `--reference` on a saved V13 map for current evidence.
 `Invoke-RegionsMapGenerator.ps1` now defaults to V13 Medium. Historical replay uses the generic
 `Invoke-MapGenerator.ps1 -PlayerSettingsPath ...` with the saved schema-5/schema-6 JSON, not renamed levels.
 
-## Configuration revision 2: numbers-only rescaling
+## Configuration revision 3: larger Extreme-to-Ultra gap
+
+The user found the Extreme/Ultra difference negligible and requested a 2.25-times larger delta.
+Extreme remains 2.00 / 1.45. Ultra is now exactly:
+
+- Broad: `2.00 + (2.20 - 2.00) * 2.25 = 2.45`.
+- Fine: `1.45 + (1.80 - 1.45) * 2.25 = 2.2375`.
+
+Only Ultra's two coefficients changed. All lower levels, seed construction, noise frequencies,
+geological damping and placement rules remain unchanged. Configuration version 3 and the terrain
+construction ID `natural-regions-extended-v13-r3` distinguish this tuning from revision 2. Schema 7
+selects the current development tuning; the prior revision remains at commit `c4442db` and in its
+saved map packages/evidence. Frozen V12 and earlier generators are unaffected.
+
+The stronger initial Ultra candidate in revision 2 failed a Small-to-Ultra continuity regression check.
+Revision 3 retains the user's exact requested delta and leaves that existing check unchanged; its outcome
+must be reported separately from native-map validity. Evidence is retained under
+`artifacts/rmg/regions-extended-v13/revision-03/`.
+
+
+Revision-3 results: release build passed with zero warnings/errors. All **16/16** focused maps passed
+native validation, package lint and deterministic repeats; all placed the requested colony count.
+The cases cover the user's seed at all levels/both sizes, maximum-seed Ultra at both sizes, and dense
+high-water/high-geology Ultra with surface relations On/Off at both sizes. All **8/8** lower-level comparisons
+retained identical terrain and logical/actor/graph hashes against revision 2.
+
+The full RMG regression command exited 4 solely for the existing Small-to-Ultra water-geography check on
+seed `18446744073709551615` at 128 and 256. The threshold remains 0.65 and was not weakened. Measured
+values and the exact build hash are in `revision-03/summary.json`; the checks are retained in `self-tests.log`.
+The two requested Ultra coefficients are unchanged after testing. No algorithm or placement changes were made.
+
+## Configuration revision 2: numbers-only rescaling (historical)
 
 The user requested keeping the lowest level (called Small in the interface) and increasing the remaining
-levels relative to the previous five-level calibration. The coefficient table above is current. Ultra extends Extreme by +0.20 / +0.35. An initial 2.40 / 2.15 candidate failed the existing
+levels relative to the previous five-level calibration. In that revision, Ultra extended Extreme by +0.20 / +0.35. An initial 2.40 / 2.15 candidate failed the existing
 maximum-seed continuity checks at both sizes and was reduced without changing the continuity threshold. The existing bands, frequencies,
 region seeds, 60% geological scaling, placement logic and all other controls are unchanged.
 
