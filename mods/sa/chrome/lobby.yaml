@@ -84,7 +84,7 @@ Background@SERVER_LOBBY:
 					Width: 220
 					Height: 28
 					TooltipContainer: TOOLTIP_CONTAINER
-					TooltipText: 128 x 128 supports all layout families. 256 x 256 supports Natural Landscape with 2 or 4 players.
+					TooltipText: 128 x 128 supports all layout families. Natural Landscape supports 1 through 8 players at both sizes.
 				Label@RMG_PLAYERS_LABEL:
 					X: 20
 					Y: 155
@@ -96,10 +96,10 @@ Background@SERVER_LOBBY:
 					Y: 157
 					Width: 175
 					Height: 24
-					MinimumValue: 2
-					MaximumValue: 4
+					MinimumValue: 1
+					MaximumValue: 8
 					Value: 4
-					Ticks: 2
+					Ticks: 8
 				Label@RMG_PLAYERS_VALUE:
 					X: 338
 					Y: 155
@@ -220,12 +220,14 @@ Background@SERVER_LOBBY:
 					Text: Standard
 					TooltipContainer: TOOLTIP_CONTAINER
 					TooltipText: Small through Ultra increase terrain detail within the same seed geography. Water Amount and Surface Modifiers control coverage separately. Land areas may be disconnected.
-				Label@RMG_HOSTILES_NOTE:
+				Button@RMG_COLONY_WEIGHTS:
 					X: 410
 					Y: 195
 					Width: 380
 					Height: 28
-					Text: Hostiles are configured in lobby Options.
+					Text: Neutral Colony Types...
+					TooltipContainer: TOOLTIP_CONTAINER
+					TooltipText: Set relative weights for ants, beetles, scorpions, spiders, and wasps. Zero excludes a type; all zero disables neutral colonies.
 				Label@RMG_SEED_LABEL:
 					X: 410
 					Y: 235

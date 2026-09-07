@@ -4,9 +4,9 @@
 
 This contract is implemented by Generator Version 2 configuration `normal-water-blocking-v2` version 3. It was added after live testing of configuration version 2 found match-start colony fire and newly produced units dying at their starting colony. On 2026-08-15, all five version 3 regression maps passed manual live validation with no match-start colony fire. Configuration version 3 is therefore the accepted combat-safe baseline for further RMG development; the earlier Phase 4D automated topology verdict remains historical evidence for configuration version 2 only.
 
-## Explicit V14 neutral-spacing option
+## Explicit V14 and V15 neutral-spacing option
 
-Regions V14 adds the user-requested **Prevent Colony Overlapping**, default **On**. With it enabled,
+Regions V14 adds, and V15 retains, the user-requested **Prevent Colony Overlapping**, default **On**. With it enabled,
 all invariants below remain mandatory. With it disabled, only neutral-to-neutral turret separation
 (invariant 1) becomes a placement preference: the original strict pass runs first, then a deterministic
 fallback adds the least-overlapping legal neutral sites until the target or physical capacity is reached.
@@ -19,6 +19,10 @@ Thus invariant 5 and a nonnegative minimum-combat-margin requirement still apply
 a negative neutral-only margin is allowed solely in the explicit V14 relaxed mode. The report separately
 records `neutral_overlapping_pairs` and `maximum_neutral_overlap_native` in that version.
 Historical V1-V13 settings cannot activate this exception.
+
+V15 draws neutral types using the configured relative weights before testing sites. Its strict pass and
+fallback preserve those type selections; the fallback minimizes overlap among sites for the selected
+type. A species with no legal site produces a reported capacity shortfall rather than substitution.
 
 ## Runtime-derived inputs
 

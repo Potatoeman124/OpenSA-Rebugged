@@ -35,11 +35,11 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				GravelPercent = profile.RockLandPercentFor(settings.TacticalTerrain),
 				MossPercent = profile.VegetationLandPercentFor(settings.TacticalTerrain),
 				OriginalSurfaceRelations = settings.OriginalSurfaceRelations,
-				Continuity = settings.GeneratorVersion is 12 or 13 or 14,
-				ExtendedComplexity = settings.GeneratorVersion is 13 or 14
+				Continuity = settings.GeneratorVersion is 12 or 13 or 14 or 15,
+				ExtendedComplexity = settings.GeneratorVersion is 13 or 14 or 15
 			};
 			RmgLogicalMap reference = null;
-			if (settings.GeneratorVersion is 13 or 14 || (settings.GeneratorVersion == 12 && settings.TerrainComplexity != TerrainComplexity.Low))
+			if (settings.GeneratorVersion is 13 or 14 or 15 || (settings.GeneratorVersion == 12 && settings.TerrainComplexity != TerrainComplexity.Low))
 				reference = TerrainComparison.Generate(Game.ModData, terrainSettings.ContinuityReference).Map;
 			var terrain = TerrainComparison.Generate(Game.ModData, terrainSettings, reference);
 			if (settings.GeneratorVersion == 12 && reference == null)
@@ -86,29 +86,37 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			}
 
 			var colonyCount = 0;
-			var firstType = random.NextInt(profile.NeutralColonyActors.Length);
-			foreach (var point in candidates)
-			{
-				if (colonyCount == settings.NeutralColonyCount)
-					break;
-				for (var offset = 0; offset < profile.NeutralColonyActors.Length; offset++)
-				{
-					var type = profile.NeutralColonyActors[(firstType + colonyCount + offset) % profile.NeutralColonyActors.Length];
-					if (!sites.ColonyFits(type, point) || !ColonyCombatSpaceIsValid(map, profile, type, point))
-						continue;
-					map.Actors.Add(new RmgActorPlan(type, profile.ColonyOwner, "neutral-colony", point, settings.PlayerCount + colonyCount));
-					sites.ReserveColony(type, point);
-					colonyCount++;
-					break;
-				}
-			}
-
-			var strictColonyCount = colonyCount;
+			var strictColonyCount = 0;
 			long fallbackEvaluations = 0;
-			var allowNeutralOverlap = settings.GeneratorVersion == 14 && !settings.PreventColonyOverlapping;
-			if (allowNeutralOverlap && colonyCount < settings.NeutralColonyCount)
-				colonyCount += FillRegionsColonyShortfall(map, profile, settings, sites, candidates,
-					firstType + colonyCount, out fallbackEvaluations);
+			var requestedTypes = Array.Empty<string>();
+			var allowNeutralOverlap = settings.GeneratorVersion is 14 or 15 && !settings.PreventColonyOverlapping;
+			if (settings.GeneratorVersion == 15)
+				colonyCount = PlaceWeightedRegionsColonies(map, profile, settings, sites, candidates,
+					out strictColonyCount, out fallbackEvaluations, out requestedTypes);
+			else
+			{
+				var firstType = random.NextInt(profile.NeutralColonyActors.Length);
+				foreach (var point in candidates)
+				{
+					if (colonyCount == settings.NeutralColonyCount)
+						break;
+					for (var offset = 0; offset < profile.NeutralColonyActors.Length; offset++)
+					{
+						var type = profile.NeutralColonyActors[(firstType + colonyCount + offset) % profile.NeutralColonyActors.Length];
+						if (!sites.ColonyFits(type, point) || !ColonyCombatSpaceIsValid(map, profile, type, point))
+							continue;
+						map.Actors.Add(new RmgActorPlan(type, profile.ColonyOwner, "neutral-colony", point, settings.PlayerCount + colonyCount));
+						sites.ReserveColony(type, point);
+						colonyCount++;
+						break;
+					}
+				}
+
+				strictColonyCount = colonyCount;
+				if (allowNeutralOverlap && colonyCount < settings.NeutralColonyCount)
+					colonyCount += FillRegionsColonyShortfall(map, profile, settings, sites, candidates,
+						firstType + colonyCount, out fallbackEvaluations);
+			}
 
 			var placementMs = timer.Elapsed.TotalMilliseconds;
 			timer.Restart();
@@ -149,7 +157,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			map.NaturalSurfacesFrozen = true;
 			var validation = new RmgValidationReport();
 			ValidateColonyCombatSpace(map, profile, validation, allowNeutralOverlap);
-			if (colonyCount < settings.NeutralColonyCount)
+			if (colonyCount < settings.EffectiveNeutralColonyCount)
 				validation.Warnings.Add(new RmgValidationIssue("NEUTRAL_CAPACITY",
 					$"Placed {colonyCount}/{settings.NeutralColonyCount} neutral colonies on valid existing terrain."));
 			map.RegionsReport = terrain.Report;
@@ -158,9 +166,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			map.RegionsReport["terrain_repainted_for_placement"] = false;
 			map.RegionsReport["placement_ms"] = placementMs;
 			map.RegionsReport["doodads_ms"] = timer.Elapsed.TotalMilliseconds;
-			map.RegionsReport["neutral_colonies_requested"] = settings.NeutralColonyCount;
+			map.RegionsReport["neutral_colonies_requested"] = settings.EffectiveNeutralColonyCount;
 			map.RegionsReport["neutral_colonies_placed"] = colonyCount;
-			if (settings.GeneratorVersion == 14)
+			if (settings.GeneratorVersion is 14 or 15)
 			{
 				map.RegionsReport["prevent_colony_overlapping"] = settings.PreventColonyOverlapping;
 				map.RegionsReport["neutral_colonies_strict"] = strictColonyCount;
@@ -169,6 +177,16 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				map.RegionsReport["neutral_overlapping_pairs"] = validation.Metrics.GetValueOrDefault("neutral_overlapping_pairs");
 				map.RegionsReport["maximum_neutral_overlap_native"] = validation.Metrics.GetValueOrDefault("maximum_neutral_overlap_native");
 			}
+			if (settings.GeneratorVersion == 15)
+			{
+				map.RegionsReport["neutral_colony_weights"] = settings.NeutralColonyWeights.ToJson();
+				map.RegionsReport["neutral_colonies_density_target"] = settings.NeutralColonyCount;
+				map.RegionsReport["neutral_colonies_disabled"] = settings.NeutralColonyWeights.Total == 0;
+				map.RegionsReport["neutral_colonies_drawn_by_type"] = new JObject(RmgColonyWeights.Keys.Select(key =>
+					new JProperty(key, requestedTypes.Count(type => type == key + "_colony"))));
+				map.RegionsReport["neutral_colonies_placed_by_type"] = new JObject(RmgColonyWeights.Keys.Select(key =>
+					new JProperty(key, map.Actors.Count(actor => actor.Role == "neutral-colony" && actor.Type == key + "_colony"))));
+			}
 			map.RegionsReport["doodads_requested"] = decorationTarget;
 			map.RegionsReport["doodads_placed"] = decorations.Count;
 			map.RegionsReport["symmetry_requirement"] = "NOT_REQUIRED";
@@ -176,8 +194,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			map.RegionsReport["placement_candidates"] = candidates.Count;
 			if (reference != null)
 			{
-				map.RegionsReport["geography_contract"] = settings.GeneratorVersion is 13 or 14 ? "fixed-regions-extended-detail-v13" : "fixed-regions-bounded-detail-v12";
-				map.RegionsReport["preferred_start_reference"] = settings.GeneratorVersion is 13 or 14 ? "same-settings-v12-low-complexity" : "same-settings-low-complexity";
+				map.RegionsReport["geography_contract"] = settings.GeneratorVersion is 13 or 14 or 15 ? "fixed-regions-extended-detail-v13" : "fixed-regions-bounded-detail-v12";
+				map.RegionsReport["preferred_start_reference"] = settings.GeneratorVersion is 13 or 14 or 15 ? "same-settings-v12-low-complexity" : "same-settings-low-complexity";
 				map.RegionsReport["start_displacement_native"] = new JArray(map.Starts.Select((point, i) =>
 					i < preferred.Count ? 2 * Math.Sqrt(RegionDistanceSquared(point, preferred[i])) : (double?)null));
 			}

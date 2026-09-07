@@ -60,6 +60,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		readonly CheckboxWidget preventColonyOverlappingCheckbox;
 		readonly ButtonWidget rmgToggleButton;
 
+		RmgColonyWeights colonyWeights = new();
 		RmgPlayerPreset preset = RmgPlayerPreset.Balanced;
 		TerrainChoice terrain = TerrainChoice.Normal;
 		SizeChoice size = SizeChoice.Large;
@@ -250,6 +251,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					if (value != RmgPlayerLayoutFamily.NaturalLandscape)
 					{
 						size = SizeChoice.Standard;
+						playerCount = playerCount <= 2 ? 2 : 4;
 						if (waterAmount > RmgPlayerParameterLevel.High)
 							waterAmount = RmgPlayerParameterLevel.High;
 						if (tacticalTerrain > RmgPlayerParameterLevel.High)
@@ -361,11 +363,29 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 				MarkStale();
 			};
 
+			UpdatePlayerRange();
+			lobby.Get<LabelWidget>("RMG_PLAYERS_MIN").GetText = () => layoutFamily == RmgPlayerLayoutFamily.NaturalLandscape ? "1" : "2";
+			lobby.Get<LabelWidget>("RMG_PLAYERS_MAX").GetText = () => layoutFamily == RmgPlayerLayoutFamily.NaturalLandscape ? "8" : "4";
+			var weightsButton = lobby.Get<ButtonWidget>("RMG_COLONY_WEIGHTS");
+			weightsButton.IsDisabled = () => !CanConfigure() || layoutFamily != RmgPlayerLayoutFamily.NaturalLandscape;
+			weightsButton.OnClick = () => Ui.OpenWindow("RMG_COLONY_WEIGHTS_PANEL", new WidgetArgs
+			{
+				{ "initialWeights", colonyWeights },
+				{ "configurationDisabled", (Func<bool>)(() => !CanConfigure()) },
+				{ "onApply", (Action<RmgColonyWeights>)(weights =>
+				{
+					if (!CanConfigure() || weights == colonyWeights) return;
+					colonyWeights = weights;
+					presetCustomized = true;
+					MarkStale();
+				}) }
+			});
 			playersSlider.Value = playerCount;
 			playersSlider.GetValue = () => playerCount;
 			playersSlider.OnChange += value =>
 			{
-				var selected = (value < 3 ? 2 : 4);
+				if (!CanConfigure()) return;
+				var selected = layoutFamily == RmgPlayerLayoutFamily.NaturalLandscape ? Math.Clamp((int)Math.Round(value), 1, 8) : value < 3 ? 2 : 4;
 				if (selected == playerCount)
 					return;
 
@@ -435,6 +455,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			layout = LayoutChoice.OpenFields;
 			originalSurfaceRelations = true;
 			preventColonyOverlapping = true;
+			colonyWeights = new();
 			complexity = selected switch
 			{
 				RmgPlayerPreset.OpenConflict => TerrainComplexity.Low,
@@ -485,15 +506,24 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 				return "64 x 64 remains planned.";
 			if (size == SizeChoice.Large && layoutFamily != RmgPlayerLayoutFamily.NaturalLandscape)
 				return "256 x 256 currently requires Natural Landscape.";
-			if (playerCount != 2 && playerCount != 4)
-				return $"{playerCount}-player generation is planned; the current generator supports 2 or 4 players.";
+			if (layoutFamily == RmgPlayerLayoutFamily.NaturalLandscape ? playerCount < 1 || playerCount > 8 : playerCount != 2 && playerCount != 4)
+				return "Natural Landscape supports 1 through 8 players; historical layouts support 2 or 4.";
 			if (layout is LayoutChoice.MixedFronts or LayoutChoice.NarrowPassages or LayoutChoice.Chaos)
 				return $"{LayoutDisplayName(layout)} is a planned layout placeholder.";
 			return null;
 		}
 
+		void UpdatePlayerRange()
+		{
+			var natural = layoutFamily == RmgPlayerLayoutFamily.NaturalLandscape;
+			playersSlider.MinimumValue = natural ? 1 : 2;
+			playersSlider.MaximumValue = natural ? 8 : 4;
+			playersSlider.Ticks = natural ? 8 : 2;
+		}
+
 		void MarkStale()
 		{
+			UpdatePlayerRange();
 			rmgMode = generatedUid != null && CurrentMapUid() == generatedUid;
 			stale = true;
 			var unsupported = UnsupportedReason();
@@ -533,7 +563,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 
 				var playerSettings = new RmgPlayerSettings
 				{
-					SchemaVersion = layoutFamily == RmgPlayerLayoutFamily.NaturalLandscape ? 8 : 3,
+					SchemaVersion = layoutFamily == RmgPlayerLayoutFamily.NaturalLandscape ? 9 : 3,
 					MapSize = size == SizeChoice.Large ? 256 : 128,
 					Preset = preset,
 					Seed = seed,
@@ -547,7 +577,8 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					TacticalTerrain = tacticalTerrain,
 					TerrainComplexity = layoutFamily == RmgPlayerLayoutFamily.NaturalLandscape ? complexity : TerrainComplexity.Standard,
 					OriginalSurfaceRelations = originalSurfaceRelations,
-					PreventColonyOverlapping = layoutFamily != RmgPlayerLayoutFamily.NaturalLandscape || preventColonyOverlapping
+					PreventColonyOverlapping = layoutFamily != RmgPlayerLayoutFamily.NaturalLandscape || preventColonyOverlapping,
+					NeutralColonyWeights = layoutFamily == RmgPlayerLayoutFamily.NaturalLandscape ? colonyWeights : new()
 				};
 				var settingsResolution = RmgPlayerSettingsContract.Resolve(playerSettings);
 				var profile = RmgProfile.Load(modData, settingsResolution.Normalized);
@@ -583,7 +614,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					var spacingSummary = closerColonies > 0 ? $" {closerColonies} placed with closer spacing." : string.Empty;
 					SetStatus($"Ready: Regions / {RmgPlayerSettingsContract.ComplexityDisplayName(complexity, true)} ({result.Performance.TotalMilliseconds / 1000d:0.0}s). " +
 						$"Water {100D * water / cells.Length:0.0}%; gravel/moss {100D * gravel / land:0.0}/{100D * moss / land:0.0}% of land; " +
-						$"colonies {placedColonies}/{settingsResolution.Normalized.NeutralColonyCount}.{spacingSummary}",
+						$"colonies {placedColonies}/{settingsResolution.Normalized.EffectiveNeutralColonyCount}.{spacingSummary}",
 						result.Generation.Validation.Warnings.Count > 0 ? StatusKind.Warning : StatusKind.Success);
 				}
 				else

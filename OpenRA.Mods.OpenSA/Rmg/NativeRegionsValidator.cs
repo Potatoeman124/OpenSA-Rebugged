@@ -95,6 +95,13 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					result.HardFailures.Add(new RmgValidationIssue(code, message));
 			}
 
+			if (settings.GeneratorVersion == 15)
+			{
+				var weights = settings.NeutralColonyWeights;
+				var allowed = RmgColonyWeights.Keys.Where((_, i) => weights.Values[i] > 0).Select(key => key + "_colony").ToHashSet();
+				Require(colonies.All(colony => allowed.Contains(colony.Type)), "COLONY_WEIGHTS", "Saved map contains an excluded neutral colony type.");
+				Require(colonies.Length <= settings.EffectiveNeutralColonyCount, "COLONY_COUNT", "Saved map exceeds the effective neutral colony target.");
+			}
 			Require(costsAccepted, "NATIVE_COSTS", costMessage);
 			Require(exits == 0, "LOCAL_PRODUCTION_EXITS", $"{exits} exits are blocked or outside playable bounds.");
 			Require(invalidStart == 0 && invalidColony == 0, "LOCAL_FOOTPRINT", $"{invalidStart} start cells and {invalidColony} colony cells violate local terrain requirements.");

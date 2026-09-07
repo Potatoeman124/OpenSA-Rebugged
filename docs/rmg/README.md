@@ -10,6 +10,13 @@ The RMG must preserve that boundary: it may refer to terrain and actor identifie
 
 ## Current integration checkpoint
 
+The current development branch is `codex/rmg-eight-players-colony-weights`, starting from frozen
+`main` commit `1143fad394ef845fd21ac986b93c3b322f14b25e`.
+[Regions V15: player counts and colony weights](NATURAL_REGIONS_V15_PLAYERS_AND_WEIGHTS.md)
+adds every player count from **1 through 8**, and a **Neutral Colony Types...** dialog with pirate-style
+relative weights. The lobby and Regions PowerShell wrapper now select schema 9 / V15 configuration 1.
+This update awaits in-game acceptance; V14 remains the accepted frozen checkpoint.
+
 The accepted three-level **Regions V12** checkpoint was merged and pushed to `main` at
 `c34387a6f12a232418e80df6ba89d71fc8e13480` after user in-game acceptance on 2026-09-07.
 
@@ -28,7 +35,7 @@ generated-map selection initializes Explored Map On and Fog of War Off; later re
 user changes. With overlap prevention off, the generator fills neutral-colony shortfalls using the smallest
 available turret-spacing overlaps while retaining physical clearance and all player-start protections.
 
-Schema 8 selects V14; schema 7 preserves [accepted V13 complexity](NATURAL_REGIONS_V13_EXTENDED_OPTIONS.md);
+Schema 9 selects V15; schema 8 preserves V14; schema 7 preserves [accepted V13 complexity](NATURAL_REGIONS_V13_EXTENDED_OPTIONS.md);
 schema 6 replays [Regions V12](NATURAL_REGIONS_V12_CONTINUITY.md); schema 5 preserves
 [Regions V11](NATURAL_REGIONS_V11.md). Schemas 1-4 retain their historical generator selections, including V10.
 Earlier phase reports below are chronological records; their global connectivity and competitive fairness
