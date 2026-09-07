@@ -14,8 +14,8 @@ The accepted three-level **Regions V12** checkpoint was merged and pushed to `ma
 `c34387a6f12a232418e80df6ba89d71fc8e13480` after user in-game acceptance on 2026-09-07.
 
 Development on `codex/rmg-extended-options` now integrates **Regions V13** with five Terrain Complexity
-levels: **Small / Medium / High / Extreme / Ultra**. Medium is the default and reproduces V12 High terrain;
-Small reproduces V12 Standard terrain. Higher levels introduce stronger secondary features at fixed seeded
+levels: **Small / Medium / High / Extreme / Ultra**. Medium remains the default; configuration revision 2 raises Medium through Ultra per user feedback.
+Small remains unchanged and reproduces V12 Standard terrain. Higher levels introduce stronger secondary features at fixed seeded
 positions. Water Amount, Gravel and Moss Amount, and Neutral Colony Density retain their existing ranges.
 
 See [Regions V13 extended complexity](NATURAL_REGIONS_V13_EXTENDED_OPTIONS.md) for the calibration,

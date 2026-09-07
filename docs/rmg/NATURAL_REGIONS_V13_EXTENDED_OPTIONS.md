@@ -1,7 +1,7 @@
 # Regions V13: extended Terrain Complexity
 
-Status: implemented and built on `codex/rmg-extended-options`; automated delivery and native visual checks passed. User gameplay
-acceptance of V13 remains separate from the accepted V12 freeze.
+Status: configuration revision 2 applies the user-requested numerical rescaling on `codex/rmg-extended-options`.
+The retest build and automated checks passed; the user will assess this scaling in game before further changes.
 
 ## Accepted checkpoint and scope
 
@@ -18,15 +18,15 @@ connectivity requirements, change native surface relations, or turn doodads into
 | Level | Calibration | Broad detail strength | Finer detail strength |
 | --- | --- | ---: | ---: |
 | Small | V12 Standard terrain; less empty than old Low | 0.65 | 0 |
-| Medium | V12 High terrain; default | 1.15 | 0 |
-| High | More inlets, divisions and secondary patches | 1.40 | 0.40 |
-| Extreme | Stronger interacting local features | 1.65 | 0.85 |
-| Ultra | Highest calibrated detail in this release | 1.90 | 1.30 |
+| Medium | Just below revision-1 High; default | 1.35 | 0.30 |
+| High | Just below revision-1 Extreme | 1.60 | 0.75 |
+| Extreme | Just above revision-1 Ultra | 2.00 | 1.45 |
+| Ultra | Higher intensity with a smaller final increment | 2.20 | 1.80 |
 
 These coefficients are implementation values, not feature diameters or additional user controls. Fixed
 region centers, radii, rotations, characteristic scale (64 native cells), seed streams and detail frequencies
-are independent of complexity. The existing secondary band uses 24/12-native-cell noise scales. Above
-Medium a fixed 12/6-native-cell band also contributes. Geological detail receives 60% of the water detail
+are independent of complexity. The existing secondary band uses 24/12-native-cell noise scales. From
+Medium upward a fixed 12/6-native-cell band also contributes. Geological detail receives 60% of the water detail
 strength to keep usable interiors for the nested moss tile bank. Detail has less influence at region centers.
 
 The first prototype increased only the existing band's strength up to 2.35. It preserved geography but
@@ -67,7 +67,37 @@ with schema-7 settings or `--reference` on a saved V13 map for current evidence.
 `Invoke-RegionsMapGenerator.ps1` now defaults to V13 Medium. Historical replay uses the generic
 `Invoke-MapGenerator.ps1 -PlayerSettingsPath ...` with the saved schema-5/schema-6 JSON, not renamed levels.
 
-## Verification record
+## Configuration revision 2: numbers-only rescaling
+
+The user requested keeping the lowest level (called Small in the interface) and increasing the remaining
+levels relative to the previous five-level calibration. The coefficient table above is current. Ultra extends Extreme by +0.20 / +0.35. An initial 2.40 / 2.15 candidate failed the existing
+maximum-seed continuity checks at both sizes and was reduced without changing the continuity threshold. The existing bands, frequencies,
+region seeds, 60% geological scaling, placement logic and all other controls are unchanged.
+
+Both V13 profiles now use configuration version 2 and terrain reports identify `natural-regions-extended-v13-r2`.
+This keeps the new tuning distinguishable from revision 1. Schema 7 selects this current development tuning;
+revision 1 remains recorded at commit `317ba28` and in its saved map packages/evidence. V12 and earlier
+frozen generators remain unchanged. The old Medium-to-V12-High equivalence no longer applies; the regression
+suite now verifies the still-required Small-to-V12-Standard equality instead.
+
+Retest evidence: `artifacts/rmg/regions-extended-v13/revision-02/`.
+
+- Release build: passed with zero warnings/errors. Existing complete RMG regression suite: passed,
+  including the unchanged 0.65 coarse-continuity tripwire after the Ultra reduction.
+- Final focused matrix: **50/50** native-valid maps with deterministic repeats and package validation,
+  covering all levels, 128/256 sizes, 2/4 players, both relation modes and dense high-quantity cases.
+- **10/10** lowest-level cases retained identical native terrain and logical/actor/graph hashes against
+  revision 1. Both saved V12 High replays (128/256) retained all six compared identity fields.
+- Every final map achieved its full requested neutral-colony count.
+- The superseded partial `acceptance/` run used the rejected 2.40 / 2.15 Ultra candidate. Delivery evidence is
+  `final-matrix/`, `final-build.log`, `final-self-tests.log` and `summary.json`. The separate ten-map
+  maximum-seed `continuity-probe/` also passed before the final matrix.
+
+The first four levels are exactly the requested numerical choices. The final Ultra coefficients are
+2.20 / 1.80, above the revised Extreme while retaining the existing continuity checks. No construction,
+placement or UI behavior was added in this tuning pass.
+
+## Revision 1 verification record (historical)
 
 Retained evidence is under `artifacts/rmg/regions-extended-v13/` (ignored by Git):
 
@@ -82,8 +112,8 @@ Retained evidence is under `artifacts/rmg/regions-extended-v13/` (ignored by Git
 The matrix fixes its seeds and settings before generation. It covers five levels, both 128/256 sizes,
 2/4 players, both surface-relation modes, and dense colonies with high water and gravel/moss, including the
 user's original seed, zero and the maximum unsigned 64-bit seed. Native tests validate surface semantics,
-footprints, production exits and combat separation; no global connection rule is introduced. The regression
-suite also checks exact Medium-to-V12-High native terrain/template equality, schema isolation, unique level
+footprints, production exits and combat separation; no global connection rule is introduced. The revision-1 regression
+suite also checked exact Medium-to-V12-High native terrain/template equality, schema isolation, unique level
 identities, deterministic Ultra replay, distinct adjacent levels and fixed water geography across land quantities.
 
 Delivery results:

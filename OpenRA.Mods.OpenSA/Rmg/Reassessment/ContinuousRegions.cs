@@ -36,10 +36,10 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 			var strength = settings.ExtendedComplexity ? settings.Complexity switch
 			{
 				TerrainComplexity.Low => .65,
-				TerrainComplexity.Standard => 1.15,
-				TerrainComplexity.High => 1.4,
-				TerrainComplexity.Extreme => 1.65,
-				TerrainComplexity.Ultra => 1.9,
+				TerrainComplexity.Standard => 1.35,
+				TerrainComplexity.High => 1.6,
+				TerrainComplexity.Extreme => 2.0,
+				TerrainComplexity.Ultra => 2.2,
 				_ => throw new ArgumentOutOfRangeException(nameof(settings))
 			} : settings.Complexity switch
 			{
@@ -48,13 +48,14 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 				TerrainComplexity.High => 1.15,
 				_ => throw new ArgumentOutOfRangeException(nameof(settings))
 			};
-			// Above Medium, add a fixed finer band rather than allowing the coarse
+			// From Medium upward, add a fixed finer band rather than allowing the coarse
 			// displacement alone to dominate. Its positions/frequencies are seed-stable.
 			var fineStrength = settings.ExtendedComplexity ? settings.Complexity switch
 			{
-				TerrainComplexity.High => .4,
-				TerrainComplexity.Extreme => .85,
-				TerrainComplexity.Ultra => 1.3,
+				TerrainComplexity.Standard => .3,
+				TerrainComplexity.High => .75,
+				TerrainComplexity.Extreme => 1.45,
+				TerrainComplexity.Ultra => 1.8,
 				_ => 0D
 			} : 0D;
 			// Geological envelopes need broader interiors for the nested moss bank.

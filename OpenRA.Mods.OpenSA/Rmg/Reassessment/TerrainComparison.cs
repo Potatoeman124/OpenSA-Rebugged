@@ -26,7 +26,7 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 		public bool Continuity { get; init; }
 		public bool ExtendedComplexity { get; init; }
 		public TerrainComparisonSettings ContinuityReference => this with { Complexity = TerrainComplexity.Low, ExtendedComplexity = false };
-		public string ConstructionId => ExtendedComplexity ? "natural-regions-extended-v13" : Continuity ? "natural-regions-continuity-v12" : ExperimentId;
+		public string ConstructionId => ExtendedComplexity ? "natural-regions-extended-v13-r2" : Continuity ? "natural-regions-continuity-v12" : ExperimentId;
 		public const string ExperimentId = "natural-reassessment-comparison-v1";
 		public string Identity => $"{ConstructionId}/seed={Seed}/size={Size}/method={Method}/complexity={RmgPlayerSettingsContract.ComplexityDisplayName(Complexity, ExtendedComplexity)}/water={WaterPercent}/rock={GravelPercent}/moss={MossPercent}/original={OriginalSurfaceRelations.ToString().ToLowerInvariant()}";
 

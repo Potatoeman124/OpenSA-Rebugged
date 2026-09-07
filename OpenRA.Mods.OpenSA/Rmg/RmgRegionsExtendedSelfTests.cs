@@ -64,18 +64,18 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			foreach (var seed in new[] { 397716241463670640UL, 0UL, ulong.MaxValue })
 				foreach (var size in new[] { 128, 256 })
 				{
-					var baseline = new TerrainComparisonSettings(seed, size, TerrainConstruction.Regions, TerrainComplexity.High)
+					var baseline = new TerrainComparisonSettings(seed, size, TerrainConstruction.Regions, TerrainComplexity.Standard)
 					{
 						Continuity = true
 					};
-					var oldHigh = TerrainComparison.Generate(modData, baseline);
-					var newMedium = TerrainComparison.Generate(modData, baseline with
+					var oldStandard = TerrainComparison.Generate(modData, baseline);
+					var newSmall = TerrainComparison.Generate(modData, baseline with
 					{
-						ExtendedComplexity = true, Complexity = TerrainComplexity.Standard
+						ExtendedComplexity = true, Complexity = TerrainComplexity.Low
 					});
-					Check(oldHigh.Map.NativeTerrainIntents.SequenceEqual(newMedium.Map.NativeTerrainIntents) &&
-						oldHigh.Map.TemplateIds.SequenceEqual(newMedium.Map.TemplateIds),
-						$"V13 Medium no longer reproduces V12 High terrain: {seed}/{size}.");
+					Check(oldStandard.Map.NativeTerrainIntents.SequenceEqual(newSmall.Map.NativeTerrainIntents) &&
+						oldStandard.Map.TemplateIds.SequenceEqual(newSmall.Map.TemplateIds),
+						$"V13 Small no longer reproduces V12 Standard terrain: {seed}/{size}.");
 					byte[] first = null;
 					byte[] previous = null;
 					foreach (var complexity in Enum.GetValues<TerrainComplexity>())
