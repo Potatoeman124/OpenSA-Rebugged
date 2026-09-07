@@ -16,17 +16,17 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public int Total => Ants + Beetles + Scorpions + Spiders + Wasps;
 		public JObject ToJson() => new(Keys.Select((key, i) => new JProperty(key, Values[i])));
 
-		public void Validate()
+		public void Validate(int maximum = 1000)
 		{
-			if (Values.Any(value => value < 0 || value > 1000))
-				throw new ArgumentException("Neutral colony weights must be whole numbers from 0 through 1000.");
+			if (Values.Any(value => value < 0 || value > maximum))
+				throw new ArgumentException($"Neutral colony weights must be whole numbers from 0 through {maximum}.");
 		}
 
-		public static RmgColonyWeights Parse(JToken token)
+		public static RmgColonyWeights Parse(JToken token, int maximum = 1000)
 		{
 			if (token is not JObject json || json.Properties().Any(p => !Keys.Contains(p.Name)) ||
-				Keys.Any(key => json[key]?.Type != JTokenType.Integer || (decimal)json[key] < 0 || (decimal)json[key] > 1000))
-				throw new ArgumentException("neutral_colony_weights must contain ants, beetles, scorpions, spiders, and wasps as integers from 0 through 1000.");
+				Keys.Any(key => json[key]?.Type != JTokenType.Integer || (decimal)json[key] < 0 || (decimal)json[key] > maximum))
+				throw new ArgumentException($"neutral_colony_weights must contain ants, beetles, scorpions, spiders, and wasps as integers from 0 through {maximum}.");
 			return new((int)json["ants"], (int)json["beetles"], (int)json["scorpions"], (int)json["spiders"], (int)json["wasps"]);
 		}
 

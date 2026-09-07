@@ -84,7 +84,7 @@ Background@SERVER_LOBBY:
 					Width: 220
 					Height: 28
 					TooltipContainer: TOOLTIP_CONTAINER
-					TooltipText: 128 x 128 supports all layout families. Natural Landscape supports 1 through 8 players at both sizes.
+					TooltipText: 128 x 128 supports all layout families. Natural Landscape supports 64 x 64 with 1-4 players, and 128 or 256 with 1-8 players.
 				Label@RMG_PLAYERS_LABEL:
 					X: 20
 					Y: 155
@@ -223,11 +223,19 @@ Background@SERVER_LOBBY:
 				Button@RMG_COLONY_WEIGHTS:
 					X: 410
 					Y: 195
-					Width: 380
+					Width: 185
 					Height: 28
 					Text: Neutral Colony Types...
 					TooltipContainer: TOOLTIP_CONTAINER
 					TooltipText: Set relative weights for ants, beetles, scorpions, spiders, and wasps. Zero excludes a type; all zero disables neutral colonies.
+				Button@RMG_COLONY_OWNERSHIP:
+					X: 605
+					Y: 195
+					Width: 185
+					Height: 28
+					Text: Starting Ownership...
+					TooltipContainer: TOOLTIP_CONTAINER
+					TooltipText: Give each player a share of generated colonies near their actual starting colony. Defaults to none.
 				Label@RMG_SEED_LABEL:
 					X: 410
 					Y: 235

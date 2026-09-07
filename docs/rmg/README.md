@@ -12,15 +12,16 @@ The RMG must preserve that boundary: it may refer to terrain and actor identifie
 
 The current development branch is `codex/rmg-eight-players-colony-weights`, starting from frozen
 `main` commit `1143fad394ef845fd21ac986b93c3b322f14b25e`.
-[Regions V15: player counts and colony weights](NATURAL_REGIONS_V15_PLAYERS_AND_WEIGHTS.md)
-adds every player count from **1 through 8**, and a **Neutral Colony Types...** dialog with pirate-style
-relative weights. The lobby and Regions PowerShell wrapper now select schema 9 / V15 configuration 1.
-This update awaits in-game acceptance; V14 remains the accepted frozen checkpoint.
+[Regions V16: small maps and starting ownership](NATURAL_REGIONS_V16_STARTING_OWNERSHIP.md)
+adds **64 x 64**, per-player starting colony shares, and **0-100** ranges for both colony slider groups.
+The lobby and Regions wrapper now select schema 10 / V16 configuration 1. V16 awaits in-game acceptance.
+[Regions V15](NATURAL_REGIONS_V15_PLAYERS_AND_WEIGHTS.md), commit `7035e00`, was accepted in-game and
+provides the 1-8 player and species-weight foundation. V14 remains the frozen checkpoint on `main`.
 
 The accepted three-level **Regions V12** checkpoint was merged and pushed to `main` at
 `c34387a6f12a232418e80df6ba89d71fc8e13480` after user in-game acceptance on 2026-09-07.
 
-The current accepted checkpoint is **Regions V14**, configuration 1 / player schema 8. The user confirmed
+The current frozen main checkpoint is **Regions V14**, configuration 1 / player schema 8. The user confirmed
 in-game acceptance and authorized its freeze and promotion to `main` on 2026-09-07. The implementation
 is `8bbee8d36dc0472a49586055ceb0759e848f812a`, developed on `codex/rmg-extended-options`.
 It preserves the accepted
@@ -35,7 +36,7 @@ generated-map selection initializes Explored Map On and Fog of War Off; later re
 user changes. With overlap prevention off, the generator fills neutral-colony shortfalls using the smallest
 available turret-spacing overlaps while retaining physical clearance and all player-start protections.
 
-Schema 9 selects V15; schema 8 preserves V14; schema 7 preserves [accepted V13 complexity](NATURAL_REGIONS_V13_EXTENDED_OPTIONS.md);
+Schema 10 selects V16; schema 9 preserves V15; schema 8 preserves V14; schema 7 preserves [accepted V13 complexity](NATURAL_REGIONS_V13_EXTENDED_OPTIONS.md);
 schema 6 replays [Regions V12](NATURAL_REGIONS_V12_CONTINUITY.md); schema 5 preserves
 [Regions V11](NATURAL_REGIONS_V11.md). Schemas 1-4 retain their historical generator selections, including V10.
 Earlier phase reports below are chronological records; their global connectivity and competitive fairness

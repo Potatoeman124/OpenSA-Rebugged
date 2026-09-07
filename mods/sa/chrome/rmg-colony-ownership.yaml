@@ -1,5 +1,5 @@
-Background@RMG_COLONY_WEIGHTS_PANEL:
-	Logic: RmgColonyWeightsLogic
+Background@RMG_COLONY_OWNERSHIP_PANEL:
+	Logic: RmgColonyOwnershipLogic
 	X: (WINDOW_RIGHT - WIDTH) / 2
 	Y: (WINDOW_BOTTOM - HEIGHT) / 2
 	Width: 900
@@ -75,7 +75,7 @@ Background@RMG_COLONY_WEIGHTS_PANEL:
 			Y: PARENT_BOTTOM - 43
 			Width: 170
 			Height: 28
-			Text: Reset all weights
+			Text: Reset all shares
 		Button@APPLY:
 			X: PARENT_RIGHT - 270
 			Y: PARENT_BOTTOM - 43

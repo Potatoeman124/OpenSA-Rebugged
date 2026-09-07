@@ -20,9 +20,9 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 	sealed class ValidateRmgGeneratorCommand : IUtilityCommand
 	{
 		string IUtilityCommand.Name => "--validate-sa-rmg";
-		bool IUtilityCommand.ValidateArguments(string[] args) => args.Length == 1 || (args.Length == 2 && args[1] is "--regions-options" or "--regions-players");
+		bool IUtilityCommand.ValidateArguments(string[] args) => args.Length == 1 || (args.Length == 2 && args[1] is "--regions-options" or "--regions-players" or "--regions-ownership");
 
-		[Desc("[--regions-options|--regions-players]", "Run focused deterministic RMG self-tests for frozen V1-V9 and V10 Natural Landscape and playable V11-V15 Regions profiles.")]
+		[Desc("[--regions-options|--regions-players|--regions-ownership]", "Run focused deterministic RMG self-tests for frozen V1-V9 and V10 Natural Landscape and playable V11-V16 Regions profiles.")]
 		void IUtilityCommand.Run(Utility utility, string[] args)
 		{
 			try
@@ -30,7 +30,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				var failures = new List<string>();
 				if (args.Length == 2)
 				{
-					var optionsOnly = args[1] == "--regions-players" ? RmgGenerator.RunRegionsPlayersSelfTests(utility.ModData) : RmgGenerator.RunRegionsOptionsSelfTests(utility.ModData);
+					var optionsOnly = args[1] == "--regions-ownership" ? RmgGenerator.RunRegionsOwnershipSelfTests(utility.ModData) : args[1] == "--regions-players" ? RmgGenerator.RunRegionsPlayersSelfTests(utility.ModData) : RmgGenerator.RunRegionsOptionsSelfTests(utility.ModData);
 					Console.WriteLine($"{args[1][2..]}-contract: {(optionsOnly.Count == 0 ? "PASS" : "FAIL")}");
 					foreach (var failure in optionsOnly) Console.Error.WriteLine(failure);
 					Environment.ExitCode = optionsOnly.Count == 0 ? 0 : 4;
@@ -159,6 +159,10 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				var extendedFailures = RmgGenerator.RunRegionsExtendedSelfTests(utility.ModData);
 				failures.AddRange(extendedFailures);
 				Console.WriteLine($"regions-extended-contract: {(extendedFailures.Count == 0 ? "PASS" : "FAIL")}");
+
+				var ownershipFailures = RmgGenerator.RunRegionsOwnershipSelfTests(utility.ModData);
+				failures.AddRange(ownershipFailures);
+				Console.WriteLine($"regions-ownership-contract: {(ownershipFailures.Count == 0 ? "PASS" : "FAIL")}");
 
 				var playersFailures = RmgGenerator.RunRegionsPlayersSelfTests(utility.ModData);
 				failures.AddRange(playersFailures);

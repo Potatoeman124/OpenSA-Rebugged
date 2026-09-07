@@ -304,7 +304,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 							$"Starts {map.Starts[i]} and {map.Starts[j]} violate a possible pair of starting-colony turret/production envelopes by {-margin} native cells."));
 				}
 
-			if (profile.GeneratorVersion is 14 or 15)
+			if (profile.GeneratorVersion is 14 or 15 or 16)
 			{
 				report.Metrics["neutral_overlapping_pairs"] = overlappingPairs;
 				report.Metrics["maximum_neutral_overlap_native"] = maximumOverlap;

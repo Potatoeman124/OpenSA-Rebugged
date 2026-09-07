@@ -492,7 +492,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				throw new ArgumentException($"Generator Version {settings.GeneratorVersion} is not supported by profile {profile.ProfileId}.");
 			if (profile.UsesRegionsTerrain && (settings.TopologyPreset != RmgTopologyPreset.NaturalRegions ||
 				settings.LayoutFamily != RmgLayoutFamily.NaturalLandscape || (!Enum.IsDefined(settings.TerrainComplexity) ||
-				(settings.GeneratorVersion is not (13 or 14 or 15) && settings.TerrainComplexity > Reassessment.TerrainComplexity.High))))
+				(settings.GeneratorVersion is not (13 or 14 or 15 or 16) && settings.TerrainComplexity > Reassessment.TerrainComplexity.High))))
 				throw new ArgumentException("Regions requires Natural Landscape and a valid Terrain Complexity.");
 			if (profile.GeneratorVersion == 1 && settings.TopologyPreset != RmgTopologyPreset.Off)
 				throw new ArgumentException("Generator Version 1 requires TopologyPreset=off.");
@@ -525,21 +525,31 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				settings.TacticalTerrain != RmgParameterLevel.Standard))
 				throw new ArgumentException($"Generator Version {settings.GeneratorVersion} supports only Standard Water and tactical terrain.");
 			if (!Enum.IsDefined(settings.WaterAmount) || !Enum.IsDefined(settings.TacticalTerrain) ||
-				(settings.GeneratorVersion is not (14 or 15) && (settings.WaterAmount > RmgParameterLevel.High ||
+				(settings.GeneratorVersion is not (14 or 15 or 16) && (settings.WaterAmount > RmgParameterLevel.High ||
 				settings.TacticalTerrain > RmgParameterLevel.High || !settings.PreventColonyOverlapping)))
 				throw new ArgumentException("Extended quantities and relaxed spacing require Regions V14.");
 			if (settings.NeutralColonyWeights == null)
 				throw new ArgumentException("Neutral colony weights must be an object.");
-			settings.NeutralColonyWeights.Validate();
-			if (settings.GeneratorVersion == 15)
+			settings.NeutralColonyWeights.Validate(settings.GeneratorVersion == 16 ? 100 : 1000);
+			RmgColonyOwnership.ValidateShares(settings.StartingColonyShares, settings.PlayerCount);
+			if (settings.GeneratorVersion != 16 && settings.StartingColonyShares.Length != 0)
+				throw new ArgumentException("Starting colony shares require Regions V16.");
+			if (settings.GeneratorVersion is 15 or 16)
 			{
 				if (settings.PlayerCount < 1 || settings.PlayerCount > 8)
-					throw new ArgumentException("Regions V15 supports 1 through 8 players.");
+					throw new ArgumentException("Regions V15 and V16 support 1 through 8 players.");
+				if (settings.MapSize == 64 && settings.PlayerCount > 4)
+					throw new ArgumentException("64x64 supports 1 through 4 players.");
 				var multiplier = settings.MapSize == 256 ? 3 : 1;
 				var minimum = (4 + 2 * settings.PlayerCount) * multiplier;
 				var maximum = (40 + 6 * settings.PlayerCount) * multiplier;
+				if (settings.MapSize == 64)
+				{
+					minimum = (minimum + 3) / 4;
+					maximum = (maximum + 3) / 4;
+				}
 				if (settings.NeutralColonyCount < minimum || settings.NeutralColonyCount > maximum)
-					throw new ArgumentException($"Regions V15 colony target must be {minimum}-{maximum}.");
+					throw new ArgumentException($"Regions colony target must be {minimum}-{maximum}.");
 				return;
 			}
 			if (settings.NeutralColonyWeights != new RmgColonyWeights())

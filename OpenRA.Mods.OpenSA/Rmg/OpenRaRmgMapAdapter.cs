@@ -298,7 +298,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			};
 
 			if (profile.UsesRegionsTerrain)
-				map.Title = $"OpenSA Regions C-{RmgPlayerSettingsContract.ComplexityDisplayName(generation.Settings.TerrainComplexity, generation.Settings.GeneratorVersion is 13 or 14 or 15)} W-{generation.Settings.WaterAmount} G-{generation.Settings.TacticalTerrain} {generation.Settings.Seed}";
+				map.Title = $"OpenSA Regions C-{RmgPlayerSettingsContract.ComplexityDisplayName(generation.Settings.TerrainComplexity, generation.Settings.GeneratorVersion is 13 or 14 or 15 or 16)} W-{generation.Settings.WaterAmount} G-{generation.Settings.TacticalTerrain} {generation.Settings.Seed}";
 			if (generation.Settings.MapSize != 128)
 				map.Title += $" ({generation.Settings.MapSize}x{generation.Settings.MapSize})";
 
@@ -329,6 +329,17 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					new OwnerInit(plan.Owner)
 				};
 				map.ActorDefinitions.Add(new MiniYamlNode($"Actor{map.ActorDefinitions.Count}", actor.Save()));
+			}
+
+			if (generation.Settings.GeneratorVersion == 16)
+			{
+				var ownership = new MiniYamlNode("RmgStartingColonyOwnership", new MiniYaml(null, new List<MiniYamlNode>
+				{
+					new MiniYamlNode("PlayerShares", string.Join(", ", generation.Settings.StartingColonyShares)),
+					new MiniYamlNode("ColonyActorNames", string.Join(", ", generation.Map.Actors.Select((actor, index) => (actor, index))
+						.Where(pair => pair.actor.Role == "neutral-colony").Select(pair => "Actor" + pair.index)))
+				}));
+				map.RuleDefinitions.Nodes.Add(new MiniYamlNode("World", new MiniYaml(null, new List<MiniYamlNode> { ownership })));
 			}
 
 			using var package = ZipFileLoader.Create(outputPath);

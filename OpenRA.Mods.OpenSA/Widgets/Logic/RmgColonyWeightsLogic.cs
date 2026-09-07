@@ -20,7 +20,15 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		[ObjectCreator.UseCtor]
 		public RmgColonyWeightsLogic(Widget widget, RmgColonyWeights initialWeights, Func<bool> configurationDisabled, Action<RmgColonyWeights> onApply)
 		{
-			var values = initialWeights.Values;
+			Configure(widget, initialWeights.Values, RmgColonyWeights.Keys.Select(name => char.ToUpperInvariant(name[0]) + name[1..]).ToArray(),
+				100, false, configurationDisabled, values => onApply(new RmgColonyWeights(values[0], values[1], values[2], values[3], values[4])));
+		}
+
+		internal RmgColonyWeightsLogic() { }
+
+		internal void Configure(Widget widget, int[] values, string[] labels, int defaultValue, bool ownership,
+			Func<bool> configurationDisabled, Action<int[]> onApply)
+		{
 			var validators = new List<Func<bool>>();
 			var width = Math.Min(900, Game.Renderer.Resolution.Width - 40);
 			var height = Math.Min(530, Game.Renderer.Resolution.Height - 40);
@@ -45,38 +53,43 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 				var row = template.Clone();
 				row.IsVisible = () => true;
 				panel.AddChild(row);
-				var name = RmgColonyWeights.Keys[index];
-				row.Get<LabelWidget>("LABEL").GetText = () => char.ToUpperInvariant(name[0]) + name[1..];
+				row.Get<LabelWidget>("LABEL").GetText = () => labels[index];
 				var slider = row.Get<SliderWidget>("SLIDER");
 				var field = row.Get<TextFieldWidget>("VALUE");
 				var reset = row.Get<ButtonWidget>("DEFAULT");
 				slider.MinimumValue = 0;
-				slider.MaximumValue = 1000;
+				slider.MaximumValue = 100;
 				slider.GetValue = () => values[index];
 				slider.IsDisabled = configurationDisabled;
-				slider.OnChange += value => { if (!configurationDisabled()) values[index] = Math.Clamp((int)Math.Round(value), 0, 1000); };
+				slider.OnChange += value => { if (!configurationDisabled()) values[index] = Math.Clamp((int)Math.Round(value), 0, 100); };
 				string Display() => values[index].ToString(CultureInfo.InvariantCulture);
 				field.Text = Display();
 				field.IsDisabled = configurationDisabled;
-				field.IsValid = () => int.TryParse(field.Text, NumberStyles.None, CultureInfo.InvariantCulture, out var value) && value >= 0 && value <= 1000;
+				field.IsValid = () => int.TryParse(field.Text, NumberStyles.None, CultureInfo.InvariantCulture, out var value) && value >= 0 && value <= 100;
 				field.OnTextEdited = () => { if (field.IsValid() && !configurationDisabled()) values[index] = int.Parse(field.Text, CultureInfo.InvariantCulture); };
 				field.OnEnterKey = _ => { if (field.IsValid()) field.YieldKeyboardFocus(); return true; };
 				field.OnLoseFocus = () => field.Text = Display();
 				validators.Add(field.IsValid);
 				refresh.Add(() => { if (!field.HasKeyboardFocus) field.Text = Display(); });
-				reset.GetText = () => "Default (100)";
+				reset.GetText = () => $"Default ({defaultValue})";
 				reset.IsDisabled = configurationDisabled;
-				reset.OnClick = () => { if (!configurationDisabled()) { values[index] = 100; field.Text = Display(); } };
-				row.Get<LabelWidget>("CHANCE").GetText = () => values.Sum() == 0 ? "0% - disabled" : $"{100d * values[index] / values.Sum():0.##}%  ({values[index]} / {values.Sum()})";
+				reset.OnClick = () => { if (!configurationDisabled()) { values[index] = defaultValue; field.Text = Display(); } };
+				row.Get<LabelWidget>("CHANCE").GetText = () => values.Sum() == 0 ? "0% - disabled" : ownership && values.Sum() < 100 ?
+					$"{values[index]}% of colonies" : $"{100d * values[index] / values.Sum():0.##}%  ({values[index]} / {values.Sum()})";
 			}
 
-			widget.Get<LabelWidget>("NOTE").GetText = () => "Shares are selection probabilities, not exact quotas. Terrain capacity can limit placement. Starting colonies are unaffected.";
+			widget.Get<LabelWidget>("TITLE").GetText = () => ownership ? "Starting Colony Ownership" : "Neutral Colony Types";
+			widget.Get<LabelWidget>("HELP").GetText = () => ownership ? "Below 100 total: percentages of colonies. At 100 or above: relative shares of all colonies." :
+				"Weights are relative shares (0-100). Zero excludes a type; all zero disables neutral colonies.";
+			widget.Get<LabelWidget>("NOTE").GetText = () => ownership ?
+				$"Total: {values.Sum()}. Ownership follows lobby slots and nearby colonies. The total is rounded up; whole colonies are then apportioned." :
+				"Shares are selection probabilities, not exact quotas. Terrain capacity can limit placement. Starting colonies are unaffected.";
 			var apply = widget.Get<ButtonWidget>("APPLY");
 			apply.IsDisabled = () => configurationDisabled() || validators.Any(valid => !valid());
 			apply.OnClick = () =>
 			{
 				if (apply.IsDisabled()) return;
-				onApply(new RmgColonyWeights(values[0], values[1], values[2], values[3], values[4]));
+				onApply((int[])values.Clone());
 				Ui.CloseWindow();
 			};
 			widget.Get<ButtonWidget>("CANCEL").OnClick = Ui.CloseWindow;
@@ -84,7 +97,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			widget.Get<ButtonWidget>("RESET").OnClick = () =>
 			{
 				if (configurationDisabled()) return;
-				Array.Fill(values, 100);
+				Array.Fill(values, defaultValue);
 				foreach (var action in refresh) action();
 			};
 		}

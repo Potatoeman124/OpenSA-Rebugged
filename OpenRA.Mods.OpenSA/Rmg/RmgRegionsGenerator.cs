@@ -35,11 +35,11 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				GravelPercent = profile.RockLandPercentFor(settings.TacticalTerrain),
 				MossPercent = profile.VegetationLandPercentFor(settings.TacticalTerrain),
 				OriginalSurfaceRelations = settings.OriginalSurfaceRelations,
-				Continuity = settings.GeneratorVersion is 12 or 13 or 14 or 15,
-				ExtendedComplexity = settings.GeneratorVersion is 13 or 14 or 15
+				Continuity = settings.GeneratorVersion is 12 or 13 or 14 or 15 or 16,
+				ExtendedComplexity = settings.GeneratorVersion is 13 or 14 or 15 or 16
 			};
 			RmgLogicalMap reference = null;
-			if (settings.GeneratorVersion is 13 or 14 or 15 || (settings.GeneratorVersion == 12 && settings.TerrainComplexity != TerrainComplexity.Low))
+			if (settings.GeneratorVersion is 13 or 14 or 15 or 16 || (settings.GeneratorVersion == 12 && settings.TerrainComplexity != TerrainComplexity.Low))
 				reference = TerrainComparison.Generate(Game.ModData, terrainSettings.ContinuityReference).Map;
 			var terrain = TerrainComparison.Generate(Game.ModData, terrainSettings, reference);
 			if (settings.GeneratorVersion == 12 && reference == null)
@@ -89,8 +89,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var strictColonyCount = 0;
 			long fallbackEvaluations = 0;
 			var requestedTypes = Array.Empty<string>();
-			var allowNeutralOverlap = settings.GeneratorVersion is 14 or 15 && !settings.PreventColonyOverlapping;
-			if (settings.GeneratorVersion == 15)
+			var allowNeutralOverlap = settings.GeneratorVersion is 14 or 15 or 16 && !settings.PreventColonyOverlapping;
+			if (settings.GeneratorVersion is 15 or 16)
 				colonyCount = PlaceWeightedRegionsColonies(map, profile, settings, sites, candidates,
 					out strictColonyCount, out fallbackEvaluations, out requestedTypes);
 			else
@@ -168,7 +168,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			map.RegionsReport["doodads_ms"] = timer.Elapsed.TotalMilliseconds;
 			map.RegionsReport["neutral_colonies_requested"] = settings.EffectiveNeutralColonyCount;
 			map.RegionsReport["neutral_colonies_placed"] = colonyCount;
-			if (settings.GeneratorVersion is 14 or 15)
+			if (settings.GeneratorVersion is 14 or 15 or 16)
 			{
 				map.RegionsReport["prevent_colony_overlapping"] = settings.PreventColonyOverlapping;
 				map.RegionsReport["neutral_colonies_strict"] = strictColonyCount;
@@ -177,7 +177,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				map.RegionsReport["neutral_overlapping_pairs"] = validation.Metrics.GetValueOrDefault("neutral_overlapping_pairs");
 				map.RegionsReport["maximum_neutral_overlap_native"] = validation.Metrics.GetValueOrDefault("maximum_neutral_overlap_native");
 			}
-			if (settings.GeneratorVersion == 15)
+			if (settings.GeneratorVersion is 15 or 16)
 			{
 				map.RegionsReport["neutral_colony_weights"] = settings.NeutralColonyWeights.ToJson();
 				map.RegionsReport["neutral_colonies_density_target"] = settings.NeutralColonyCount;
@@ -187,6 +187,14 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				map.RegionsReport["neutral_colonies_placed_by_type"] = new JObject(RmgColonyWeights.Keys.Select(key =>
 					new JProperty(key, map.Actors.Count(actor => actor.Role == "neutral-colony" && actor.Type == key + "_colony"))));
 			}
+			if (settings.GeneratorVersion == 16)
+			{
+				map.RegionsReport["starting_colony_shares"] = new JArray(settings.StartingColonyShares);
+				var counts = RmgColonyOwnership.Allocate(colonyCount, settings.StartingColonyShares);
+				map.RegionsReport["starting_colonies_allocated_if_all_slots_occupied"] = new JArray(counts);
+				map.RegionsReport["unowned_colonies_if_all_slots_occupied"] = colonyCount - counts.Sum();
+				map.RegionsReport["ownership_assignment"] = "runtime-player-slot-and-actual-start";
+			}
 			map.RegionsReport["doodads_requested"] = decorationTarget;
 			map.RegionsReport["doodads_placed"] = decorations.Count;
 			map.RegionsReport["symmetry_requirement"] = "NOT_REQUIRED";
@@ -194,8 +202,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			map.RegionsReport["placement_candidates"] = candidates.Count;
 			if (reference != null)
 			{
-				map.RegionsReport["geography_contract"] = settings.GeneratorVersion is 13 or 14 or 15 ? "fixed-regions-extended-detail-v13" : "fixed-regions-bounded-detail-v12";
-				map.RegionsReport["preferred_start_reference"] = settings.GeneratorVersion is 13 or 14 or 15 ? "same-settings-v12-low-complexity" : "same-settings-low-complexity";
+				map.RegionsReport["geography_contract"] = settings.GeneratorVersion is 13 or 14 or 15 or 16 ? "fixed-regions-extended-detail-v13" : "fixed-regions-bounded-detail-v12";
+				map.RegionsReport["preferred_start_reference"] = settings.GeneratorVersion is 13 or 14 or 15 or 16 ? "same-settings-v12-low-complexity" : "same-settings-low-complexity";
 				map.RegionsReport["start_displacement_native"] = new JArray(map.Starts.Select((point, i) =>
 					i < preferred.Count ? 2 * Math.Sqrt(RegionDistanceSquared(point, preferred[i])) : (double?)null));
 			}

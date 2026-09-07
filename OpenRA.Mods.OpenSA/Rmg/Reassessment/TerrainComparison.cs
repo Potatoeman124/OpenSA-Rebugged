@@ -54,8 +54,8 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 	{
 		public static TerrainComparisonResult Generate(ModData modData, TerrainComparisonSettings settings, RmgLogicalMap reference = null)
 		{
-			if (settings.Size is not (128 or 256))
-				throw new ArgumentException("Terrain comparison supports 128 or 256 native cells.");
+			if (settings.Size is not (64 or 128 or 256))
+				throw new ArgumentException("Terrain comparison supports 64, 128 or 256 native cells.");
 			if (settings.ExtendedComplexity && !settings.Continuity)
 				throw new ArgumentException("Extended complexity requires continuous Regions.");
 			if (!Enum.IsDefined(settings.Complexity) || (!settings.ExtendedComplexity && settings.Complexity > TerrainComplexity.High))
