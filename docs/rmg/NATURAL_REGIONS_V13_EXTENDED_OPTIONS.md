@@ -1,9 +1,8 @@
 # Regions V13: extended Terrain Complexity
 
-Status: configuration revision 3 applies the exact requested 2.25 multiplier to the Extreme-to-Ultra
-coefficient gap on `codex/rmg-extended-options`. Build and focused native validation passed; the existing
-Small-to-Ultra continuity test fails on the maximum seed at both sizes. The requested coefficients are retained
-for user testing; this is not an all-green regression checkpoint.
+Status: configuration revision 4 sets Ultra to the user-requested 2.70 broad / 2.60 fine.
+Release build and focused native checks passed. The unchanged Small-to-Ultra continuity check flags
+three cases; the exact requested coefficients remain in place for user testing.
 
 ## Accepted checkpoint and scope
 
@@ -23,7 +22,7 @@ connectivity requirements, change native surface relations, or turn doodads into
 | Medium | Just below revision-1 High; default | 1.35 | 0.30 |
 | High | Just below revision-1 Extreme | 1.60 | 0.75 |
 | Extreme | Just above revision-1 Ultra | 2.00 | 1.45 |
-| Ultra | Revision-2 Extreme-to-Ultra gap multiplied by 2.25 | 2.45 | 2.2375 |
+| Ultra | User-requested revision-4 coefficients | 2.70 | 2.60 |
 
 These coefficients are implementation values, not feature diameters or additional user controls. Fixed
 region centers, radii, rotations, characteristic scale (64 native cells), seed streams and detail frequencies
@@ -69,7 +68,29 @@ with schema-7 settings or `--reference` on a saved V13 map for current evidence.
 `Invoke-RegionsMapGenerator.ps1` now defaults to V13 Medium. Historical replay uses the generic
 `Invoke-MapGenerator.ps1 -PlayerSettingsPath ...` with the saved schema-5/schema-6 JSON, not renamed levels.
 
-## Configuration revision 3: larger Extreme-to-Ultra gap
+## Configuration revision 4: Ultra 2.70 / 2.60
+
+The user explicitly requested Ultra broad/fine strengths of 2.70 / 2.60 after testing the previous tuning.
+Only those two coefficients changed. All lower levels, seeded regions, noise frequencies, geological
+scaling, terrain materialization and placement rules remain unchanged.
+
+Both V13 profiles use configuration version 4; the terrain construction ID is
+`natural-regions-extended-v13-r4`. Schema 7 selects this current development tuning. Revision 3 remains
+recorded at commit `bbf7e72` and in its saved maps/evidence. Frozen V12 and earlier generators are unaffected.
+
+Evidence: `artifacts/rmg/regions-extended-v13/revision-04/`. The previously reported Small-to-Ultra
+continuity failures are checked and reported separately from native-map validity; thresholds are unchanged.
+
+Revision-4 results: release build passed with zero warnings/errors. **16/16** maps passed native terrain,
+package lint and deterministic replay checks; all placed their full requested colony counts. **8/8**
+lower-level comparisons retained identical terrain and logical/actor/graph hashes.
+
+The existing continuity check fails at seed `0` / 256 and seed `18446744073709551615` / 128 and 256.
+The seed-zero case is an additional failure compared with revision 3. The full regression command exits 4;
+other checks pass. No threshold or construction rule was changed to suppress these results. Logs and the
+compiled assembly hash are recorded in `revision-04/summary.json`, `build.log` and `self-tests.log`.
+
+## Configuration revision 3: larger Extreme-to-Ultra gap (historical)
 
 The user found the Extreme/Ultra difference negligible and requested a 2.25-times larger delta.
 Extreme remains 2.00 / 1.45. Ultra is now exactly:
