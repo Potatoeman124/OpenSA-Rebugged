@@ -22,7 +22,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 		string IUtilityCommand.Name => "--validate-sa-rmg";
 		bool IUtilityCommand.ValidateArguments(string[] args) => args.Length == 1;
 
-		[Desc("Run focused deterministic RMG self-tests for frozen V1-V9 and experimental V10 Natural Landscape profiles.")]
+		[Desc("Run focused deterministic RMG self-tests for frozen V1-V9 and V10 Natural Landscape and playable V11/V12 Regions profiles.")]
 		void IUtilityCommand.Run(Utility utility, string[] args)
 		{
 			try
@@ -139,6 +139,14 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				var nativeFailures = NativeMovementValidator.RunSelfTests();
 				failures.AddRange(nativeFailures.Select(failure => $"native-validator: {failure}"));
 				Console.WriteLine($"native-validator: {(nativeFailures.Count == 0 ? "PASS" : "FAIL")}");
+
+				var regionsFailures = RmgGenerator.RunRegionsSelfTests(utility.ModData);
+				failures.AddRange(regionsFailures);
+				Console.WriteLine($"regions-local-contract: {(regionsFailures.Count == 0 ? "PASS" : "FAIL")}");
+
+				var continuityFailures = RmgGenerator.RunRegionsContinuitySelfTests(utility.ModData);
+				failures.AddRange(continuityFailures);
+				Console.WriteLine($"regions-continuity-contract: {(continuityFailures.Count == 0 ? "PASS" : "FAIL")}");
 
 				if (failures.Count > 0)
 				{

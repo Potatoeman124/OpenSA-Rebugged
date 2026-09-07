@@ -10,12 +10,18 @@ The RMG must preserve that boundary: it may refer to terrain and actor identifie
 
 ## Current integration checkpoint
 
-Natural Landscape V10 was approved for integration on 2026-09-05. It includes five natural morphology families,
-ranked curved terrain candidates, authoritative generated surfaces for dirt-only placement, bounded status text,
-and the offline generation/visual-review loop. The [surface-authority record](NATURAL_V10_SURFACE_AUTHORITY.md)
-describes the final 15-map validation, screenshot regressions and remaining limits. The experimental UI label
-is retained; historical V1-V9 generation paths are preserved. The phase descriptions below are chronological
-records, not claims that the current Natural Landscape selection is still planned.
+Natural Landscape now uses **Regions V12** from the in-game RMG panel. The existing Low / Standard / High
+complexity levels share their seed's broad geography, with increasing secondary terrain variation and
+stable preferred starting sites. New complexity levels and middle-level recalibration are deferred.
+
+See [Regions V12 continuity](NATURAL_REGIONS_V12_CONTINUITY.md) for implementation, defaults, reproduction,
+verification and live-test limits. The panel retains 256 x 256, four players, Standard controls and grey neutral
+markers. The first generated-map selection initializes Explored Map On and Fog of War Off; later
+regenerations preserve deliberate user changes.
+
+Schema 6 selects V12. Schema 5 preserves [Regions V11](NATURAL_REGIONS_V11.md), and schemas 1-4 preserve their
+historical generator selections, including V10. Earlier phase reports below are chronological records;
+their global connectivity and competitive fairness rules do not govern Regions.
 
 ## Current map contract
 
@@ -28,11 +34,11 @@ A generated skirmish map must be loadable by the existing OpenSA map pipeline an
 - terrain and actor placement that satisfy native-cell bounds and passability checks; and
 - the standard starting-unit, production, and victory behavior supplied by the existing rules.
 
-Starting colonies are not serialized into reference maps. At runtime, `SpawnStartingUnits` creates the configured base actor at each `mpspawn`, so the generator's responsibility is to produce valid and fair spawn positions.
+Starting colonies are not serialized into reference maps. At runtime, `SpawnStartingUnits` creates the configured base actor at each `mpspawn`, so the generator must provide valid local spawn positions. Regions does not impose cross-map connectivity or competitive fairness parity.
 
 ## Terrain model
 
-The audited map corpus strongly favors a logical 2x2 macro-cell structure. That is a useful generation convention, not an engine guarantee: authored maps can and do contain partial or mixed native-cell regions. Generation should therefore be topology-first, materialize broad uniform regions on the 2x2 logical grid where practical, and perform final validation on native map cells.
+The audited map corpus strongly favors a logical 2x2 macro-cell structure. That is a useful generation convention, not an engine guarantee: authored maps can and do contain partial or mixed native-cell regions. Legacy generators construct strategic topology first. Regions constructs the terrain first, then places actors on completed surfaces. Both use native-cell validation after fixed-tile materialization.
 
 Mixed terrain boundaries require transition-aware tiling rather than independent random tile selection. Validation must account for the existing ground movement costs: Clear is the baseline, Rock is passable at reduced speed, Vegetation is slower, and Water and Air are impassable to ground movement. Wasp movement traverses terrain independently, so movement-class validation must not assume ground connectivity proves connectivity for every unit type.
 

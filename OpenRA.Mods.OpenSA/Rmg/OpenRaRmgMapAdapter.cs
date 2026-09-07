@@ -297,6 +297,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				Categories = new[] { "Conquest" }
 			};
 
+			if (profile.UsesRegionsTerrain)
+				map.Title = $"OpenSA Regions C-{generation.Settings.TerrainComplexity} W-{generation.Settings.WaterAmount} G-{generation.Settings.TacticalTerrain} {generation.Settings.Seed}";
 			if (generation.Settings.MapSize != 128)
 				map.Title += $" ({generation.Settings.MapSize}x{generation.Settings.MapSize})";
 
@@ -469,6 +471,29 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			RmgMovementValidationMode movementValidationMode)
 		{
 			var settings = generation.Settings;
+			if (generation.Profile.UsesRegionsTerrain)
+				return new JObject
+				{
+					["schema_version"] = 13,
+					["generator_version"] = settings.GeneratorVersion,
+					["configuration_id"] = generation.Profile.ProfileId,
+					["seed"] = settings.Seed.ToString(),
+					["players"] = settings.PlayerCount,
+					["size"] = settings.MapSize,
+					["output"] = outputPath,
+					["player_settings"] = settings.PlayerSettingsResolution?.ToJson(),
+					["canonical_settings"] = settings.Canonical(generation.Profile),
+					["logical_sha256"] = generation.LogicalHash,
+					["actors_sha256"] = generation.ActorHash,
+					["graph_sha256"] = generation.GraphHash,
+					["openra_uid"] = packageValidation.EngineUid,
+					["canonical_map_sha256"] = packageValidation.CanonicalMapHash,
+					["regions"] = generation.Map.RegionsReport,
+					["validation"] = generation.Validation.ToJson(),
+					["package_validation"] = packageValidation.ToJson(),
+					["native_validation"] = packageValidation.NativeMovementValidation?.ToJson(),
+					["performance"] = packageValidation.Performance.ToJson()
+				};
 			var report = new JObject
 			{
 				["schema_version"] = generation.Profile.GeneratorVersion >= 10 ? 12 : generation.Profile.GeneratorVersion >= 9 ? 11 : generation.Profile.GeneratorVersion >= 8 ? 10 : generation.Profile.GeneratorVersion >= 7 ? 9 : generation.Profile.GeneratorVersion >= 6 ? 8 : generation.Profile.GeneratorVersion >= 5 ? 6 : generation.Profile.GeneratorVersion >= 4 ? 5 : generation.Profile.GeneratorVersion >= 3 ? 4 : generation.Profile.GeneratorVersion >= 2 ? 3 : 2,
@@ -736,6 +761,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			RmgTopologyPreset.CoherentWater => "coherent-water",
 			RmgTopologyPreset.NaturalTerrain => "natural-terrain",
 			RmgTopologyPreset.NaturalTerrainV10 => "natural-terrain-v10",
+			RmgTopologyPreset.NaturalRegions => "natural-regions",
 			_ => throw new ArgumentOutOfRangeException(nameof(topology))
 		};
 	}

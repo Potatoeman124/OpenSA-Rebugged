@@ -40,7 +40,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		ParameterizedBattlefield,
 		CoherentWater,
 		NaturalTerrain,
-		NaturalTerrainV10
+		NaturalTerrainV10,
+		NaturalRegions
 	}
 
 	public enum RmgLayoutFamily
@@ -89,6 +90,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public int GeneratorVersion { get; set; } = 1;
 		public RmgTopologyPreset TopologyPreset { get; set; } = RmgTopologyPreset.Off;
 		public RmgParameterLevel WaterAmount { get; set; } = RmgParameterLevel.Standard;
+		public Reassessment.TerrainComplexity TerrainComplexity { get; set; } = Reassessment.TerrainComplexity.Standard;
 		public RmgParameterLevel TacticalTerrain { get; set; } = RmgParameterLevel.Standard;
 		public RmgLayoutFamily LayoutFamily { get; set; } = RmgLayoutFamily.ArtificialBattlefield;
 		public bool OriginalSurfaceRelations { get; set; } = true;
@@ -107,13 +109,18 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				$"archetype={Archetype}",
 				$"colonies={NeutralColonyCount}"
 			};
+			if (GeneratorVersion is 11 or 12)
+				fields.RemoveAll(field => field.StartsWith("symmetry=", StringComparison.Ordinal) || field.StartsWith("archetype=", StringComparison.Ordinal));
 			if (GeneratorVersion >= 2)
 				fields.Add($"topology={TopologyPreset}");
 			if (GeneratorVersion >= 7)
 			{
 				fields.Add($"water={RmgPlayerSettingsContract.ParameterLevelName(WaterAmount)}");
-				fields.Add($"tactical-terrain={RmgPlayerSettingsContract.ParameterLevelName(TacticalTerrain)}");
+				fields.Add($"{(GeneratorVersion is 11 or 12 ? "gravel-moss-amount" : "tactical-terrain")}={RmgPlayerSettingsContract.ParameterLevelName(TacticalTerrain)}");
 			}
+
+			if (GeneratorVersion is 11 or 12)
+				fields.Add($"terrain-complexity={TerrainComplexity}");
 
 			if (GeneratorVersion >= 8)
 				fields.Add($"layout-family={RmgPlayerSettingsContract.LayoutFamilyName(LayoutFamily)}");
@@ -200,7 +207,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public bool UsesParameterizedBattlefield => GeneratorVersion >= 7;
 		public bool UsesCoherentWaterMorphology => GeneratorVersion == 8;
 		public bool UsesNaturalTerrainMorphologyV10 => GeneratorVersion == 10;
-		public bool UsesNaturalTerrainMorphology => GeneratorVersion is 9 or 10;
+		public bool UsesRegionsTerrain => GeneratorVersion is 11 or 12;
+		public bool UsesNaturalTerrainMorphology => GeneratorVersion is 9 or 10 or 11 or 12;
 
 		public int ObstacleDensityTarget(RmgArchetype archetype, RmgParameterLevel waterAmount)
 		{
@@ -247,6 +255,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 		public static RmgProfile Load(ModData modData, RmgGenerationSettings settings)
 		{
+			if (settings.TopologyPreset == RmgTopologyPreset.NaturalRegions && settings.MapSize is 128 or 256)
+				return Load(modData, $"sa|rmg/normal-natural-regions-v{(settings.GeneratorVersion == 12 ? 12 : 11)}{(settings.MapSize == 256 ? "-256" : string.Empty)}.yaml");
 			if (settings.MapSize == 128)
 				return Load(modData, settings.TopologyPreset);
 			if (settings.MapSize == 256 && settings.TopologyPreset == RmgTopologyPreset.NaturalTerrainV10)
@@ -257,6 +267,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public static RmgProfile Load(ModData modData, RmgTopologyPreset topologyPreset) =>
 			Load(modData, topologyPreset switch
 			{
+				RmgTopologyPreset.NaturalRegions => "sa|rmg/normal-natural-regions-v11.yaml",
 				RmgTopologyPreset.Mixed => "sa|rmg/normal-water-blocking-v2.yaml",
 				RmgTopologyPreset.Shoreline => "sa|rmg/normal-water-shoreline-v3.yaml",
 				RmgTopologyPreset.LandDetails => "sa|rmg/normal-land-details-v4.yaml",
@@ -361,6 +372,18 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 		void Validate()
 		{
+			if (UsesRegionsTerrain)
+			{
+				var suffix = PlayableWidth == 256 ? "-256" : string.Empty;
+				if (ProfileId != $"normal-natural-regions-v{GeneratorVersion}" + suffix || ConfigurationVersion != 1 ||
+					Tileset != "NORMAL" || PlayableWidth is not (128 or 256) || PlayableHeight != PlayableWidth ||
+					LogicalWidth * 2 != PlayableWidth || LogicalHeight != LogicalWidth || CordonWidth != 2 ||
+					ClearTemplateIds.Length == 0 || BlockedTemplateIds.Length == 0 || NeutralColonyActors.Length != 5 ||
+					ColonyCombatSafetyBufferNative != 1 || LandDecorationPerThousand != 3)
+					throw new InvalidOperationException("Regions profile does not match its geometry, actors, or local placement contract.");
+				return;
+			}
+
 			var version1 = ProfileId == "normal-clear-v1" && ConfigurationVersion == 1 && GeneratorVersion == 1;
 			var version2 = ProfileId == "normal-water-blocking-v2" && ConfigurationVersion == 3 && GeneratorVersion == 2;
 			var version3 = ProfileId == "normal-water-shoreline-v3" && ConfigurationVersion == 1 && GeneratorVersion == 3;
@@ -436,6 +459,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 	public sealed class RmgLogicalMap
 	{
+		public JObject RegionsReport { get; set; }
 		public int Width { get; }
 		public int Height { get; }
 		public ushort[] TemplateIds { get; }

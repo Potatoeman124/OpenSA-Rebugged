@@ -129,7 +129,7 @@ ChromeLayout:
 	common|chrome/settings-advanced.yaml
 	common|chrome/credits.yaml
 	sa|chrome/lobby.yaml
-	common|chrome/lobby-mappreview.yaml
+	sa|chrome/lobby-mappreview.yaml
 	common|chrome/playerprofile.yaml
 	sa|chrome/lobby-players.yaml
 	sa|chrome/lobby-options.yaml

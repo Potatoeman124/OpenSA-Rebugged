@@ -17,6 +17,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using OpenRA.Mods.Common.Widgets;
 using OpenRA.Mods.OpenSA.Rmg;
+using OpenRA.Mods.OpenSA.Rmg.Reassessment;
 using OpenRA.Network;
 using OpenRA.Primitives;
 using OpenRA.Widgets;
@@ -54,14 +55,16 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		readonly DropDownButtonWidget colonyButton;
 		readonly DropDownButtonWidget waterButton;
 		readonly DropDownButtonWidget tacticalTerrainButton;
+		readonly DropDownButtonWidget complexityButton;
 		readonly CheckboxWidget originalSurfaceRelationsCheckbox;
 		readonly ButtonWidget rmgToggleButton;
 
 		RmgPlayerPreset preset = RmgPlayerPreset.Balanced;
 		TerrainChoice terrain = TerrainChoice.Normal;
-		SizeChoice size = SizeChoice.Standard;
+		SizeChoice size = SizeChoice.Large;
 		LayoutChoice layout = LayoutChoice.ContestedCenter;
-		RmgPlayerLayoutFamily layoutFamily = RmgPlayerLayoutFamily.StructuredCompetitive;
+		RmgPlayerLayoutFamily layoutFamily = RmgPlayerLayoutFamily.NaturalLandscape;
+		TerrainComplexity complexity = TerrainComplexity.Standard;
 		RmgPlayerColonyDensity colonyDensity = RmgPlayerColonyDensity.Standard;
 		RmgPlayerParameterLevel waterAmount = RmgPlayerParameterLevel.Standard;
 		RmgPlayerParameterLevel tacticalTerrain = RmgPlayerParameterLevel.Standard;
@@ -75,6 +78,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		bool generationQueued;
 		long generationQueuedAt;
 		bool visibilityComposed;
+		bool rmgVisibilityDefaultsApplied;
 		bool startGuardComposed;
 		string generatedUid;
 		string lastObservedMapUid;
@@ -110,7 +114,8 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			layoutFamilyButton = lobby.Get<DropDownButtonWidget>("RMG_LAYOUT_FAMILY");
 			colonyButton = lobby.Get<DropDownButtonWidget>("RMG_COLONY_DENSITY");
 			waterButton = lobby.Get<DropDownButtonWidget>("RMG_WATER_AMOUNT");
-			tacticalTerrainButton = lobby.Get<DropDownButtonWidget>("RMG_TERRAIN_COMPLEXITY");
+			tacticalTerrainButton = lobby.Get<DropDownButtonWidget>("RMG_GRAVEL_MOSS_AMOUNT");
+			complexityButton = lobby.Get<DropDownButtonWidget>("RMG_TERRAIN_COMPLEXITY");
 			originalSurfaceRelationsCheckbox = lobby.Get<CheckboxWidget>("RMG_ORIGINAL_SURFACE_RELATIONS");
 
 			BindControls();
@@ -217,31 +222,30 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			BindDropDown(terrainButton,
 				new[]
 				{
-					new Choice<TerrainChoice>(TerrainChoice.Normal, "Normal"),
-					new Choice<TerrainChoice>(TerrainChoice.Desert, "Desert (planned)"),
-					new Choice<TerrainChoice>(TerrainChoice.Swamp, "Swamp (planned)"),
-					new Choice<TerrainChoice>(TerrainChoice.Candy, "Candy (planned)")
+					new Choice<TerrainChoice>(TerrainChoice.Normal, "Normal")
 				}, () => terrain, value => { terrain = value; MarkStale(); });
 
 			sizeButton.GetText = () => SizeDisplayName(size);
 			BindDropDown(sizeButton,
 				new[]
 				{
-					new Choice<SizeChoice>(SizeChoice.Small, "64 x 64 (planned)"),
 					new Choice<SizeChoice>(SizeChoice.Standard, "128 x 128"),
 					new Choice<SizeChoice>(SizeChoice.Large, "256 x 256 (Natural Landscape)")
-				}, () => size, value => { size = value; MarkStale(); });
+				}, () => size, value => { size = value; MarkStale(); },
+				value => value != SizeChoice.Large || layoutFamily == RmgPlayerLayoutFamily.NaturalLandscape);
 
 			layoutFamilyButton.GetText = () => LayoutFamilyDisplayName(layoutFamily);
 			BindDropDown(layoutFamilyButton,
 				new[]
 				{
-					new Choice<RmgPlayerLayoutFamily>(RmgPlayerLayoutFamily.NaturalLandscape, "Natural Landscape (experimental)"),
+					new Choice<RmgPlayerLayoutFamily>(RmgPlayerLayoutFamily.NaturalLandscape, "Natural Landscape (Regions)"),
 					new Choice<RmgPlayerLayoutFamily>(RmgPlayerLayoutFamily.StructuredCompetitive, "Structured Competitive"),
 					new Choice<RmgPlayerLayoutFamily>(RmgPlayerLayoutFamily.ArtificialBattlefield, "Artificial Battlefield")
 				}, () => layoutFamily, value =>
 				{
 					layoutFamily = value;
+					if (value != RmgPlayerLayoutFamily.NaturalLandscape)
+						size = SizeChoice.Standard;
 					presetCustomized = true;
 					MarkStale();
 				});
@@ -251,10 +255,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 				new[]
 				{
 					new Choice<LayoutChoice>(LayoutChoice.OpenFields, "Open Fields"),
-					new Choice<LayoutChoice>(LayoutChoice.ContestedCenter, "Contested Center"),
-					new Choice<LayoutChoice>(LayoutChoice.MixedFronts, "Mixed Fronts (planned)"),
-					new Choice<LayoutChoice>(LayoutChoice.NarrowPassages, "Narrow Passages (planned)"),
-					new Choice<LayoutChoice>(LayoutChoice.Chaos, "Chaos (planned)")
+					new Choice<LayoutChoice>(LayoutChoice.ContestedCenter, "Contested Center")
 				}, () => layout, value =>
 				{
 					layout = value;
@@ -304,6 +305,18 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					MarkStale();
 				});
 
+			complexityButton.GetText = () => complexity.ToString();
+			BindDropDown(complexityButton, new[]
+			{
+				new Choice<TerrainComplexity>(TerrainComplexity.Low, "Low"),
+				new Choice<TerrainComplexity>(TerrainComplexity.Standard, "Standard"),
+				new Choice<TerrainComplexity>(TerrainComplexity.High, "High")
+			}, () => complexity, value => { complexity = value; presetCustomized = true; MarkStale(); });
+			foreach (var id in new[] { "RMG_LAYOUT", "RMG_LAYOUT_LABEL" })
+				lobby.Get(id).IsVisible = () => layoutFamily != RmgPlayerLayoutFamily.NaturalLandscape;
+			foreach (var id in new[] { "RMG_TERRAIN_COMPLEXITY", "RMG_TERRAIN_COMPLEXITY_LABEL", "RMG_NATURAL_NOTE" })
+				lobby.Get(id).IsVisible = () => layoutFamily == RmgPlayerLayoutFamily.NaturalLandscape;
+
 			originalSurfaceRelationsCheckbox.IsChecked = () => originalSurfaceRelations;
 			originalSurfaceRelationsCheckbox.IsDisabled = () =>
 				!CanConfigure() || layoutFamily != RmgPlayerLayoutFamily.NaturalLandscape;
@@ -321,7 +334,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			playersSlider.GetValue = () => playerCount;
 			playersSlider.OnChange += value =>
 			{
-				var selected = Math.Clamp((int)Math.Round(value), 1, 8);
+				var selected = (value < 3 ? 2 : 4);
 				if (selected == playerCount)
 					return;
 
@@ -333,7 +346,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			playersValueLabel.GetText = () => playerCount.ToString(CultureInfo.InvariantCulture);
 			playersSlider.IsDisabled = () => !CanConfigure();
 
-			seedField.Text = "3100025";
+			seedField.Text = CreateDisplaySeed().ToString(CultureInfo.InvariantCulture);
 			seedField.IsValid = TryGetSeed;
 			seedField.OnTextEdited = MarkStale;
 
@@ -349,8 +362,6 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			generateButton.IsDisabled = () => !CanConfigure() || UnsupportedReason() != null || !TryGetSeed();
 			generateButton.OnClick = QueueGeneration;
 
-			foreach (var id in new[] { "RMG_CHOKEPOINTS" })
-				lobby.Get<DropDownButtonWidget>(id).IsDisabled = () => true;
 
 			var statusLayout = new CachedTransform<(string Text, int Width, int Height), string>(key =>
 				RmgStatusText.Fit(key.Text, key.Width, key.Height,
@@ -367,7 +378,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		}
 
 		void BindDropDown<T>(DropDownButtonWidget button, IReadOnlyList<Choice<T>> choices,
-			Func<T> selected, Action<T> onSelected)
+			Func<T> selected, Action<T> onSelected, Func<T, bool> available = null)
 		{
 			button.IsDisabled = () => !CanConfigure();
 			button.OnMouseDown = _ =>
@@ -381,7 +392,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					return item;
 				}
 
-				button.ShowDropDown("LABEL_DROPDOWN_TEMPLATE", Math.Min(175, choices.Count * 25), choices, SetupItem);
+				button.ShowDropDown("LABEL_DROPDOWN_TEMPLATE", Math.Min(175, choices.Count * 25), choices.Where(choice => available == null || available(choice.Value)), SetupItem);
 			};
 		}
 
@@ -389,31 +400,28 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		{
 			preset = selected;
 			presetCustomized = false;
-			switch (selected)
+			layoutFamily = RmgPlayerLayoutFamily.NaturalLandscape;
+			layout = LayoutChoice.OpenFields;
+			originalSurfaceRelations = true;
+			complexity = selected switch
 			{
-				case RmgPlayerPreset.OpenConflict:
-					layoutFamily = RmgPlayerLayoutFamily.ArtificialBattlefield;
-					layout = LayoutChoice.OpenFields;
-					colonyDensity = RmgPlayerColonyDensity.Sparse;
-					waterAmount = RmgPlayerParameterLevel.Low;
-					tacticalTerrain = RmgPlayerParameterLevel.Low;
-					break;
-				case RmgPlayerPreset.TacticalCrossroads:
-					layoutFamily = RmgPlayerLayoutFamily.ArtificialBattlefield;
-					layout = LayoutChoice.ContestedCenter;
-					colonyDensity = RmgPlayerColonyDensity.Dense;
-					waterAmount = RmgPlayerParameterLevel.Standard;
-					tacticalTerrain = RmgPlayerParameterLevel.High;
-					break;
-				default:
-					layoutFamily = RmgPlayerLayoutFamily.StructuredCompetitive;
-					layout = LayoutChoice.ContestedCenter;
-					colonyDensity = RmgPlayerColonyDensity.Standard;
-					waterAmount = RmgPlayerParameterLevel.Standard;
-					tacticalTerrain = RmgPlayerParameterLevel.Standard;
-					break;
-			}
-
+				RmgPlayerPreset.OpenConflict => TerrainComplexity.Low,
+				RmgPlayerPreset.TacticalCrossroads => TerrainComplexity.High,
+				_ => TerrainComplexity.Standard
+			};
+			colonyDensity = selected switch
+			{
+				RmgPlayerPreset.OpenConflict => RmgPlayerColonyDensity.Sparse,
+				RmgPlayerPreset.TacticalCrossroads => RmgPlayerColonyDensity.Dense,
+				_ => RmgPlayerColonyDensity.Standard
+			};
+			waterAmount = selected == RmgPlayerPreset.OpenConflict ? RmgPlayerParameterLevel.Low : RmgPlayerParameterLevel.Standard;
+			tacticalTerrain = selected switch
+			{
+				RmgPlayerPreset.OpenConflict => RmgPlayerParameterLevel.Low,
+				RmgPlayerPreset.TacticalCrossroads => RmgPlayerParameterLevel.High,
+				_ => RmgPlayerParameterLevel.Standard
+			};
 			MarkStale();
 		}
 
@@ -493,17 +501,19 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 
 				var playerSettings = new RmgPlayerSettings
 				{
-					SchemaVersion = size == SizeChoice.Large ? 4 : 3,
+					SchemaVersion = layoutFamily == RmgPlayerLayoutFamily.NaturalLandscape ? 6 : 3,
 					MapSize = size == SizeChoice.Large ? 256 : 128,
 					Preset = preset,
 					Seed = seed,
 					PlayerCount = playerCount,
 					Symmetry = RmgPlayerSymmetry.Automatic,
-					Layout = layout == LayoutChoice.OpenFields ? RmgPlayerLayout.OpenFields : RmgPlayerLayout.ContestedCenter,
+					Layout = layoutFamily == RmgPlayerLayoutFamily.NaturalLandscape ? RmgPlayerLayout.Preset :
+						layout == LayoutChoice.OpenFields ? RmgPlayerLayout.OpenFields : RmgPlayerLayout.ContestedCenter,
 					LayoutFamily = layoutFamily,
 					NeutralColonyDensity = colonyDensity,
 					WaterAmount = waterAmount,
 					TacticalTerrain = tacticalTerrain,
+					TerrainComplexity = complexity,
 					OriginalSurfaceRelations = originalSurfaceRelations
 				};
 				var settingsResolution = RmgPlayerSettingsContract.Resolve(playerSettings);
@@ -529,20 +539,35 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 				stale = false;
 				rmgMode = true;
 				var placedColonies = result.Generation.Map.Actors.Count(actor => actor.Owner == result.Generation.Profile.ColonyOwner);
-				var obstaclePercent = result.Generation.Validation.Metrics["obstacle_density_percent"];
-				var interiorWaterPercent = result.Generation.Validation.Metrics["water_interior_density_percent"];
-				var waterBodyCount = result.Generation.Validation.Metrics["water_body_count"];
-				var largestWaterBodyShare = result.Generation.Validation.Metrics["water_largest_body_share_percent"];
-				var rockPercent = result.Generation.Validation.Metrics["rock_land_achieved_percent"];
-				var vegetationPercent = result.Generation.Validation.Metrics["vegetation_land_achieved_percent"];
-				var colonySummary = placedColonies < settingsResolution.Normalized.NeutralColonyCount ?
-					$"; colonies {placedColonies}/{settingsResolution.Normalized.NeutralColonyCount}" : string.Empty;
-				var adjusted = result.Generation.Validation.Warnings.Count > 0 ? "; adjusted safely" : string.Empty;
-				SetStatus($"Ready: {candidate.Title} ({result.Performance.TotalMilliseconds / 1000d:0.0}s; " +
-					$"Water {obstaclePercent:0.0}% total/{interiorWaterPercent:0.0}% interior, " +
-					$"{waterBodyCount:0} bodies/{largestWaterBodyShare:0}% largest; " +
-					$"Rock/Vegetation {rockPercent:0.0}/{vegetationPercent:0.0}%{colonySummary}{adjusted})",
-					result.Generation.Validation.Warnings.Count > 0 ? StatusKind.Warning : StatusKind.Success);
+				if (result.Generation.Profile.UsesRegionsTerrain)
+				{
+					var cells = result.Generation.Map.NativeTerrainIntents;
+					var water = cells.Count(cell => cell == RmgNativeTerrainIntent.Water);
+					var land = cells.Length - water;
+					var gravel = cells.Count(cell => cell == RmgNativeTerrainIntent.Rock);
+					var moss = cells.Count(cell => cell == RmgNativeTerrainIntent.Vegetation);
+					SetStatus($"Ready: Regions / {complexity} ({result.Performance.TotalMilliseconds / 1000d:0.0}s). " +
+						$"Water {100D * water / cells.Length:0.0}%; gravel/moss {100D * gravel / land:0.0}/{100D * moss / land:0.0}% of land; " +
+						$"colonies {placedColonies}/{settingsResolution.Normalized.NeutralColonyCount}. Land connections are not required.",
+						result.Generation.Validation.Warnings.Count > 0 ? StatusKind.Warning : StatusKind.Success);
+				}
+				else
+				{
+					var obstaclePercent = result.Generation.Validation.Metrics["obstacle_density_percent"];
+					var interiorWaterPercent = result.Generation.Validation.Metrics["water_interior_density_percent"];
+					var waterBodyCount = result.Generation.Validation.Metrics["water_body_count"];
+					var largestWaterBodyShare = result.Generation.Validation.Metrics["water_largest_body_share_percent"];
+					var rockPercent = result.Generation.Validation.Metrics["rock_land_achieved_percent"];
+					var vegetationPercent = result.Generation.Validation.Metrics["vegetation_land_achieved_percent"];
+					var colonySummary = placedColonies < settingsResolution.Normalized.NeutralColonyCount ?
+						$"; colonies {placedColonies}/{settingsResolution.Normalized.NeutralColonyCount}" : string.Empty;
+					var adjusted = result.Generation.Validation.Warnings.Count > 0 ? "; adjusted safely" : string.Empty;
+					SetStatus($"Ready: {candidate.Title} ({result.Performance.TotalMilliseconds / 1000d:0.0}s; " +
+						$"Water {obstaclePercent:0.0}% total/{interiorWaterPercent:0.0}% interior, " +
+						$"{waterBodyCount:0} bodies/{largestWaterBodyShare:0}% largest; " +
+						$"Rock/Vegetation {rockPercent:0.0}/{vegetationPercent:0.0}%{colonySummary}{adjusted})",
+						result.Generation.Validation.Warnings.Count > 0 ? StatusKind.Warning : StatusKind.Success);
+				}
 				orderManager.IssueOrder(Order.Command("map " + generatedUid));
 				Game.Settings.Server.Map = generatedUid;
 				Game.Settings.Save();
@@ -626,6 +651,21 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 				}
 			}
 
+			// Initialize the RMG visibility preference once, after the server has
+			// selected its first generated map. Later regenerations keep user choices.
+			if (!rmgVisibilityDefaultsApplied && generatedUid != null && currentMap == generatedUid)
+			{
+				var options = orderManager.LobbyInfo.GlobalSettings.LobbyOptions;
+				if (options.TryGetValue("explored", out var explored) && options.TryGetValue("fog", out var fog))
+				{
+					rmgVisibilityDefaultsApplied = true;
+					if (!explored.IsLocked && !explored.IsEnabled)
+						orderManager.IssueOrder(Order.Command("option explored True"));
+					if (!fog.IsLocked && fog.IsEnabled)
+						orderManager.IssueOrder(Order.Command("option fog False"));
+				}
+			}
+
 			// Leave one render opportunity after the click so the user sees the Generating state.
 			if (generationQueued && Game.RunTime != generationQueuedAt)
 			{
@@ -651,7 +691,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 
 		static string LayoutFamilyDisplayName(RmgPlayerLayoutFamily value) => value switch
 		{
-			RmgPlayerLayoutFamily.NaturalLandscape => "Natural Landscape (experimental)",
+			RmgPlayerLayoutFamily.NaturalLandscape => "Natural Landscape (Regions)",
 			RmgPlayerLayoutFamily.StructuredCompetitive => "Structured Competitive",
 			RmgPlayerLayoutFamily.ArtificialBattlefield => "Artificial Battlefield",
 			_ => "Preset"

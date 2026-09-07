@@ -1,5 +1,12 @@
 # Player-facing random map parameters
 
+Current override (2026-09-07): the in-game Natural Landscape selection is [Regions V12](NATURAL_REGIONS_V12_CONTINUITY.md).
+Terrain Complexity retains Low / Standard / High and now varies secondary terrain within stable seeded
+geography. Additional levels and recalibration are deferred. Gravel and Moss Amount remains independent;
+global connectivity and fairness parity are not requirements for Regions. RMG initializes Explored Map On
+and Fog of War Off after its first generated-map selection. Historical proposals below remain context for
+older generators; schema 5 still replays V11 and schema 6 selects V12.
+
 ## Status
 
 Phase 8C provides the merged in-game Random Map Generator panel and player-settings schema version 3. Structured Competitive Version 8 and frozen Artificial Battlefield Version 7 are functional. Natural Landscape Version 10 is the user-approved integration checkpoint, with the experimental UI label retained; Version 9 remains available as a historical generator baseline. Balanced, Open Conflict, and Tactical Crossroads presets; 2/4 players; Automatic or explicit symmetry; Open Fields or Contested Center battlefield plan; constrained neutral-colony density; Water Amount; Tactical Terrain; and seed are implemented. The [corrected Phase 8C contract](PHASE_8C_STRUCTURED_COMPETITIVE_COHERENT_WATER.md) remains authoritative for the frozen V7/V8 schema-version-3 baseline; schema versions 1 and 2 remain compatibility contracts.

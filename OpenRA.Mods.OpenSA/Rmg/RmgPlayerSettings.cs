@@ -80,6 +80,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public RmgPlayerLayoutFamily LayoutFamily { get; init; } = RmgPlayerLayoutFamily.Preset;
 		public RmgPlayerColonyDensity NeutralColonyDensity { get; init; } = RmgPlayerColonyDensity.Preset;
 		public RmgPlayerParameterLevel WaterAmount { get; init; } = RmgPlayerParameterLevel.Preset;
+		public Reassessment.TerrainComplexity TerrainComplexity { get; init; } = Reassessment.TerrainComplexity.Standard;
 		public RmgPlayerParameterLevel TacticalTerrain { get; init; } = RmgPlayerParameterLevel.Preset;
 		public bool OriginalSurfaceRelations { get; init; } = true;
 
@@ -98,7 +99,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (SchemaVersion >= 2)
 			{
 				json["water_amount"] = RmgPlayerSettingsContract.PlayerParameterLevelName(WaterAmount);
-				json["tactical_terrain"] = RmgPlayerSettingsContract.PlayerParameterLevelName(TacticalTerrain);
+				json[SchemaVersion >= 5 ? "gravel_moss_amount" : "tactical_terrain"] = RmgPlayerSettingsContract.PlayerParameterLevelName(TacticalTerrain);
 			}
 
 			if (SchemaVersion >= 3)
@@ -107,6 +108,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				if (LayoutFamily == RmgPlayerLayoutFamily.NaturalLandscape)
 					json["original_surface_relations"] = OriginalSurfaceRelations;
 			}
+
+			if (SchemaVersion >= 5 && LayoutFamily == RmgPlayerLayoutFamily.NaturalLandscape)
+				json["terrain_complexity"] = TerrainComplexity.ToString().ToLowerInvariant();
 
 			if (SchemaVersion >= 4)
 				json["size"] = $"{MapSize},{MapSize}";
@@ -129,8 +133,10 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			Overrides = overrides;
 		}
 
-		public JObject ToJson() => new()
+		public JObject ToJson()
 		{
+			var json = new JObject
+			{
 			["schema_version"] = Requested.SchemaVersion,
 			["preset"] = RmgPlayerSettingsContract.PresetName(Requested.Preset),
 			["requested"] = Requested.ToJson(),
@@ -152,12 +158,23 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			},
 			["overrides"] = new JArray(Overrides),
 			["warnings"] = new JArray()
-		};
+			};
+			if (Normalized.GeneratorVersion is 11 or 12)
+			{
+				var normalized = (JObject)json["normalized"];
+				normalized.Remove("tactical_terrain");
+				normalized.Remove("symmetry");
+				normalized.Remove("archetype");
+				normalized["gravel_moss_amount"] = RmgPlayerSettingsContract.ParameterLevelName(Normalized.TacticalTerrain);
+				normalized["terrain_complexity"] = Normalized.TerrainComplexity.ToString().ToLowerInvariant();
+			}
+			return json;
+		}
 	}
 
 	public static class RmgPlayerSettingsContract
 	{
-		public const int SchemaVersion = 4;
+		public const int SchemaVersion = 6;
 		public const int MinimumSchemaVersion = 1;
 
 		static readonly HashSet<string> AllowedFields = new(new[]
@@ -173,6 +190,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			"original_surface_relations",
 			"neutral_colony_density",
 			"water_amount",
+			"gravel_moss_amount",
+			"terrain_complexity",
 			"tactical_terrain"
 		}, StringComparer.Ordinal);
 
@@ -222,6 +241,13 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var schemaVersion = RequiredInt(json, "schema_version");
 			if (schemaVersion < MinimumSchemaVersion || schemaVersion > SchemaVersion)
 				throw new ArgumentException($"Player settings schema_version must be from {MinimumSchemaVersion} through {SchemaVersion}.");
+			if (schemaVersion < 5 && (json.ContainsKey("gravel_moss_amount") || json.ContainsKey("terrain_complexity")))
+				throw new ArgumentException("Gravel/moss amount and terrain complexity require schema 5.");
+			if (schemaVersion >= 5 && json.ContainsKey("tactical_terrain"))
+				throw new ArgumentException("Schema 5 uses gravel_moss_amount instead of tactical_terrain.");
+			if (schemaVersion >= 5 && json.ContainsKey("terrain_complexity") &&
+				OptionalText(json, "layout_family", "preset") != "natural-landscape")
+				throw new ArgumentException("Terrain Complexity requires Natural Landscape.");
 			if (schemaVersion == 2)
 			{
 				var schema2Unknown = json.Properties().Select(property => property.Name)
@@ -266,8 +292,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					ParsePlayerParameterLevel(OptionalText(json, "water_amount", "preset"), "water_amount") :
 					RmgPlayerParameterLevel.Preset,
 				TacticalTerrain = schemaVersion >= 2 ?
-					ParsePlayerParameterLevel(OptionalText(json, "tactical_terrain", "preset"), "tactical_terrain") :
+					ParsePlayerParameterLevel(OptionalText(json, schemaVersion >= 5 ? "gravel_moss_amount" : "tactical_terrain", "preset"), "gravel_moss_amount") :
 					RmgPlayerParameterLevel.Preset,
+				TerrainComplexity = ParseComplexity(OptionalText(json, "terrain_complexity", "standard")),
 				OriginalSurfaceRelations = OptionalBool(json, "original_surface_relations", true)
 			};
 		}
@@ -309,21 +336,24 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				RmgLayoutFamily.ArtificialBattlefield;
 			var version = layoutFamily switch
 			{
-				RmgLayoutFamily.NaturalLandscape => 10,
+				RmgLayoutFamily.NaturalLandscape => requested.SchemaVersion >= 6 ? 12 : requested.SchemaVersion >= 5 ? 11 : 10,
 				RmgLayoutFamily.StructuredCompetitive => 8,
 				_ => requested.SchemaVersion >= 2 ? 7 : 6
 			};
+			if (version is 11 or 12 && (requested.Layout != RmgPlayerLayout.Preset || requested.Symmetry != RmgPlayerSymmetry.Automatic))
+				throw new ArgumentException("Regions has no Battlefield Plan or symmetry setting; use preset layout and automatic symmetry.");
 			var normalized = new RmgGenerationSettings
 			{
 				Seed = requested.Seed,
 				MapSize = requested.MapSize,
 				PlayerCount = requested.PlayerCount,
-				Symmetry = symmetry,
-				Archetype = archetype,
+				Symmetry = version is 11 or 12 ? RmgSymmetry.MirrorHorizontal : symmetry,
+				Archetype = version is 11 or 12 ? RmgArchetype.Open : archetype,
 				NeutralColonyCount = colonies,
 				GeneratorVersion = version,
 				TopologyPreset = version switch
 				{
+					11 or 12 => RmgTopologyPreset.NaturalRegions,
 					10 => RmgTopologyPreset.NaturalTerrainV10,
 					9 => RmgTopologyPreset.NaturalTerrain,
 					8 => RmgTopologyPreset.CoherentWater,
@@ -333,6 +363,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				WaterAmount = waterAmount,
 				LayoutFamily = layoutFamily,
 				TacticalTerrain = tacticalTerrain,
+				TerrainComplexity = requested.TerrainComplexity,
 				OriginalSurfaceRelations = requested.OriginalSurfaceRelations
 			};
 			var overrides = new List<string>();
@@ -347,14 +378,24 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (requested.WaterAmount != RmgPlayerParameterLevel.Preset)
 				overrides.Add("water_amount");
 			if (requested.TacticalTerrain != RmgPlayerParameterLevel.Preset)
-				overrides.Add("tactical_terrain");
+				overrides.Add(version is 11 or 12 ? "gravel_moss_amount" : "tactical_terrain");
 			if (requested.Symmetry != RmgPlayerSymmetry.Automatic)
 				overrides.Add("symmetry");
 
+			if (version is 11 or 12)
+				overrides.Add("terrain_complexity");
 			var resolution = new RmgPlayerSettingsResolution(requested, normalized, overrides);
 			normalized.PlayerSettingsResolution = resolution;
 			return resolution;
 		}
+
+		static Reassessment.TerrainComplexity ParseComplexity(string text) => text switch
+		{
+			"low" => Reassessment.TerrainComplexity.Low,
+			"standard" => Reassessment.TerrainComplexity.Standard,
+			"high" => Reassessment.TerrainComplexity.High,
+			_ => throw new ArgumentException("terrain_complexity must be low, standard, or high.")
+		};
 
 		public static IReadOnlyList<string> RunSelfTests()
 		{

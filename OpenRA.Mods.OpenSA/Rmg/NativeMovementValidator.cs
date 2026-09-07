@@ -28,6 +28,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 	public sealed class RmgNativeMovementValidationResult
 	{
+		public JObject RegionsPolicy { get; init; }
 		public string ValidatorName { get; init; } = "openra-static-ground-v1";
 		public string RouteScope { get; init; }
 
@@ -76,6 +77,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 		public JObject ToJson()
 		{
+			if (RegionsPolicy != null)
+				return RegionsPolicy;
 			return new JObject
 			{
 				["validator"] = ValidatorName,
@@ -139,7 +142,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		}
 	}
 
-	public static class NativeMovementValidator
+	public static partial class NativeMovementValidator
 	{
 		const string GroundLocomotorName = "unit";
 		const int MaximumDisagreementSamples = 32;
@@ -152,6 +155,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 		public static RmgNativeMovementValidationResult Validate(Map map, RmgGenerationResult generation)
 		{
+			if (generation.Profile.UsesRegionsTerrain)
+				return ValidateRegions(map, generation);
 			var worldInfo = map.Rules.Actors[SystemActors.World];
 			var locomotors = worldInfo.TraitInfos<LocomotorInfo>()
 				.OrderBy(l => l.Name, StringComparer.OrdinalIgnoreCase)

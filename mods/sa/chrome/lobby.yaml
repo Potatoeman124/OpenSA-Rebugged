@@ -58,7 +58,7 @@ Background@SERVER_LOBBY:
 					Width: 220
 					Height: 28
 					TooltipContainer: TOOLTIP_CONTAINER
-					TooltipText: Select a Phase 7C preset. Changing an individual setting creates a custom variant.
+					TooltipText: Select a Regions preset. Open Conflict uses Low complexity and amounts; Tactical Crossroads uses High complexity and gravel/moss.
 				Label@RMG_TERRAIN_LABEL:
 					X: 20
 					Y: 75
@@ -71,7 +71,7 @@ Background@SERVER_LOBBY:
 					Width: 220
 					Height: 28
 					TooltipContainer: TOOLTIP_CONTAINER
-					TooltipText: NORMAL is implemented. Other terrain themes are visible placeholders.
+					TooltipText: Normal terrain: water blocks land units; gravel and moss slow them.
 				Label@RMG_SIZE_LABEL:
 					X: 20
 					Y: 115
@@ -84,7 +84,7 @@ Background@SERVER_LOBBY:
 					Width: 220
 					Height: 28
 					TooltipContainer: TOOLTIP_CONTAINER
-					TooltipText: 128 x 128 supports all layout families. 256 x 256 supports Natural Landscape with 2 or 4 players. 64 x 64 is planned.
+					TooltipText: 128 x 128 supports all layout families. 256 x 256 supports Natural Landscape with 2 or 4 players.
 				Label@RMG_PLAYERS_LABEL:
 					X: 20
 					Y: 155
@@ -96,10 +96,10 @@ Background@SERVER_LOBBY:
 					Y: 157
 					Width: 175
 					Height: 24
-					MinimumValue: 1
-					MaximumValue: 8
+					MinimumValue: 2
+					MaximumValue: 4
 					Value: 4
-					Ticks: 8
+					Ticks: 2
 				Label@RMG_PLAYERS_VALUE:
 					X: 338
 					Y: 155
@@ -113,7 +113,7 @@ Background@SERVER_LOBBY:
 					Width: 20
 					Height: 14
 					Font: Tiny
-					Text: 1
+					Text: 2
 				Label@RMG_PLAYERS_MAX:
 					X: 310
 					Y: 179
@@ -121,7 +121,13 @@ Background@SERVER_LOBBY:
 					Height: 14
 					Align: Right
 					Font: Tiny
-					Text: 8
+					Text: 4
+				Label@RMG_NATURAL_NOTE:
+					X: 20
+					Y: 195
+					Width: 355
+					Height: 28
+					Text: Natural terrain can separate land areas.
 				Label@RMG_LAYOUT_LABEL:
 					X: 20
 					Y: 195
@@ -134,21 +140,21 @@ Background@SERVER_LOBBY:
 					Width: 220
 					Height: 28
 					TooltipContainer: TOOLTIP_CONTAINER
-					TooltipText: Select the strategic battlefield plan inside the chosen layout family. Other plans are placeholders.
-				Label@RMG_TERRAIN_COMPLEXITY_LABEL:
+					TooltipText: Select the strategic plan for Structured Competitive or Artificial Battlefield.
+				Label@RMG_GRAVEL_MOSS_AMOUNT_LABEL:
 					X: 20
 					Y: 235
-					Width: 130
+					Width: 195
 					Height: 28
-					Text: Tactical Terrain
-				DropDownButton@RMG_TERRAIN_COMPLEXITY:
-					X: 155
+					Text: Gravel and Moss Amount
+				DropDownButton@RMG_GRAVEL_MOSS_AMOUNT:
+					X: 220
 					Y: 235
-					Width: 220
+					Width: 155
 					Height: 28
 					Text: Standard
 					TooltipContainer: TOOLTIP_CONTAINER
-					TooltipText: Controls role-guided Rock and Vegetation movement terrain. Safety and fairness remain mandatory.
+					TooltipText: Target percentages of non-water land: Low 10% gravel / 5% moss; Standard 14% / 8%; High 18% / 11%. Separate from Terrain Complexity.
 				Checkbox@RMG_ORIGINAL_SURFACE_RELATIONS:
 					X: 155
 					Y: 275
@@ -170,7 +176,7 @@ Background@SERVER_LOBBY:
 					Height: 28
 					Text: Standard
 					TooltipContainer: TOOLTIP_CONTAINER
-					TooltipText: Controls the target amount of blocking Water. Routes, starts, colonies, and movement validation remain protected.
+					TooltipText: Blocking water target: Regions Low 16%, Standard 20%, High 24%. Fixed tile transitions can reduce the achieved amount.
 				Label@RMG_COLONY_LABEL:
 					X: 410
 					Y: 75
@@ -183,7 +189,7 @@ Background@SERVER_LOBBY:
 					Width: 220
 					Height: 28
 					TooltipContainer: TOOLTIP_CONTAINER
-					TooltipText: Select Sparse, Standard, or Dense neutral colony placement.
+					TooltipText: Select the neutral colony target. Regions places as many as existing terrain and combat spacing allow; grey preview squares show actual colonies.
 				Label@RMG_LAYOUT_FAMILY_LABEL:
 					X: 410
 					Y: 115
@@ -196,22 +202,22 @@ Background@SERVER_LOBBY:
 					Width: 220
 					Height: 28
 					TooltipContainer: TOOLTIP_CONTAINER
-					TooltipText: Natural Landscape uses experimental organic terrain. Structured Competitive uses V8 coherent Water morphology. Artificial Battlefield preserves frozen V7.
+					TooltipText: Natural Landscape uses Regions. Structured Competitive and Artificial Battlefield retain their historical generators at 128 x 128.
 
-				Label@RMG_CHOKEPOINTS_LABEL:
+				Label@RMG_TERRAIN_COMPLEXITY_LABEL:
 					X: 410
 					Y: 155
 					Width: 155
 					Height: 28
-					Text: Chokepoints
-				DropDownButton@RMG_CHOKEPOINTS:
+					Text: Terrain Complexity
+				DropDownButton@RMG_TERRAIN_COMPLEXITY:
 					X: 570
 					Y: 155
 					Width: 220
 					Height: 28
-					Text: Standard (planned)
+					Text: Standard
 					TooltipContainer: TOOLTIP_CONTAINER
-					TooltipText: Placeholder only. Chokepoint amount is not connected to the current generator contract.
+					TooltipText: Low creates broad features; Standard adds regional variation; High creates smaller, more distributed terrain features. Water and gravel/moss amounts are separate.
 				Label@RMG_HOSTILES_NOTE:
 					X: 410
 					Y: 195

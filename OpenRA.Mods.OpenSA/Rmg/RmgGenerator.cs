@@ -441,6 +441,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public static RmgGenerationResult Generate(RmgProfile profile, RmgGenerationSettings settings)
 		{
 			ValidateSettings(profile, settings);
+			if (profile.UsesRegionsTerrain)
+				return GenerateRegions(profile, settings);
 			if (profile.UsesNaturalTerrainMorphologyV10)
 				return GenerateNaturalLandscapeV10(profile, settings);
 			if (profile.UsesNaturalTerrainMorphology)
@@ -488,6 +490,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				throw new ArgumentException("Requested map size does not match the generation profile.");
 			if (settings.GeneratorVersion != profile.GeneratorVersion)
 				throw new ArgumentException($"Generator Version {settings.GeneratorVersion} is not supported by profile {profile.ProfileId}.");
+			if (profile.UsesRegionsTerrain && (settings.TopologyPreset != RmgTopologyPreset.NaturalRegions ||
+				settings.LayoutFamily != RmgLayoutFamily.NaturalLandscape || !Enum.IsDefined(settings.TerrainComplexity)))
+				throw new ArgumentException("Regions requires Natural Landscape and a valid Terrain Complexity.");
 			if (profile.GeneratorVersion == 1 && settings.TopologyPreset != RmgTopologyPreset.Off)
 				throw new ArgumentException("Generator Version 1 requires TopologyPreset=off.");
 			if (profile.GeneratorVersion == 2 && settings.TopologyPreset != RmgTopologyPreset.Mixed)
