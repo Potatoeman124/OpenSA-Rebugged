@@ -1,9 +1,15 @@
 # Regions V14: quantity levels and colony spacing
 
-Status: implemented on `codex/rmg-extended-options`, 2026-09-07. The user accepted V13 configuration 4
-before requesting this update. V14 preserves that terrain calibration, adds the new quantity levels and
-integrates all controls in the lobby. Native-map verification is complete; live gameplay retesting is the
-next user review.
+Status: **accepted and frozen** after user in-game testing on 2026-09-07. The accepted implementation
+is commit `8bbee8d36dc0472a49586055ceb0759e848f812a`, developed on `codex/rmg-extended-options` and promoted
+to `main`. Generator V14 configuration 1 / player schema 8 is the reproduction contract for this checkpoint.
+It preserves the accepted V13 configuration-4 Terrain Complexity calibration and includes all new quantity
+levels and the optional colony-spacing fallback. Future generator behavior changes must preserve replay
+of this accepted version rather than silently retuning its values or placement algorithm.
+
+The user authorized freezing, merging to main and pushing to origin. The three already documented V13
+Small-to-Ultra continuity tripwire failures remain recorded; this acceptance does not change their
+threshold or turn the full historical self-test result into a pass.
 
 ## Controls and targets
 
@@ -120,4 +126,4 @@ Run the focused suite with `OpenRA.Utility.exe sa --validate-sa-rmg --regions-op
 engine environment. Reproduce the native matrix with
 `python scripts/rmg/Verify-RegionsOptions.py artifacts/rmg/regions-v14/new-matrix`.
 Native validation uses loaded engine terrain/actor rules; it does not initialize a live match or prove
-combat balance. In-game review remains the user's next step.
+combat balance. The user subsequently tested the update in game and accepted this checkpoint on 2026-09-07.

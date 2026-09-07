@@ -13,7 +13,10 @@ The RMG must preserve that boundary: it may refer to terrain and actor identifie
 The accepted three-level **Regions V12** checkpoint was merged and pushed to `main` at
 `c34387a6f12a232418e80df6ba89d71fc8e13480` after user in-game acceptance on 2026-09-07.
 
-Development on `codex/rmg-extended-options` now integrates **Regions V14**. It preserves the accepted
+The current accepted checkpoint is **Regions V14**, configuration 1 / player schema 8. The user confirmed
+in-game acceptance and authorized its freeze and promotion to `main` on 2026-09-07. The implementation
+is `8bbee8d36dc0472a49586055ceb0759e848f812a`, developed on `codex/rmg-extended-options`.
+It preserves the accepted
 V13 configuration-4 Terrain Complexity calibration (Ultra 2.70 broad / 2.60 fine), extends Water Amount,
 **Surface Modifiers** (formerly Gravel and Moss Amount), and Neutral Colony Density with **Extreme / Ultra**,
 and adds **Prevent Colony Overlapping**, enabled by default.
