@@ -10,22 +10,24 @@ The RMG must preserve that boundary: it may refer to terrain and actor identifie
 
 ## Current integration checkpoint
 
-The current development branch is `codex/rmg-eight-players-colony-weights`, starting from frozen
-`main` commit `1143fad394ef845fd21ac986b93c3b322f14b25e`.
+The accepted checkpoint on `main` is **Regions V16**, configuration 1 / player-settings schema 10.
+The user accepted the complete update, including Random ownership, and authorized merge/push on
+2026-09-08. The implementation ends at `4bfcdad`, developed on `codex/rmg-eight-players-colony-weights`
+from the previous main checkpoint `1143fad394ef845fd21ac986b93c3b322f14b25e`.
+
 [Regions V16: small maps and starting ownership](NATURAL_REGIONS_V16_STARTING_OWNERSHIP.md)
-adds **64 x 64**, per-player starting colony shares, and **0-100** ranges for both colony slider groups.
-The lobby and Regions wrapper select schema 10 / V16 configuration 1. The user accepted V16 through
-`ddce379` on 2026-09-08, including live preview ownership colors and the skirmish-start fix. The next
-extension adds **Ownership Choice: Closest to Spawn / Random** in Starting Ownership. Closest remains
-the default; Random uses the RMG seed and the same quotas, with matching preview colors. This extension
-awaits in-game acceptance. Existing V16 map contents and default settings remain exact.
-[Regions V15](NATURAL_REGIONS_V15_PLAYERS_AND_WEIGHTS.md), commit `7035e00`, was accepted in-game and
-provides the 1-8 player and species-weight foundation. V14 remains the frozen checkpoint on `main`.
+provides **64 x 64** maps, per-player starting colony shares, **0-100** ranges for both colony slider
+groups, colored ownership previews, and **Ownership Choice: Closest to Spawn / Random**. Closest is
+the default; Random uses the RMG seed and the same quotas. Both modes match the live preview. The
+skirmish-start fix prevents repeated selection of a generated map from invalidating the host.
+[Regions V15](NATURAL_REGIONS_V15_PLAYERS_AND_WEIGHTS.md), commit `7035e00`, supplies the 1-8 player
+and species-weight foundation. 64 x 64 is limited to 1-4 players; 128/256 support 1-8.
+Existing Closest V16 map contents and default settings remain exact.
 
 The accepted three-level **Regions V12** checkpoint was merged and pushed to `main` at
 `c34387a6f12a232418e80df6ba89d71fc8e13480` after user in-game acceptance on 2026-09-07.
 
-The current frozen main checkpoint is **Regions V14**, configuration 1 / player schema 8. The user confirmed
+The previous frozen main checkpoint was **Regions V14**, configuration 1 / player schema 8. The user confirmed
 in-game acceptance and authorized its freeze and promotion to `main` on 2026-09-07. The implementation
 is `8bbee8d36dc0472a49586055ceb0759e848f812a`, developed on `codex/rmg-extended-options`.
 It preserves the accepted

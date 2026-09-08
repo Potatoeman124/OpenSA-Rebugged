@@ -225,7 +225,8 @@ missing server-start path; a complete interactive match still awaits user testin
 
 The user accepted V16 including the preview/startup fixes at `ddce379`, then requested Random selection.
 The extension retains schema 10 / V16 configuration 1 with an optional mode; it does not recalibrate or
-replace the accepted Closest behavior. This new selector still awaits user in-game acceptance.
+replace the accepted Closest behavior. The user accepted the selector at `4bfcdad` and authorized
+merge to main and push to origin on 2026-09-08.
 
 Verification evidence is under `artifacts/rmg/regions-v16-random/` and adjacent logs:
 
@@ -250,3 +251,15 @@ Verification evidence is under `artifacts/rmg/regions-v16-random/` and adjacent 
 
 The full historical terrain matrix was not repeated for this setup-only extension; its documented
 pre-existing V13 correlation failures remain outside this change.
+
+## Accepted main checkpoint (2026-09-08)
+
+After in-game acceptance, `main` was fast-forwarded from the V14 checkpoint `1143fad` through `4bfcdad`.
+This includes V15 players/species weights, V16 small maps/starting ownership, the ownership preview and
+startup fix, and seeded Random ownership. The defaults remain Closest to Spawn and zero ownership
+shares. The branch's completed 16-scenario / 32-world runtime evidence above applies to the identical
+implementation promoted to main.
+
+Merged-main build/runtime-data validation passed (`artifacts/rmg/regions-v16-main-validate.log`).
+The final playable binaries were rebuilt in Release configuration with zero compiler warnings/errors
+(`artifacts/rmg/regions-v16-main-build.log`).
