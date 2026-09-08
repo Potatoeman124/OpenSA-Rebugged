@@ -92,7 +92,7 @@ Background@SERVER_LOBBY:
 					Width: 220
 					Height: 28
 					TooltipContainer: TOOLTIP_CONTAINER
-					TooltipText: 128 x 128 supports all layout families. Natural Landscape supports 64 x 64 with 1-4 players, and 128 or 256 with 1-8 players.
+					TooltipText: Natural layouts support 64, 128, 256 and 512 square maps. 64 supports up to four players; larger sizes support up to eight. PVP requires complete mirrored player groups.
 				Label@RMG_PLAYERS_LABEL:
 					X: 20
 					Y: 155
@@ -108,6 +108,13 @@ Background@SERVER_LOBBY:
 					MaximumValue: 8
 					Value: 4
 					Ticks: 8
+				Label@RMG_PLAYERS_FIXED:
+					X: 155
+					Y: 155
+					Width: 175
+					Height: 28
+					Text: Fixed by symmetry
+					Visible: False
 				Label@RMG_PLAYERS_VALUE:
 					X: 338
 					Y: 155
@@ -150,7 +157,7 @@ Background@SERVER_LOBBY:
 					Width: 220
 					Height: 28
 					TooltipContainer: TOOLTIP_CONTAINER
-					TooltipText: Select the strategic plan for Structured Competitive or Artificial Battlefield.
+					TooltipText: Select the strategic plan for Artificial Battlefield.
 				Label@RMG_GRAVEL_MOSS_AMOUNT_LABEL:
 					X: 20
 					Y: 235
@@ -274,6 +281,21 @@ Background@SERVER_LOBBY:
 					Text: Generate Preview
 					TooltipContainer: TOOLTIP_CONTAINER
 					TooltipText: Generate, validate, install, and select this map candidate.
+				Label@RMG_MIRRORING_AXES_LABEL:
+					X: 20
+					Y: 310
+					Width: 150
+					Height: 28
+					Text: Mirroring Axes
+					Visible: False
+				DropDownButton@RMG_MIRRORING_AXES:
+					X: 175
+					Y: 310
+					Width: 220
+					Height: 28
+					Visible: False
+					TooltipContainer: TOOLTIP_CONTAINER
+					TooltipText: Mirror terrain, starting positions and colony types across 1, 2 or 4 axes. Players form groups of 2, 4 or 8. One-axis orientation follows the seed.
 				LabelWithTooltip@RMG_STATUS:
 					X: 20
 					Y: 308

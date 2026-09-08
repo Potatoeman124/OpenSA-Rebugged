@@ -99,39 +99,49 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			StartingColonyActors.SelectMany(first => StartingColonyActors.Select(second =>
 				ToNativeMargin(StartingPairMarginWorld(first, firstLocation, second, secondLocation)))).Min();
 
-		double ColonyCenterMarginWorld(string firstActor, RmgPoint firstLocation, string secondActor, RmgPoint secondLocation)
+		public int ColonyMarginAtNative(string firstActor, RmgPoint first, string secondActor, RmgPoint second) =>
+			ToNativeMargin(ColonyCenterMarginWorld(firstActor, first, secondActor, second, WorldUnitsPerNativeCell));
+
+		public int ColonyStartMarginAtNative(string actor, RmgPoint colony, RmgPoint start) =>
+			StartingColonyActors.Min(type => ToNativeMargin(StartingAndNeutralMarginWorld(actor, colony, type, start, WorldUnitsPerNativeCell)));
+
+		public int StartMarginAtNative(RmgPoint first, RmgPoint second) =>
+			StartingColonyActors.SelectMany(a => StartingColonyActors.Select(b =>
+				ToNativeMargin(StartingPairMarginWorld(a, first, b, second, WorldUnitsPerNativeCell)))).Min();
+
+		double ColonyCenterMarginWorld(string firstActor, RmgPoint firstLocation, string secondActor, RmgPoint secondLocation, int scale = WorldUnitsPerLogicalCell)
 		{
 			var first = Profile(firstActor);
 			var second = Profile(secondActor);
 			return Math.Min(
-				DirectedCombatSpaceMarginWorld(first, firstLocation, second, secondLocation, false),
-				DirectedCombatSpaceMarginWorld(second, secondLocation, first, firstLocation, false));
+				DirectedCombatSpaceMarginWorld(first, firstLocation, second, secondLocation, false, scale),
+				DirectedCombatSpaceMarginWorld(second, secondLocation, first, firstLocation, false, scale));
 		}
 
 		double StartingAndNeutralMarginWorld(string neutralActor, RmgPoint neutralLocation,
-			string startingActor, RmgPoint startLocation)
+			string startingActor, RmgPoint startLocation, int scale = WorldUnitsPerLogicalCell)
 		{
 			var neutral = Profile(neutralActor);
 			var start = Profile(startingActor);
 			return Math.Min(
-				DirectedCombatSpaceMarginWorld(neutral, neutralLocation, start, startLocation, true),
-				DirectedCombatSpaceMarginWorld(start, startLocation, neutral, neutralLocation, false));
+				DirectedCombatSpaceMarginWorld(neutral, neutralLocation, start, startLocation, true, scale),
+				DirectedCombatSpaceMarginWorld(start, startLocation, neutral, neutralLocation, false, scale));
 		}
 
-		double StartingPairMarginWorld(string firstActor, RmgPoint firstLocation, string secondActor, RmgPoint secondLocation)
+		double StartingPairMarginWorld(string firstActor, RmgPoint firstLocation, string secondActor, RmgPoint secondLocation, int scale = WorldUnitsPerLogicalCell)
 		{
 			var first = Profile(firstActor);
 			var second = Profile(secondActor);
 			return Math.Min(
-				DirectedCombatSpaceMarginWorld(first, firstLocation, second, secondLocation, true),
-				DirectedCombatSpaceMarginWorld(second, secondLocation, first, firstLocation, true));
+				DirectedCombatSpaceMarginWorld(first, firstLocation, second, secondLocation, true, scale),
+				DirectedCombatSpaceMarginWorld(second, secondLocation, first, firstLocation, true, scale));
 		}
 
 		double DirectedCombatSpaceMarginWorld(RmgColonyCombatProfile attacker, RmgPoint attackerLocation,
-			RmgColonyCombatProfile target, RmgPoint targetLocation, bool protectProductionPath)
+			RmgColonyCombatProfile target, RmgPoint targetLocation, bool protectProductionPath, int scale)
 		{
-			var attackerCenter = Center(attacker, attackerLocation);
-			var targetCenter = Center(target, targetLocation);
+			var attackerCenter = Center(attacker, attackerLocation, scale);
+			var targetCenter = Center(target, targetLocation, scale);
 			var minimumDistanceSquared = DistanceSquared(attackerCenter, targetCenter);
 			if (protectProductionPath)
 				foreach (var path in target.ProductionPaths)
@@ -198,9 +208,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			return new RmgColonyCombatProfile(actorType, maximumAttackRange, centerX, centerY, paths, maximumPathOffset);
 		}
 
-		static WorldPoint Center(RmgColonyCombatProfile profile, RmgPoint location) =>
-			new(location.X * WorldUnitsPerLogicalCell + profile.CenterXWorld,
-				location.Y * WorldUnitsPerLogicalCell + profile.CenterYWorld);
+		static WorldPoint Center(RmgColonyCombatProfile profile, RmgPoint location, int scale) =>
+			new(location.X * scale + profile.CenterXWorld,
+				location.Y * scale + profile.CenterYWorld);
 
 		static double DistanceSquared(WorldPoint first, WorldPoint second)
 		{
@@ -257,21 +267,22 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				!rules.CombatSpaceIsSafe(actorType, point, actor.Type, actor.LogicalLocation));
 		}
 
-		static void ValidateColonyCombatSpace(RmgLogicalMap map, RmgProfile profile, RmgValidationReport report, bool allowNeutralOverlap = false)
+		static void ValidateColonyCombatSpace(RmgLogicalMap map, RmgProfile profile, RmgValidationReport report, bool allowNeutralOverlap = false, bool nativeCoordinates = false)
 		{
 			if (profile.GeneratorVersion < 2)
 				return;
 
 			var rules = profile.ColonyCombatRules;
 			var colonies = map.Actors.Where(actor => actor.Owner == profile.ColonyOwner).ToArray();
+			var starts = nativeCoordinates ? map.Actors.Where(a => a.Role == "start").Select(RmgMirroring.Native).ToArray() : map.Starts.ToArray();
 			var minimumMargin = int.MaxValue;
 			var overlappingPairs = 0;
 			var maximumOverlap = 0;
 
 			foreach (var colony in colonies)
-				foreach (var start in map.Starts)
+				foreach (var start in starts)
 				{
-					var margin = rules.CombatSpaceMarginFromAnyStartingActorNative(colony.Type, colony.LogicalLocation, start);
+					var margin = nativeCoordinates ? rules.ColonyStartMarginAtNative(colony.Type, RmgMirroring.Native(colony), start) : rules.CombatSpaceMarginFromAnyStartingActorNative(colony.Type, colony.LogicalLocation, start);
 					minimumMargin = Math.Min(minimumMargin, margin);
 					if (margin < 0)
 						report.HardFailures.Add(new RmgValidationIssue("COLONY_COMBAT_SPACE",
@@ -281,7 +292,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			for (var i = 0; i < colonies.Length; i++)
 				for (var j = i + 1; j < colonies.Length; j++)
 				{
-					var margin = rules.CombatSpaceMarginNative(colonies[i].Type, colonies[i].LogicalLocation,
+					var margin = nativeCoordinates ? rules.ColonyMarginAtNative(colonies[i].Type, RmgMirroring.Native(colonies[i]), colonies[j].Type, RmgMirroring.Native(colonies[j])) : rules.CombatSpaceMarginNative(colonies[i].Type, colonies[i].LogicalLocation,
 						colonies[j].Type, colonies[j].LogicalLocation);
 					minimumMargin = Math.Min(minimumMargin, margin);
 					if (margin < 0)
@@ -294,17 +305,17 @@ namespace OpenRA.Mods.OpenSA.Rmg
 							$"{colonies[i].Type} at {colonies[i].LogicalLocation} and {colonies[j].Type} at {colonies[j].LogicalLocation} violate their bidirectional turret envelopes by {-margin} native cells."));
 				}
 
-			for (var i = 0; i < map.Starts.Count; i++)
-				for (var j = i + 1; j < map.Starts.Count; j++)
+			for (var i = 0; i < starts.Length; i++)
+				for (var j = i + 1; j < starts.Length; j++)
 				{
-					var margin = rules.StartingCombatSpaceMarginNative(map.Starts[i], map.Starts[j]);
+					var margin = nativeCoordinates ? rules.StartMarginAtNative(starts[i], starts[j]) : rules.StartingCombatSpaceMarginNative(starts[i], starts[j]);
 					minimumMargin = Math.Min(minimumMargin, margin);
 					if (margin < 0)
 						report.HardFailures.Add(new RmgValidationIssue("START_COMBAT_SPACE",
 							$"Starts {map.Starts[i]} and {map.Starts[j]} violate a possible pair of starting-colony turret/production envelopes by {-margin} native cells."));
 				}
 
-			if (profile.GeneratorVersion is 14 or 15 or 16)
+			if (profile.GeneratorVersion is 14 or 15 or 16 or 17)
 			{
 				report.Metrics["neutral_overlapping_pairs"] = overlappingPairs;
 				report.Metrics["maximum_neutral_overlap_native"] = maximumOverlap;

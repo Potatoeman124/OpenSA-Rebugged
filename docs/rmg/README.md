@@ -8,6 +8,15 @@ The repository contains only original source code, build tooling, and project do
 
 The RMG must preserve that boundary: it may refer to terrain and actor identifiers supported by the engine, but it must not copy original maps, art, audio, or other legally ambiguous asset material into the repository.
 
+## Current development
+
+[Natural Landscape PVP](NATURAL_LANDSCAPE_PVP.md) is implemented on
+`codex/rmg-natural-landscape-pvp` from `e100d92`, pending user in-game review. It adds 1/2/4 mirroring
+axes for native terrain, starts and typed colonies, with complete mirrored player groups. All current
+Regions controls remain available. Ordinary Natural Landscape stays the default and preserves V16;
+PVP uses V17/configuration 1/schema 11. Structured Competitive is retired from the lobby selector.
+The linked document records the agreed one-layout-at-a-time roadmap and validation evidence.
+
 ## Current integration checkpoint
 
 The accepted checkpoint on `main` is **Regions V16 with all four biomes, 512 x 512 maps,
@@ -60,6 +69,7 @@ generated-map selection initializes Explored Map On and Fog of War Off; later re
 user changes. With overlap prevention off, the generator fills neutral-colony shortfalls using the smallest
 available turret-spacing overlaps while retaining physical clearance and all player-start protections.
 
+Schema 11 selects V17 for Natural Landscape PVP and preserves V16 for ordinary Natural Landscape.
 Schema 10 selects V16; schema 9 preserves V15; schema 8 preserves V14; schema 7 preserves [accepted V13 complexity](NATURAL_REGIONS_V13_EXTENDED_OPTIONS.md);
 schema 6 replays [Regions V12](NATURAL_REGIONS_V12_CONTINUITY.md); schema 5 preserves
 [Regions V11](NATURAL_REGIONS_V11.md). Schemas 1-4 retain their historical generator selections, including V10.

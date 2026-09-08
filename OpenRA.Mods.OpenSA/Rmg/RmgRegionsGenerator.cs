@@ -31,20 +31,22 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		{
 			var terrainSettings = new TerrainComparisonSettings(settings.Seed, settings.MapSize, TerrainConstruction.Regions, settings.TerrainComplexity)
 			{
+				MirroringAxes = settings.MirroringAxes,
 				WaterPercent = RegionsWaterPercent(settings.WaterAmount),
 				GravelPercent = profile.RockLandPercentFor(settings.TacticalTerrain),
 				MossPercent = profile.VegetationLandPercentFor(settings.TacticalTerrain),
 				OriginalSurfaceRelations = settings.OriginalSurfaceRelations,
-				Continuity = settings.GeneratorVersion is 12 or 13 or 14 or 15 or 16,
-				ExtendedComplexity = settings.GeneratorVersion is 13 or 14 or 15 or 16
+				Continuity = settings.GeneratorVersion is 12 or 13 or 14 or 15 or 16 or 17,
+				ExtendedComplexity = settings.GeneratorVersion is 13 or 14 or 15 or 16 or 17
 			};
 			RmgLogicalMap reference = null;
-			if (settings.GeneratorVersion is 13 or 14 or 15 or 16 || (settings.GeneratorVersion == 12 && settings.TerrainComplexity != TerrainComplexity.Low))
+			if (settings.GeneratorVersion is 13 or 14 or 15 or 16 or 17 || (settings.GeneratorVersion == 12 && settings.TerrainComplexity != TerrainComplexity.Low))
 				reference = TerrainComparison.Generate(Game.ModData, terrainSettings.ContinuityReference).Map;
 			var terrain = TerrainComparison.Generate(Game.ModData, terrainSettings, reference);
 			if (settings.GeneratorVersion == 12 && reference == null)
 				reference = terrain.Map;
-			return CompleteRegions(profile, settings, terrain, reference);
+			return settings.GeneratorVersion == 17 ? CompleteMirroredRegions(profile, settings, terrain, reference) :
+				CompleteRegions(profile, settings, terrain, reference);
 		}
 
 		static RmgGenerationResult CompleteRegions(RmgProfile profile, RmgGenerationSettings settings, TerrainComparisonResult terrain, RmgLogicalMap reference = null)
@@ -347,6 +349,29 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			cell.X >= 1 && cell.Y >= 1 && cell.X < 2 * map.Width - 1 && cell.Y < 2 * map.Height - 1 &&
 			!reserved.Contains(cell) && TerrainComparison.Native(map, cell.X, cell.Y) != RmgNativeTerrainIntent.Water &&
 			(!dirtOnly || TerrainComparison.Native(map, cell.X, cell.Y) == RmgNativeTerrainIntent.Clear));
+
+		public bool NativeOrbitFits(string actor, IReadOnlyList<RmgPoint> anchors)
+		{
+			var offsets = actor == null ? starts : colonies[actor];
+			var occupied = new HashSet<RmgPoint>();
+			foreach (var anchor in anchors)
+				foreach (var offset in offsets)
+				{
+					var cell = new RmgPoint(anchor.X + offset.X, anchor.Y + offset.Y);
+					if (cell.X < 1 || cell.Y < 1 || cell.X >= 2 * map.Width - 1 || cell.Y >= 2 * map.Height - 1 ||
+						reserved.Contains(cell) || !occupied.Add(cell) || TerrainComparison.Native(map, cell.X, cell.Y) == RmgNativeTerrainIntent.Water ||
+						(dirtOnly && TerrainComparison.Native(map, cell.X, cell.Y) != RmgNativeTerrainIntent.Clear)) return false;
+				}
+
+			return true;
+		}
+
+		public void ReserveNativeOrbit(string actor, IEnumerable<RmgPoint> anchors)
+		{
+			foreach (var anchor in anchors)
+				foreach (var offset in actor == null ? starts : colonies[actor])
+					reserved.Add(new RmgPoint(anchor.X + offset.X, anchor.Y + offset.Y));
+		}
 
 		public bool StartFits(RmgPoint anchor) => Fits(anchor, starts);
 		public bool ColonyFits(string actor, RmgPoint anchor) => Fits(anchor, colonies[actor]);

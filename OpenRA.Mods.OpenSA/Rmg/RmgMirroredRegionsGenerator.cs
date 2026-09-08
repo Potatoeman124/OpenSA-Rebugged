@@ -1,0 +1,238 @@
+#region Copyright & License Information
+/* Copyright The OpenSA Developers. GPL version 3 or later. */
+#endregion
+
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
+using Newtonsoft.Json.Linq;
+using OpenRA.Mods.OpenSA.Rmg.Reassessment;
+
+namespace OpenRA.Mods.OpenSA.Rmg
+{
+	public static partial class RmgGenerator
+	{
+		static RmgGenerationResult CompleteMirroredRegions(RmgProfile profile, RmgGenerationSettings settings,
+			TerrainComparisonResult terrain, RmgLogicalMap reference)
+		{
+			var map = terrain.Map;
+			var frozen = TerrainComparison.Hash(TerrainComparison.NativeBytes(map));
+			var timer = Stopwatch.StartNew();
+			var groupSize = RmgMirroring.GroupSize(settings.MirroringAxes);
+			var sites = new RegionsSites(Game.ModData, map, settings.OriginalSurfaceRelations);
+			var random = new DeterministicRandom(TerrainComparison.Mix(settings.Seed, 1701));
+			var candidates = Enumerable.Range(0, settings.MapSize * settings.MapSize)
+				.Where(i => RmgMirroring.Canonical(i, settings.MapSize, settings.MirroringAxes, settings.Seed) == i)
+				.Select(i => RmgMirroring.Points(new RmgPoint(i % settings.MapSize, i / settings.MapSize), settings.MapSize, settings.MirroringAxes, settings.Seed))
+				.Where(points => points.Length == groupSize).ToArray();
+			for (var i = candidates.Length - 1; i > 0; i--)
+			{
+				var j = random.NextInt(i + 1);
+				(candidates[i], candidates[j]) = (candidates[j], candidates[i]);
+			}
+
+			var preferred = SelectMirroredStarts(profile, settings, reference, candidates, null, false);
+			var starts = SelectMirroredStarts(profile, settings, map, candidates, preferred, true);
+			foreach (var point in starts)
+			{
+				map.Starts.Add(new RmgPoint(point.X / 2, point.Y / 2));
+				map.Actors.Add(RmgMirroring.Actor(profile.SpawnActor, profile.SpawnOwner, "start", point, map.Starts.Count - 1));
+			}
+
+			sites.ReserveNativeOrbit(null, starts);
+			var colonyCount = PlaceMirroredColonies(map, profile, settings, sites, candidates, starts,
+				out var strictCount, out var evaluations, out var drawnTypes);
+			var placementMs = timer.Elapsed.TotalMilliseconds;
+			timer.Restart();
+			var target = (settings.MapSize * settings.MapSize * profile.LandDecorationPerThousand + 500) / 1000;
+			var decorations = new List<RmgPoint>();
+			foreach (var orbit in candidates)
+			{
+				if (decorations.Count + groupSize > target) break;
+				if (orbit.Any(p => sites.NearReserved(p) || decorations.Any(d => d.ChebyshevDistance(p) < 4)) ||
+					orbit.Any(p => orbit.Any(q => p != q && p.ChebyshevDistance(q) < 4))) continue;
+				var bank = TerrainComparison.Native(map, orbit[0].X, orbit[0].Y) switch
+				{
+					RmgNativeTerrainIntent.Clear => profile.SoilDecorationActors,
+					RmgNativeTerrainIntent.Rock => profile.RockDecorationActors,
+					RmgNativeTerrainIntent.Vegetation => profile.VegetationDecorationActors,
+					_ => Array.Empty<string>()
+				};
+				if (bank.Length == 0) continue;
+				var type = bank[random.NextInt(bank.Length)];
+				foreach (var point in orbit) map.Actors.Add(RmgMirroring.Actor(type, profile.SpawnOwner, "decoration-passable", point, -1));
+				decorations.AddRange(orbit);
+			}
+
+			if (frozen != TerrainComparison.Hash(TerrainComparison.NativeBytes(map))) throw new InvalidOperationException("Mirrored placement changed terrain.");
+			map.NaturalSurfacesFrozen = true;
+			var validation = new RmgValidationReport();
+			ValidateColonyCombatSpace(map, profile, validation, !settings.PreventColonyOverlapping, nativeCoordinates: true);
+			if (colonyCount < settings.EffectiveNeutralColonyCount)
+				validation.Warnings.Add(new RmgValidationIssue("NEUTRAL_CAPACITY", $"Placed {colonyCount}/{settings.EffectiveNeutralColonyCount} colonies in complete mirrored groups of {groupSize}."));
+			map.RegionsReport = terrain.Report;
+			var report = map.RegionsReport;
+			report["status"] = "PLAYABLE_REGIONS_V17";
+			report["placement_status"] = "MIRRORED_LOCAL_SITES_VALID";
+			report["terrain_repainted_for_placement"] = false;
+			report["placement_ms"] = placementMs;
+			report["doodads_ms"] = timer.Elapsed.TotalMilliseconds;
+			report["mirroring_axes"] = settings.MirroringAxes;
+			report["mirror_orientation"] = settings.MirroringAxes != 1 ? "horizontal-vertical" + (settings.MirroringAxes == 4 ? "-diagonals" : "") : (settings.Seed & 1) == 0 ? "vertical" : "horizontal";
+			report["symmetry_requirement"] = "NATIVE_TERRAIN_STARTS_AND_TYPED_COLONIES";
+			report["strategic_routes_requirement"] = "NOT_REQUIRED";
+			report["neutral_colonies_requested"] = settings.EffectiveNeutralColonyCount;
+			report["neutral_colonies_density_target"] = settings.NeutralColonyCount;
+			report["neutral_colonies_group_target"] = settings.EffectiveNeutralColonyCount / groupSize * groupSize;
+			report["neutral_colonies_placed"] = colonyCount;
+			report["prevent_colony_overlapping"] = settings.PreventColonyOverlapping;
+			report["neutral_colonies_strict"] = strictCount;
+			report["neutral_colonies_fallback"] = colonyCount - strictCount;
+			report["fallback_pair_evaluations"] = evaluations;
+			report["neutral_overlapping_pairs"] = validation.Metrics.GetValueOrDefault("neutral_overlapping_pairs");
+			report["maximum_neutral_overlap_native"] = validation.Metrics.GetValueOrDefault("maximum_neutral_overlap_native");
+			report["neutral_colony_weights"] = settings.NeutralColonyWeights.ToJson();
+			report["neutral_colonies_disabled"] = settings.NeutralColonyWeights.Total == 0;
+			report["neutral_colonies_drawn_by_type"] = new JObject(RmgColonyWeights.Keys.Select(key => new JProperty(key, drawnTypes.Count(t => t == key + "_colony") * groupSize)));
+			report["neutral_colonies_placed_by_type"] = new JObject(RmgColonyWeights.Keys.Select(key => new JProperty(key, map.Actors.Count(a => a.Role == "neutral-colony" && a.Type == key + "_colony"))));
+			report["starting_colony_shares"] = new JArray(settings.StartingColonyShares);
+			var allocation = RmgColonyOwnership.Allocate(colonyCount, settings.StartingColonyShares);
+			report["starting_colonies_allocated_if_all_slots_occupied"] = new JArray(allocation);
+			report["unowned_colonies_if_all_slots_occupied"] = colonyCount - allocation.Sum();
+			report["ownership_assignment"] = settings.StartingColonyMode == RmgColonyOwnershipMode.Random ? "runtime-player-slot-and-seeded-random" : "runtime-player-slot-and-actual-start";
+			report["starting_colony_mode"] = RmgColonyOwnership.ModeName(settings.StartingColonyMode);
+			report["doodads_requested"] = target;
+			report["doodads_placed"] = decorations.Count;
+			report["placement_candidates"] = candidates.Length;
+			report["geography_contract"] = "mirrored-fixed-regions-extended-detail-v17";
+			report["preferred_start_reference"] = "same-axes-v12-low-complexity";
+			report["start_displacement_native"] = new JArray(starts.Select((p, i) => i < preferred.Count ? Math.Sqrt(RegionDistanceSquared(p, preferred[i])) : (double?)null));
+			return new RmgGenerationResult
+			{
+				Settings = settings, Profile = profile, Map = map, Validation = validation,
+				LogicalHash = HashLogicalMap(map), ActorHash = HashActors(map), GraphHash = HashGraph(map)
+			};
+		}
+
+		static List<RmgPoint> SelectMirroredStarts(RmgProfile profile, RmgGenerationSettings settings, RmgLogicalMap terrain,
+			RmgPoint[][] candidates, List<RmgPoint> preferred, bool requireAll)
+		{
+			var sites = new RegionsSites(Game.ModData, terrain, settings.OriginalSurfaceRelations);
+			var starts = new List<RmgPoint>();
+			var rules = profile.ColonyCombatRules;
+			var valid = candidates.Where(points => sites.NativeOrbitFits(null, points)).ToArray();
+			while (starts.Count < settings.PlayerCount)
+			{
+				var anchor = preferred != null && preferred.Count > starts.Count ? preferred[starts.Count] : (RmgPoint?)null;
+				long Spread(RmgPoint[] orbit) => orbit.SelectMany((p, i) => orbit.Skip(i + 1).Concat(starts).Select(q => RegionDistanceSquared(p, q))).DefaultIfEmpty(0).Min();
+				var ordered = anchor.HasValue ? valid.OrderBy(points => RegionDistanceSquared(points[0], anchor.Value)) : valid.OrderByDescending(Spread);
+				var chosen = ordered.FirstOrDefault(points => sites.NativeOrbitFits(null, points) && points.SelectMany((p, i) => points.Skip(i + 1).Concat(starts)
+					.Select(q => rules.StartMarginAtNative(p, q))).All(margin => margin >= 0));
+				if (chosen == null)
+				{
+					if (requireAll) throw new RmgGenerationRejectedException("PVP_START_CAPACITY", $"Terrain supports {starts.Count}/{settings.PlayerCount} starts in safe mirrored groups. Try another seed or a larger map.");
+					break;
+				}
+
+				starts.AddRange(chosen); sites.ReserveNativeOrbit(null, chosen);
+			}
+
+			return starts;
+		}
+
+		static int PlaceMirroredColonies(RmgLogicalMap map, RmgProfile profile, RmgGenerationSettings settings,
+			RegionsSites sites, RmgPoint[][] candidates, List<RmgPoint> starts, out int strictCount, out long evaluations, out string[] drawnTypes)
+		{
+			var groupSize = RmgMirroring.GroupSize(settings.MirroringAxes);
+			var random = new DeterministicRandom(TerrainComparison.Mix(settings.Seed, 1702));
+			drawnTypes = Enumerable.Range(0, settings.EffectiveNeutralColonyCount / groupSize)
+				.Select(_ => settings.NeutralColonyWeights.ActorForTicket(random.NextInt(settings.NeutralColonyWeights.Total))).ToArray();
+			var colonies = new List<(string Type, RmgPoint Point)>();
+			var missing = new List<string>();
+			var rules = profile.ColonyCombatRules;
+			var cursors = drawnTypes.Distinct().ToDictionary(type => type, _ => 0);
+			bool Fits(string type, RmgPoint[] points) => sites.NativeOrbitFits(type, points) &&
+				points.All(p => starts.All(q => rules.ColonyStartMarginAtNative(type, p, q) >= 0));
+			void Place(string type, RmgPoint[] points)
+			{
+				foreach (var p in points)
+				{
+					map.Actors.Add(RmgMirroring.Actor(type, profile.ColonyOwner, "neutral-colony", p, settings.PlayerCount + colonies.Count));
+					colonies.Add((type, p));
+				}
+
+				sites.ReserveNativeOrbit(type, points);
+			}
+
+			foreach (var type in drawnTypes)
+			{
+				var placed = false;
+				while (cursors[type] < candidates.Length)
+				{
+					var points = candidates[cursors[type]++];
+					if (!Fits(type, points) || points.Any(p => colonies.Any(c => rules.ColonyMarginAtNative(type, p, c.Type, c.Point) < 0)) ||
+						points.SelectMany((p, i) => points.Skip(i + 1).Select(q => rules.ColonyMarginAtNative(type, p, type, q))).Any(m => m < 0)) continue;
+					Place(type, points); placed = true; break;
+				}
+
+				if (!placed) missing.Add(type);
+			}
+
+			strictCount = colonies.Count; evaluations = 0;
+			if (settings.PreventColonyOverlapping || missing.Count == 0) return colonies.Count;
+			var queues = new Dictionary<string, PriorityQueue<MirroredColonyCandidate, (int, long, int, int)>>();
+			foreach (var type in missing.Distinct())
+			{
+				var queue = new PriorityQueue<MirroredColonyCandidate, (int, long, int, int)>();
+				queues.Add(type, queue);
+				for (var i = 0; i < candidates.Length; i++)
+				{
+					if (!Fits(type, candidates[i])) continue;
+					var candidate = new MirroredColonyCandidate(candidates[i], i);
+					for (var a = 0; a < candidate.Points.Length; a++)
+						for (var b = a + 1; b < candidate.Points.Length; b++)
+						{
+							candidate.Score(rules.ColonyMarginAtNative(type, candidate.Points[a], type, candidate.Points[b])); evaluations++;
+						}
+
+					queue.Enqueue(candidate, candidate.Priority);
+				}
+			}
+
+			foreach (var type in missing)
+				while (queues[type].TryDequeue(out var candidate, out var previous))
+				{
+					if (!sites.NativeOrbitFits(type, candidate.Points)) continue;
+					for (; candidate.Scored < colonies.Count; candidate.Scored++)
+						foreach (var p in candidate.Points)
+						{
+							var other = colonies[candidate.Scored];
+							candidate.Score(rules.ColonyMarginAtNative(type, p, other.Type, other.Point)); evaluations++;
+						}
+
+					if (candidate.Priority != previous) { queues[type].Enqueue(candidate, candidate.Priority); continue; }
+					Place(type, candidate.Points); break;
+				}
+
+			return colonies.Count;
+		}
+
+		sealed class MirroredColonyCandidate
+		{
+			public readonly RmgPoint[] Points;
+			readonly int index;
+			int depth, pairs;
+			long squaredDepth;
+			public int Scored;
+			public (int Depth, long SquaredDepth, int Pairs, int Index) Priority => (depth, squaredDepth, pairs, index);
+			public MirroredColonyCandidate(RmgPoint[] points, int index) { Points = points; this.index = index; }
+			public void Score(int margin)
+			{
+				var overlap = Math.Max(0, -margin);
+				depth = Math.Max(depth, overlap); squaredDepth += (long)overlap * overlap;
+				if (overlap > 0) pairs++;
+			}
+		}
+	}
+}

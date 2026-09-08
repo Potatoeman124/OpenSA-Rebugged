@@ -935,9 +935,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		{
 			var localDetails = new JArray();
 			var failures = 0;
-			foreach (var start in generation.Map.Starts)
+			foreach (var nativeStart in NativeStartingPositions(generation))
 			{
-				var nativeStart = OpenRaRmgMapAdapter.ToNative(start, generation.Profile);
 				foreach (var startingUnit in startingUnits)
 					Check(startingUnit.BaseActor, nativeStart + startingUnit.BaseActorOffset, "starting-colony");
 			}

@@ -31,9 +31,9 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 	public sealed partial class ValidateRmgOwnershipRuntimeCommand : IUtilityCommand
 	{
 		string IUtilityCommand.Name => "--validate-sa-rmg-runtime";
-		bool IUtilityCommand.ValidateArguments(string[] args) => args.Length >= 2 && args.Length <= 4 && args.Skip(2).All(a => a is "--wide" or "--512" or "--save");
+		bool IUtilityCommand.ValidateArguments(string[] args) => args.Length >= 2 && args.Length <= 4 && args.Skip(2).All(a => a is "--wide" or "--512" or "--save" or "--pvp");
 
-		[Desc("OUTPUT-DIRECTORY [--wide] [--512|--save]", "Exercise colony ownership, live previews and skirmish startup; --512 checks large maps, --save checks saved copies.")]
+		[Desc("OUTPUT-DIRECTORY [--wide] [--512|--save|--pvp]", "Exercise colony ownership, live previews and skirmish startup; --512 checks large maps, --save checks saved copies, --pvp checks mirrored Regions.")]
 		void IUtilityCommand.Run(Utility utility, string[] args)
 		{
 			var output = Path.GetFullPath(args[1]);
@@ -63,13 +63,13 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				return;
 			}
 
-			CheckWidgets(output);
-			CheckLobby(utility, output);
+			if (args.Contains("--pvp")) CheckPvpWidgets(utility, output);
+			else { CheckWidgets(output); CheckLobby(utility, output); }
 			var results = new JArray();
-			void Run(string id, int size, int[] shares, int[] spawns, int absent = -1, bool empty = false, bool bots = false, ulong seed = 397716241463670640, bool crowded = false, RmgColonyOwnershipMode mode = RmgColonyOwnershipMode.ClosestToSpawn, string tileset = "NORMAL", bool hostiles = false)
+			void Run(string id, int size, int[] shares, int[] spawns, int absent = -1, bool empty = false, bool bots = false, ulong seed = 397716241463670640, bool crowded = false, RmgColonyOwnershipMode mode = RmgColonyOwnershipMode.ClosestToSpawn, string tileset = "NORMAL", bool hostiles = false, int axes = 0)
 			{
-				var requested = new RmgPlayerSettings { SchemaVersion = 10, MapSize = size, PlayerCount = shares.Length,
-					Seed = seed, Tileset = tileset, NeutralColonyDensity = crowded ? RmgPlayerColonyDensity.Ultra : RmgPlayerColonyDensity.Standard, LayoutFamily = RmgPlayerLayoutFamily.NaturalLandscape,
+				var requested = new RmgPlayerSettings { SchemaVersion = axes == 0 ? 10 : 11, MirroringAxes = axes, MapSize = size, PlayerCount = shares.Length,
+					Seed = seed, Tileset = tileset, NeutralColonyDensity = crowded ? RmgPlayerColonyDensity.Ultra : RmgPlayerColonyDensity.Standard, LayoutFamily = axes == 0 ? RmgPlayerLayoutFamily.NaturalLandscape : RmgPlayerLayoutFamily.NaturalLandscapePvp,
 					StartingColonyShares = shares, StartingColonyMode = mode, NeutralColonyWeights = empty ? new(0, 0, 0, 0, 0) : new() };
 				var settings = RmgPlayerSettingsContract.Resolve(requested).Normalized;
 				var package = OpenRaRmgMapAdapter.GenerateAndSave(utility.ModData, RmgProfile.Load(utility.ModData, settings),
@@ -78,6 +78,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				using var directory = new OpenRA.FileSystem.Folder(output);
 				utility.ModData.MapCache.LoadMap(id + ".oramap", directory, MapClassification.User, utility.ModData.Manifest.Get<MapGrid>(), null);
 				var map = utility.ModData.MapCache[package.EngineUid];
+				if (axes != 0) map = SavePvpRuntimeCopy(utility, map, directory, id);
 				if (bots && crowded) CheckServer(utility, map);
 				var first = CheckWorld(utility, map, shares, spawns, absent, bots, Path.Combine(output, id), hostiles);
 				var second = CheckWorld(utility, map, shares, spawns, absent, bots, null, hostiles);
@@ -87,7 +88,14 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				Console.WriteLine($"PASS: {id}, pool {first["pool"]}, assigned {first["counts"]}, repeat world identical.");
 			}
 
-			if (args.Contains("--512"))
+			if (args.Contains("--pvp"))
+			{
+				Run("pvp-small-two-axes", 64, new[] { 0, 10, 20, 30 }, new int[4], seed: 0, axes: 2);
+				Run("pvp-desert-six", 128, new[] { 10, 20, 30, 40, 50, 60 }, new int[6], seed: 1, bots: true, mode: RmgColonyOwnershipMode.Random, tileset: "DESERT", axes: 1);
+				Run("pvp-swamp-four", 256, new[] { 0, 10, 20, 30 }, new int[4], bots: true, crowded: true, tileset: "SWAMP", hostiles: true, axes: 2);
+				Run("pvp-candy-eight", 512, Enumerable.Repeat(100, 8).ToArray(), new int[8], bots: true, mode: RmgColonyOwnershipMode.Random, tileset: "CANDY", axes: 4);
+			}
+			else if (args.Contains("--512"))
 			{
 				Run("512-normal-closest", 512, new[] { 0, 10, 20, 30 }, new int[4], bots: true, hostiles: true);
 				Run("512-desert-random", 512, new[] { 0, 10, 20, 30 }, new int[4], bots: true, seed: 748797295927410807, crowded: true, mode: RmgColonyOwnershipMode.Random, tileset: "DESERT");

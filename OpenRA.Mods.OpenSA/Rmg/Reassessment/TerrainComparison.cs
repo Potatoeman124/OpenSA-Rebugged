@@ -20,6 +20,7 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 	public sealed record TerrainComparisonSettings(ulong Seed, int Size, TerrainConstruction Method, TerrainComplexity Complexity)
 	{
 		public int WaterPercent { get; init; } = 20;
+		public int MirroringAxes { get; init; }
 		public int GravelPercent { get; init; } = 14;
 		public int MossPercent { get; init; } = 8;
 		public bool OriginalSurfaceRelations { get; init; } = true;
@@ -28,7 +29,7 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 		public TerrainComparisonSettings ContinuityReference => this with { Complexity = TerrainComplexity.Low, ExtendedComplexity = false };
 		public string ConstructionId => ExtendedComplexity ? "natural-regions-extended-v13-r4" : Continuity ? "natural-regions-continuity-v12" : ExperimentId;
 		public const string ExperimentId = "natural-reassessment-comparison-v1";
-		public string Identity => $"{ConstructionId}/seed={Seed}/size={Size}/method={Method}/complexity={RmgPlayerSettingsContract.ComplexityDisplayName(Complexity, ExtendedComplexity)}/water={WaterPercent}/rock={GravelPercent}/moss={MossPercent}/original={OriginalSurfaceRelations.ToString().ToLowerInvariant()}";
+		public string Identity => $"{ConstructionId}/seed={Seed}/size={Size}/method={Method}/complexity={RmgPlayerSettingsContract.ComplexityDisplayName(Complexity, ExtendedComplexity)}/water={WaterPercent}/rock={GravelPercent}/moss={MossPercent}/original={OriginalSurfaceRelations.ToString().ToLowerInvariant()}" + (MirroringAxes == 0 ? string.Empty : $"/axes={MirroringAxes}");
 
 		// Native cells: fixed gameplay scale, independent of map dimensions.
 		public double Scale => Continuity ? 64D : Complexity switch
@@ -74,13 +75,16 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 			var geology = BuildPriorities(settings, width + 1, width + 1, 2, 29, geologyFraction);
 			var moistureSettings = settings.Continuity ? settings.ContinuityReference : settings;
 			var moisture = BuildPriorities(moistureSettings, width + 1, width + 1, 2, 53, mossFraction);
-			var waterMask = Top(water, Enumerable.Repeat(true, water.Length).ToArray(), (int)Math.Round(water.Length * waterFraction));
+			var waterAllowed = Enumerable.Repeat(true, water.Length).ToArray();
+			var waterTarget = (int)Math.Round(water.Length * waterFraction);
+			var waterMask = settings.MirroringAxes == 0 ? Top(water, waterAllowed, waterTarget) :
+				RmgMirroring.Select(water, waterAllowed, width, waterTarget, false, settings.MirroringAxes, settings.Seed);
 			Array.Copy(waterMask, map.Obstacles, waterMask.Length);
 			var rawWater = (bool[])waterMask.Clone();
 			var constructionMs = timer.Elapsed.TotalMilliseconds;
 			timer.Restart();
 
-			NormalizeWater(map, water);
+			NormalizeWater(map, water, settings.MirroringAxes, settings.Seed);
 
 			// Reuse only the audited fixed-tile shoreline emitter and variant banks.
 			// No legacy generator, water replenishment, route, or connectivity stage runs.
@@ -115,9 +119,10 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 					allowed[y * lattice + x] = valid;
 				}
 
-			var envelope = SelectWeighted(geology, allowed, lattice, (int)Math.Round(land * geologyFraction));
+			var envelope = settings.MirroringAxes == 0 ? SelectWeighted(geology, allowed, lattice, (int)Math.Round(land * geologyFraction)) :
+				RmgMirroring.Select(geology, allowed, lattice, (int)Math.Round(land * geologyFraction), true, settings.MirroringAxes, settings.Seed);
 			var rawEnvelope = (bool[])envelope.Clone();
-			NormalizeLand(envelope, geology, lattice);
+			NormalizeLand(envelope, geology, lattice, settings.MirroringAxes, settings.Seed);
 			var coreAllowed = new bool[envelope.Length];
 			for (var y = 0; y < lattice; y++)
 				for (var x = 0; x < lattice; x++)
@@ -143,9 +148,10 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 			var mossPriority = mossGeology.Select((value, i) => value + .35 * moisture[i]).ToArray();
 			if (settings.Continuity && reference != null)
 				AnchorMossPriorities(mossPriority, reference.VegetationLattice, lattice);
-			var moss = SelectWeighted(mossPriority, coreAllowed, lattice, (int)Math.Round(land * mossFraction));
+			var moss = settings.MirroringAxes == 0 ? SelectWeighted(mossPriority, coreAllowed, lattice, (int)Math.Round(land * mossFraction)) :
+				RmgMirroring.Select(mossPriority, coreAllowed, lattice, (int)Math.Round(land * mossFraction), true, settings.MirroringAxes, settings.Seed);
 			var rawMoss = (bool[])moss.Clone();
-			NormalizeLand(moss, mossPriority, lattice);
+			NormalizeLand(moss, mossPriority, lattice, settings.MirroringAxes, settings.Seed);
 			var intent = new byte[settings.Size * settings.Size];
 			for (var y = 0; y < settings.Size; y++)
 				for (var x = 0; x < settings.Size; x++)
@@ -180,6 +186,8 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 			Array.Copy(envelope, map.RockEnvelopeLattice, envelope.Length);
 			Array.Copy(moss, map.VegetationLattice, moss.Length);
 			var native = NativeBytes(map);
+			if (settings.MirroringAxes != 0 && RmgMirroring.TerrainMismatches(native, settings.Size, settings.MirroringAxes, settings.Seed) != 0)
+				throw new InvalidOperationException("Native terrain materialization broke reflection symmetry.");
 			var forbidden = CountForbiddenContacts(native, settings.Size);
 			if (settings.OriginalSurfaceRelations && forbidden != 0)
 				throw new InvalidOperationException($"Materialization produced {forbidden} forbidden native surface contacts.");
@@ -221,7 +229,11 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 		static double[] BuildPriorities(TerrainComparisonSettings settings, int width, int height, int nativeStep, ulong stream, double fraction)
 		{
 			if (settings.Continuity)
-				return BuildContinuousPriorities(settings, width, height, nativeStep, stream);
+			{
+				var priorities = BuildContinuousPriorities(settings, width, height, nativeStep, stream);
+				if (settings.MirroringAxes == 0) return priorities;
+				return Enumerable.Range(0, priorities.Length).Select(i => priorities[RmgMirroring.Canonical(i, width, settings.MirroringAxes, settings.Seed)]).ToArray();
+			}
 
 			var result = new double[width * height];
 			var seed = Mix(settings.Seed, stream);
@@ -297,7 +309,7 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 			return result;
 		}
 
-		public static void NormalizeWater(RmgLogicalMap map, double[] priority)
+		public static void NormalizeWater(RmgLogicalMap map, double[] priority, int axes = 0, ulong seed = 0)
 		{
 			var pending = new PriorityQueue<int, (double, int)>();
 			var queued = new HashSet<int>();
@@ -314,17 +326,21 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 				var point = new RmgPoint(index % map.Width, index / map.Width);
 				if (RmgShorelineMaterializer.Classify(map, point, out _, out _) != RmgShorelineRole.Unsupported)
 					continue;
-				map.Obstacles[index] = false;
-				for (var dy = -1; dy <= 1; dy++)
-					for (var dx = -1; dx <= 1; dx++)
-					{
-						var next = new RmgPoint(point.X + dx, point.Y + dy);
-						if (map.Contains(next)) Queue(map.Index(next));
-					}
+				foreach (var member in RmgMirroring.Orbit(index, map.Width, axes, seed))
+				{
+					map.Obstacles[member] = false;
+					point = new RmgPoint(member % map.Width, member / map.Width);
+					for (var dy = -1; dy <= 1; dy++)
+						for (var dx = -1; dx <= 1; dx++)
+						{
+							var next = new RmgPoint(point.X + dx, point.Y + dy);
+							if (map.Contains(next)) Queue(map.Index(next));
+						}
+				}
 			}
 		}
 
-		static void NormalizeLand(bool[] mask, double[] priority, int width)
+		static void NormalizeLand(bool[] mask, double[] priority, int width, int axes = 0, ulong seed = 0)
 		{
 			var pending = new Queue<int>(Enumerable.Range(0, (width - 1) * (width - 1)));
 			while (pending.TryDequeue(out var stamp))
@@ -336,12 +352,15 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 				var corners = bits == 6 ? new[] { y * width + x + 1, (y + 1) * width + x } :
 					new[] { y * width + x, (y + 1) * width + x + 1 };
 				var removed = corners.OrderBy(i => priority[i]).ThenBy(i => i).First();
-				mask[removed] = false;
-				var vx = removed % width;
-				var vy = removed / width;
-				for (var sy = Math.Max(0, vy - 1); sy <= Math.Min(width - 2, vy); sy++)
-					for (var sx = Math.Max(0, vx - 1); sx <= Math.Min(width - 2, vx); sx++)
-						pending.Enqueue(sy * (width - 1) + sx);
+				foreach (var member in RmgMirroring.Orbit(removed, width, axes, seed))
+				{
+					mask[member] = false;
+					var vx = member % width;
+					var vy = member / width;
+					for (var sy = Math.Max(0, vy - 1); sy <= Math.Min(width - 2, vy); sy++)
+						for (var sx = Math.Max(0, vx - 1); sx <= Math.Min(width - 2, vx); sx++)
+							pending.Enqueue(sy * (width - 1) + sx);
+				}
 			}
 		}
 
@@ -461,7 +480,7 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 
 		public static string Hash(byte[] data) => Convert.ToHexString(SHA256.HashData(data)).ToLowerInvariant();
 		static double Unit(DeterministicRandom random) => (random.NextUInt64() >> 11) * (1D / (1UL << 53));
-		static ulong Mix(ulong seed, ulong value)
+		internal static ulong Mix(ulong seed, ulong value)
 		{
 			var z = unchecked(seed + value + 0x9E3779B97F4A7C15UL);
 			z = unchecked((z ^ (z >> 30)) * 0xBF58476D1CE4E5B9UL);
