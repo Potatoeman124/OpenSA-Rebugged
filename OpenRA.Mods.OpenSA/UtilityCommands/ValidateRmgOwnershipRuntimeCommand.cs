@@ -4,6 +4,9 @@
 
 using System;
 using System.IO;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Net;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
@@ -13,6 +16,8 @@ using OpenRA.Mods.Common.Traits;
 using OpenRA.Mods.Common.Widgets;
 using OpenRA.Mods.OpenSA.Rmg;
 using OpenRA.Mods.OpenSA.Traits.World;
+using OpenRA.Mods.OpenSA.Widgets;
+using OpenRA.Server;
 using OpenRA.Network;
 using OpenRA.Primitives;
 using OpenRA.Support;
@@ -22,13 +27,13 @@ using Colony = OpenRA.Mods.OpenSA.Traits.Colony.Colony;
 
 namespace OpenRA.Mods.OpenSA.UtilityCommands
 {
-	// Opt-in integration check using isolated worlds and real widgets. Never saves user settings.
+	// Opt-in integration check using an isolated server, worlds and real widgets. Never saves user settings.
 	public sealed class ValidateRmgOwnershipRuntimeCommand : IUtilityCommand
 	{
 		string IUtilityCommand.Name => "--validate-sa-rmg-runtime";
 		bool IUtilityCommand.ValidateArguments(string[] args) => args.Length == 2 || (args.Length == 3 && args[2] == "--wide");
 
-		[Desc("OUTPUT-DIRECTORY", "Exercise starting-colony ownership in live worlds and render both RMG slider dialogs.")]
+		[Desc("OUTPUT-DIRECTORY", "Exercise colony ownership, live previews and generated-map skirmish startup.")]
 		void IUtilityCommand.Run(Utility utility, string[] args)
 		{
 			var output = Path.GetFullPath(args[1]);
@@ -38,6 +43,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			Game.ModData = utility.ModData;
 			Log.AddChannel("graphics", null);
 			Log.AddChannel("sound", null);
+			Log.AddChannel("client", null);
 			var assembly = new AssemblyLoader(Path.Combine(Platform.BinDir, "OpenRA.Platforms.Default.dll")).LoadDefaultAssembly();
 			var platform = (IPlatform)Activator.CreateInstance(assembly.GetTypes().Single(t => typeof(IPlatform).IsAssignableFrom(t)));
 			Game.Settings.Graphics.Mode = WindowMode.Windowed;
@@ -53,10 +59,10 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			CheckWidgets(output);
 			CheckLobby(utility, output);
 			var results = new JArray();
-			void Run(string id, int size, int[] shares, int[] spawns, int absent = -1, bool empty = false)
+			void Run(string id, int size, int[] shares, int[] spawns, int absent = -1, bool empty = false, bool bots = false, ulong seed = 397716241463670640, bool crowded = false)
 			{
 				var requested = new RmgPlayerSettings { SchemaVersion = 10, MapSize = size, PlayerCount = shares.Length,
-					Seed = 397716241463670640, LayoutFamily = RmgPlayerLayoutFamily.NaturalLandscape,
+					Seed = seed, NeutralColonyDensity = crowded ? RmgPlayerColonyDensity.Ultra : RmgPlayerColonyDensity.Standard, LayoutFamily = RmgPlayerLayoutFamily.NaturalLandscape,
 					StartingColonyShares = shares, NeutralColonyWeights = empty ? new(0, 0, 0, 0, 0) : new() };
 				var settings = RmgPlayerSettingsContract.Resolve(requested).Normalized;
 				var package = OpenRaRmgMapAdapter.GenerateAndSave(utility.ModData, RmgProfile.Load(utility.ModData, settings),
@@ -65,13 +71,16 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				using var directory = new OpenRA.FileSystem.Folder(output);
 				utility.ModData.MapCache.LoadMap(id + ".oramap", directory, MapClassification.User, utility.ModData.Manifest.Get<MapGrid>(), null);
 				var map = utility.ModData.MapCache[package.EngineUid];
-				var first = CheckWorld(utility, map, shares, spawns, absent);
-				var second = CheckWorld(utility, map, shares, spawns, absent);
+				if (bots && crowded) CheckServer(utility, map);
+				var first = CheckWorld(utility, map, shares, spawns, absent, bots, Path.Combine(output, id));
+				var second = CheckWorld(utility, map, shares, spawns, absent, bots, null);
 				Require(JToken.DeepEquals(first, second), id + " changed between identical world initializations.");
 				first["id"] = id;
 				results.Add(first);
 				Console.WriteLine($"PASS: {id}, pool {first["pool"]}, assigned {first["counts"]}, repeat world identical.");
 			}
+			Run("reported-crash", 256, new[] { 0, 10, 20, 30 }, new int[4], bots: true, seed: 748797295927410807, crowded: true);
+			Run("ai-other-seed", 128, new[] { 40, 40, 80 }, new int[3], bots: true, seed: 0);
 			Run("default-zero", 256, new[] { 0, 0, 0 }, new[] { 1, 2, 3 });
 			Run("percentages", 256, new[] { 0, 10, 50 }, new[] { 1, 2, 3 });
 			Run("weighted-swapped", 256, new[] { 40, 40, 80 }, new[] { 3, 2, 1 });
@@ -83,7 +92,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			Game.Renderer.Dispose();
 		}
 
-		static JObject CheckWorld(Utility utility, MapPreview map, int[] shares, int[] spawns, int absent)
+		static JObject CheckWorld(Utility utility, MapPreview map, int[] shares, int[] spawns, int absent, bool bots, string screenshot)
 		{
 			var manager = new OrderManager(new EchoConnection());
 			foreach (var definition in map.WorldActorInfo.TraitInfos<ILobbyOptions>().Concat(map.PlayerActorInfo.TraitInfos<ILobbyOptions>()).SelectMany(x => x.LobbyOptions(map)))
@@ -98,10 +107,19 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				manager.LobbyInfo.Slots.Add(slot, new Session.Slot { PlayerReference = slot, AllowBots = true, Closed = i == absent });
 				if (i == absent) continue;
 				manager.LobbyInfo.Clients.Add(new Session.Client { Index = manager.Connection.LocalClientId + i,
-					Slot = slot, Faction = new[] { "ants", "beetles", "wasps" }[i % 3], SpawnPoint = spawns[i], Name = slot,
-					Team = 1, IsAdmin = i == 0, Color = Color.FromArgb(255, 30 + i * 25, 150, 220), State = Session.ClientState.Ready });
+					Slot = slot, Faction = bots ? "Random" : new[] { "ants", "beetles", "wasps" }[i % 3], SpawnPoint = spawns[i], Name = slot,
+					Team = bots ? 0 : 1, Bot = bots && i > 0 ? "easy" : null, BotControllerClientIndex = manager.Connection.LocalClientId, IsAdmin = i == 0, Color = bots ? new[] { Color.FromArgb(255, 210, 25, 25), Color.FromArgb(255, 225, 245, 0), Color.FromArgb(255, 0, 235, 65), Color.FromArgb(255, 245, 190, 20) }[i % 4] : Color.FromArgb(255, 30 + i * 25, 150, 220), State = Session.ClientState.Ready });
 			}
 			manager.LobbyInfo.GlobalSettings.RandomSeed = 12345;
+			manager.LobbyInfo.GlobalSettings.Map = map.Uid;
+			using var yaml = map.Package.GetStream("map.yaml");
+			var sites = NeutralColonyPreview.ReadSites(MiniYaml.FromStream(yaml));
+			var forecast = RmgOwnershipPreview.Resolve(map, manager.LobbyInfo, sites);
+			if (screenshot != null && shares.Any(v => v > 0))
+			{
+				CheckPreview(map, manager, sites, screenshot);
+				CheckAcknowledgement(utility, map, manager);
+			}
 			typeof(Game).GetField("OrderManager", BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, manager);
 			var world = (World)Activator.CreateInstance(typeof(World), BindingFlags.Instance | BindingFlags.NonPublic,
 				null, new object[] { map.Uid, utility.ModData, manager, WorldType.Regular }, null);
@@ -126,6 +144,9 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			void Tick() { world.Tick(); manager.LocalFrameNumber++; }
 			Tick();
 			Require(controller.Applied, "Ownership setup did not run on the first tick.");
+			if (forecast != null)
+				foreach (var name in info.ColonyActorNames)
+					Require(spawned[name].Owner.InternalName == (forecast.ColonyOwners.TryGetValue(name, out var slot) ? slot : "Creeps"), "Preview ownership disagrees with actual runtime owner.");
 			Require(controller.AssignedCounts.SequenceEqual(RmgColonyOwnership.Allocate(colonies.Length, effective)), "Runtime quotas did not match allocation.");
 			for (var i = 0; i < colonies.Length; i++)
 				Require(colonies[i].Owner.InternalName == (expected[i] < 0 ? "Creeps" : players[expected[i]].InternalName), "Runtime colony assigned to wrong slot/start.");
@@ -138,7 +159,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			}
 			Require(startingActors.Select((a, i) => a == null || a.Owner == players[i]).All(v => v), "Starting colony changed owner.");
 			Require(terrain.SequenceEqual(world.Map.AllCells.Select(c => world.Map.Tiles[c])), "Ownership changed terrain.");
-			var result = new JObject { ["pool"] = colonies.Length, ["counts"] = new JArray(controller.AssignedCounts),
+			var result = new JObject { ["preview_matches_runtime"] = true, ["ai_opponents"] = bots, ["pool"] = colonies.Length, ["counts"] = new JArray(controller.AssignedCounts),
 				["starts"] = new JArray(starts.Select(p => $"{p.X},{p.Y}")),
 				["owners"] = new JArray(colonies.Select(a => a.Owner.InternalName)) };
 			var captured = colonies.FirstOrDefault(a => !a.Owner.NonCombatant);
@@ -148,8 +169,117 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				Tick(); Tick();
 				Require(captured.Owner.InternalName == "Neutral", "Setup ownership reapplied after capture.");
 			}
+			if (bots) for (var i = 0; i < 600; i++) Tick();
 			Ui.ResetAll();
 			return result;
+		}
+
+		static void CheckPreview(MapPreview map, OrderManager manager, ColonyPreviewSite[] sites, string path)
+		{
+			var original = manager.LobbyInfo.Serialize();
+			var view = new ColonyMapPreviewWidget { Preview = () => map };
+			view.Initialize(new WidgetArgs { { "orderManager", manager } });
+			view.Bounds = new Rectangle(20, 20, 540, 540);
+			Ui.Root.AddChild(view);
+			var timer = Stopwatch.StartNew();
+			while (map.GetMinimap() == null && timer.ElapsedMilliseconds < 5000) { Game.PerformDelayedActions(); Thread.Sleep(20); }
+			Draw(Path.GetDirectoryName(path), Path.GetFileName(path) + "-ownership-preview");
+			Require(view.Loaded && view.RenderBounds.Width == 540 && view.Ownership != null, "Ownership preview did not render at its intended size.");
+			var first = view.Ownership;
+			var owner = first.ColonyOwners.FirstOrDefault();
+			if (owner.Key != null)
+			{
+				var client = manager.LobbyInfo.ClientInSlot(owner.Value);
+				var oldColor = client.Color;
+				client.Color = Color.White;
+				Draw(Path.GetDirectoryName(path), Path.GetFileName(path) + "-recolored-preview");
+				Require(view.Ownership.ColonyColors[owner.Key] == Color.White, "Preview failed to refresh changed player color.");
+				client.Color = oldColor;
+			}
+			var active = manager.LobbyInfo.Clients.Where(c => c.Slot != null).ToArray();
+			var originalSpawns = active.Select(c => c.SpawnPoint).ToArray();
+			for (var i = 0; i < active.Length; i++) active[i].SpawnPoint = map.SpawnPoints.Length - i;
+			Draw(Path.GetDirectoryName(path), Path.GetFileName(path) + "-changed-spawns-preview");
+			Require(view.Ownership != null && active.All(c => view.Ownership.SpawnOccupants.TryGetValue(c.SpawnPoint, out var occupant) && occupant.PlayerName == c.Name),
+				"Preview did not refresh changed spawn assignments.");
+			for (var i = 0; i < active.Length; i++) active[i].SpawnPoint = originalSpawns[i];
+			Require(manager.LobbyInfo.Serialize() == original, "Preview mutated lobby settings or random state.");
+			Ui.ResetAll();
+		}
+
+		static void CheckAcknowledgement(Utility utility, MapPreview map, OrderManager manager)
+		{
+			typeof(Game).GetField("OrderManager", BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, manager);
+			var previousState = manager.LocalClient.State;
+			manager.LocalClient.State = Session.ClientState.Invalid;
+			using var source = utility.ModData.DefaultFileSystem.Open("sa|chrome/lobby.yaml");
+			var node = MiniYaml.FromStream(source).Single(n => n.Key == "Background@SERVER_LOBBY").Clone();
+			node.Value.Nodes.RemoveAll(n => n.Key == "Logic");
+			node.Value.Nodes.Add(new MiniYamlNode("Logic", "RmgLobbyLogic"));
+			var lobby = utility.ModData.WidgetLoader.LoadWidget(new WidgetArgs { { "orderManager", manager }, { "skirmishMode", true } }, Ui.Root, node);
+			var orders = (List<Order>)typeof(OrderManager).GetField("localImmediateOrders", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(manager);
+			var before = orders.Count;
+			Ui.Tick(); Ui.Tick();
+			Require(lobby.Get<ButtonWidget>("START_GAME_BUTTON").IsDisabled(), "Invalid host can press Start Game.");
+			Require(orders.Skip(before).Count(o => o.TargetString == "state NotReady") == 1, "Missing or repeated map acknowledgement.");
+			manager.LocalClient.State = Session.ClientState.NotReady;
+			Ui.Tick();
+			Require(!lobby.Get<ButtonWidget>("START_GAME_BUTTON").IsDisabled(), "Confirmed host remains blocked.");
+			manager.LocalClient.State = previousState;
+			orders.Clear();
+			Ui.ResetAll();
+		}
+
+		static void CheckServer(Utility utility, MapPreview map)
+		{
+			var server = new OpenRA.Server.Server(new List<IPEndPoint> { new(IPAddress.Loopback, 0) },
+				new ServerSettings { Name = "RMG isolated regression", Map = map.Uid, AdvertiseOnline = false, RecordReplays = false, QueryMapRepository = false },
+				utility.ModData, ServerType.Local);
+			try
+			{
+				using IConnection connection = new NetworkConnection(server.GetEndpointForLocalConnection());
+				void Wait(Func<bool> condition, string message)
+				{
+					var timer = Stopwatch.StartNew();
+					while (timer.ElapsedMilliseconds < 10000)
+					{
+						lock (server.LobbyInfo) if (condition()) return;
+						Game.PerformDelayedActions(); Thread.Sleep(20);
+					}
+					throw new InvalidOperationException(message);
+				}
+				Wait(() => server.Conns.Count == 1, "Local test connection failed.");
+				var handshake = new HandshakeResponse { Mod = utility.ModData.Manifest.Id, Version = utility.ModData.Manifest.Metadata.Version,
+					OrdersProtocol = ProtocolVersion.Orders, Client = new Session.Client { Name = "RMG regression", Faction = "Random",
+						Color = Color.Red, PreferredColor = Color.Red } };
+				connection.SendImmediate(new[] { new Order("HandshakeResponse", null, false) { Type = OrderType.Handshake,
+					IsImmediate = true, TargetString = handshake.Serialize() } });
+				Wait(() => server.Conns[0].Validated, "Local test handshake failed.");
+				void Send(params string[] commands) => connection.SendImmediate(commands.Select(Order.Command));
+				Send("state NotReady");
+				Wait(() => server.LobbyInfo.Clients[0].State == Session.ClientState.NotReady, "Map acknowledgement failed.");
+				for (var i = 1; i < map.PlayerCount; i++) Send($"slot_bot Multi{i} 0 easy");
+				Wait(() => server.LobbyInfo.Clients.Count == map.PlayerCount, "AI lobby setup failed.");
+				// Reproduce the old bug at its actual source, without invoking its fatal StartGame call.
+				lock (server.LobbyInfo)
+				{
+					new OpenRA.Mods.Common.Server.LobbyCommands().InterpretCommand(server, server.Conns[0], server.LobbyInfo.Clients[0], "map " + map.Uid);
+					Require(server.LobbyInfo.Clients[0].IsInvalid, "Old repeated-map invalidation was not reproduced.");
+				}
+				Send("startgame");
+				// Barrier confirms the rejected start was processed before checking server state.
+				Send("state NotReady");
+				Wait(() => server.LobbyInfo.Clients[0].State == Session.ClientState.NotReady, "Start guard disconnected the host.");
+				Require(server.State == ServerState.WaitingPlayers && server.Conns.Count == 1, "Invalid-host start was not blocked safely.");
+				for (var i = 0; i < 3; i++) Send("map " + map.Uid);
+				Send("state Ready");
+				// Ready may auto-start with all bots ready; explicit start covers the manual path otherwise.
+				Send("startgame");
+				Wait(() => server.State == ServerState.GameStarted, "Repeated map selection still prevents real server startup.");
+				Require(server.Conns.Count == 1 && server.Conns[0].Validated, "Server startup dropped the human host.");
+				Console.WriteLine("PASS: actual loopback server handshake, three AI opponents, reproduced old same-UID invalidation, rejected invalid-host start, repeated selection and successful Server.StartGame.");
+			}
+			finally { server.Shutdown(); }
 		}
 
 		static void CheckLobby(Utility utility, string output)

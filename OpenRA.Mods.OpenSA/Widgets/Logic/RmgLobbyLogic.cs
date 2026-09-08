@@ -86,6 +86,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		bool startGuardComposed;
 		string generatedUid;
 		string lastObservedMapUid;
+		string pendingMapAcknowledgement;
 		string statusText = "Ready. Generate Preview creates and selects a playable map.";
 		StatusKind statusKind = StatusKind.Info;
 		Func<bool> originalStartDisabled;
@@ -657,7 +658,9 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 						$"Rock/Vegetation {rockPercent:0.0}/{vegetationPercent:0.0}%{colonySummary}{adjusted})",
 						result.Generation.Validation.Warnings.Count > 0 ? StatusKind.Warning : StatusKind.Success);
 				}
-				orderManager.IssueOrder(Order.Command("map " + generatedUid));
+				// An identical generation is already selected; re-selecting it would reset lobby readiness.
+				if (CurrentMapUid() != generatedUid)
+					orderManager.IssueOrder(Order.Command("map " + generatedUid));
 				Game.Settings.Server.Map = generatedUid;
 				Game.Settings.Save();
 			}
@@ -722,11 +725,22 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			{
 				startGuardComposed = true;
 				originalStartDisabled = startGameButton.IsDisabled;
-				startGameButton.IsDisabled = () => originalStartDisabled() ||
+				startGameButton.IsDisabled = () => originalStartDisabled() || orderManager.LocalClient == null || orderManager.LocalClient.IsInvalid ||
 					(rmgMode && (generating || stale || generatedUid == null || CurrentMapUid() != generatedUid));
 			}
 
 			var currentMap = CurrentMapUid();
+			// Recover an interrupted/redundant map handshake only after the local cache confirms the package.
+			if (orderManager.LocalClient?.IsInvalid == true && !string.IsNullOrEmpty(currentMap))
+			{
+				var preview = modData.MapCache[currentMap];
+				if (preview.Status == MapStatus.Available && Server.RmgLobbyCommands.IsGeneratedMap(preview) && pendingMapAcknowledgement != currentMap)
+				{
+					pendingMapAcknowledgement = currentMap;
+					orderManager.IssueOrder(Order.Command("state NotReady"));
+				}
+			}
+			else pendingMapAcknowledgement = null;
 			if (currentMap != lastObservedMapUid)
 			{
 				lastObservedMapUid = currentMap;

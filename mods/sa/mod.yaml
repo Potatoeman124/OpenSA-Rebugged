@@ -199,6 +199,7 @@ LoadScreen: RandomImageLoadScreen
 	Text: Loading...
 
 ServerTraits:
+	RmgLobbyCommands
 	LobbyCommands
 	PlayerPinger
 	MasterServerPinger

@@ -59,7 +59,13 @@ Saved colony actors retain the existing `Creeps` owner. A map-local `RmgStarting
 World trait stores the shares and exact eligible actor IDs. It applies ownership once at the end of
 the first setup tick, using normal engine owner-change notifications so production queues, faction
 conditions and render state refresh. Later captures are not overridden. No synchronized RNG is consumed.
-Lobby preview squares remain grey: assignment depends on the eventual occupied slots and actual spawns.
+The lobby preview uses each current player's color for colonies assigned to that slot; unowned colonies
+remain grey. It resolves random starting positions with the engine's server-player setup and an isolated
+copy of the lobby random seed, then uses the same ownership allocator as runtime. Starting markers show
+the corresponding player colors when ownership is enabled. Random factions remain hidden in tooltips.
+The forecast refreshes for player colors, slots, factions, spawns, disabled starts and relevant lobby
+options. It does not mutate the lobby's random choices or consume the game's random stream. Incomplete
+lobby updates fall back to uncolored ownership until a consistent assignment can be computed.
 
 ## Sizes and defaults
 
@@ -144,3 +150,53 @@ Evidence is under `artifacts/rmg/regions-v16/` and adjacent `regions-v16-*.log` 
   and its test threshold were retained.
 - Repository build/runtime-data validation passes. Final playable binaries were rebuilt in Release
   configuration with zero compiler warnings or errors (`regions-v16-final-build.log`).
+
+## Preview and skirmish-start fixes (2026-09-08)
+
+The user reported repeated crashes when starting a four-player skirmish with three Easy AI opponents,
+random factions and starts, seed `748797295927410807`, 256 x 256, Medium complexity, Standard water and
+surface modifiers, Ultra colony density, overlap prevention/Original Surface Relations enabled, and
+ownership shares 0/10/20/30. This produces 126 of 192 requested colonies. The ownership budget is 76,
+apportioned 0/13/25/38; 50 colonies remain neutral.
+
+Windows .NET Runtime events show `InvalidOperationException: Sequence contains no elements` in
+`OrderBuffer.Start`, called by `Server.StartGame`. The source is repeated selection of the same generated
+map UID: common server map selection resets clients to Invalid, while common client map handling skips
+acknowledgement when the UID has not changed. Starting then drops the invalid human host and passes an
+empty connection list to the order buffer. The original live-world tests did not cover this server path.
+
+The fix has three parts:
+
+- The RMG does not send another map-selection command when the generated UID is already selected.
+- A mod server trait, before common LobbyCommands, treats repeated selection of the current RMG UID as
+  a no-op and rejects an invalid host's Start request while the map is being confirmed.
+- The RMG lobby disables Start while the local client is invalid and acknowledges a locally available
+  generated map once per pending invalid-state episode, allowing interrupted confirmations to recover.
+
+The ownership preview is a live overlay, using existing generated-map rules; saved map identities and
+terrain/colony allocation algorithms are unchanged. Maps generated before this fix can use the overlay.
+The common engine checkout is unchanged.
+
+The expanded `--validate-sa-rmg-runtime` command connects through an actual loopback server handshake,
+adds three Easy AI opponents, reproduces the old invalidation through common LobbyCommands, verifies
+that invalid-host Start is rejected without disconnecting, and starts successfully after repeated map
+selection. It also checks the actual Start button and one-shot client acknowledgement.
+
+Nine world scenarios now initialize twice, including the reported seed and another seed with AI/random
+factions/starts. Preview ownership is compared with every colony's live owner. Both AI scenarios continue
+for 600 additional simulation ticks per initialization. Real rendered widgets verify ownership colors,
+color changes and spawn changes, while preserving the original lobby state. Evidence is in
+`artifacts/rmg/regions-v16-fixes/`; crash event text is `artifacts/rmg/regions-v16-crash-evidence.txt`.
+
+The final fix verification passes:
+
+- `regions-v16-fixes/runtime-verified/verification.json`: all 9 scenarios pass both initializations
+  (18 worlds); every colony's forecast matches its live owner. The adjacent
+  `regions-v16-fixes-runtime-verified.log` records the successful real-server startup regression.
+- `regions-v16-fixes-ownership.log`: the focused V16 ownership/settings contract passes.
+- `regions-v16-fixes-validate.log`: repository build and runtime-data validation passes.
+- `regions-v16-fixes-final-build.log`: final playable Release build, zero compiler warnings/errors.
+
+This fix does not rerun the full historical generator matrix; its three pre-existing V13 correlation
+failures documented above remain outside this change. The new runtime evidence covers the previously
+missing server-start path; a complete interactive match still awaits user testing.
