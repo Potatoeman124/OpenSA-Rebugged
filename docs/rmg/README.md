@@ -10,17 +10,20 @@ The RMG must preserve that boundary: it may refer to terrain and actor identifie
 
 ## Current integration checkpoint
 
-The [512 x 512 extension](NATURAL_REGIONS_512.md) is implemented on `codex/rmg-512-map-size`
-from accepted main `5742b43`. It adds an optional 512 size for 1-8 players in all four Regions biomes,
-retaining the default 256 size and accepted smaller-map behavior. Native and live-world validation
-have passed. The same branch now adds [named map saving](RMG_SAVED_MAPS.md): **Save Map...** beside
-Return to Skirmish prompts for a title and creates a persistent copy in Custom Maps. The save addition
-is ready for user in-game testing; the branch has not been merged or pushed.
+The accepted checkpoint on `main` is **Regions V16 with all four biomes, 512 x 512 maps,
+and named map saving**, configuration 1 / player-settings schema 10. The user accepted this
+checkpoint and authorized merge/push on 2026-09-08. Implementation commits `55341a1`
+and `71f2b51` were developed on `codex/rmg-512-map-size` from accepted main `5742b43`.
 
-The accepted checkpoint on `main` is **Regions V16 with all four biomes**, configuration 1 /
-player-settings schema 10. The user accepted the [Regions biome extension](REGIONS_BIOME_EXTENSION.md)
-and authorized merge/push on 2026-09-08. Implementation commit `bb699f3` was developed on
-`codex/rmg-desert-swamp-candy` from main `bede09e`.
+The [512 x 512 extension](NATURAL_REGIONS_512.md) adds an optional 512 size for 1-8 players
+in all four Regions biomes, retaining the default 256 size and accepted smaller-map behavior.
+[Named map saving](RMG_SAVED_MAPS.md) adds **Save Map...** beside Return to Skirmish,
+prompting for a title and creating a persistent copy in Custom Maps. Native and live-world
+validation passed for both additions before acceptance.
+
+The preceding [Regions biome checkpoint](REGIONS_BIOME_EXTENSION.md) was accepted and
+promoted on 2026-09-08. Implementation commit `bb699f3` was developed on
+`codex/rmg-desert-swamp-candy` from main `bede09e`; checkpoint notes were recorded at `5742b43`.
 The Terrain selector supports **Normal, Desert, Swamp and Candy** for Natural Landscape. All accepted
 RMG options remain available; changing only the theme preserves terrain and actor geometry. Native
 map validation and live-world checks passed for all four themes. Normal remains the default and

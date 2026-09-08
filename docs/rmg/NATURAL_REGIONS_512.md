@@ -5,7 +5,9 @@
 Branch: `codex/rmg-512-map-size`, from accepted main `5742b43`.
 The user requested a new branch to try 512 x 512 RMG maps. This adds the size to current Regions V16,
 configuration 1 / player-settings schema 10, across Normal, Desert, Swamp and Candy. It does not alter
-older map sizes or their defaults. In-game acceptance remains pending.
+older map sizes or their defaults. The user accepted this extension and the subsequent named-map
+save addition, and authorized their freeze, merge to main and push on 2026-09-08.
+Implementation commits: `55341a1` (512 size) and `71f2b51` (named map saving).
 
 ## Size and gameplay contract
 
@@ -113,5 +115,6 @@ terrain. These paired cases change both policies and do not isolate the effect o
 
 All generated maps, logs and asset-derived screenshots remain under ignored `artifacts/rmg/regions-512*`
 paths. The historic V13 water-correlation failures remain outside this additive size change; the full
-historical RMG suite was not rerun. User in-game testing, including longer high-unit-count sessions,
-remains the next acceptance step.
+historical RMG suite was not rerun. User in-game acceptance is complete. Longer high-unit-count
+sessions remain outside the automated performance evidence; this checkpoint does not claim
+a sustained frame-rate benchmark.

@@ -70,4 +70,6 @@ Repository validation passed with the existing 237 Debug style warnings and no n
 warnings; the playable Release build passed with zero warnings/errors. Logs:
 `artifacts/rmg/rmg-save-map-final-validation.log` and
 `artifacts/rmg/rmg-save-map-final-release.log`.
-The save addition awaits the user's in-game review before freezing the branch.
+The user accepted the save addition and authorized freeze, merge to main and push on 2026-09-08,
+together with the 512 size extension. The implementation is `71f2b51`, developed on
+`codex/rmg-512-map-size` after `55341a1`.
