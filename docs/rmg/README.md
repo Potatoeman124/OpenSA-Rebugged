@@ -13,7 +13,9 @@ The RMG must preserve that boundary: it may refer to terrain and actor identifie
 The [512 x 512 extension](NATURAL_REGIONS_512.md) is implemented on `codex/rmg-512-map-size`
 from accepted main `5742b43`. It adds an optional 512 size for 1-8 players in all four Regions biomes,
 retaining the default 256 size and accepted smaller-map behavior. Native and live-world validation
-have passed; the branch is ready for user in-game testing.
+have passed. The same branch now adds [named map saving](RMG_SAVED_MAPS.md): **Save Map...** beside
+Return to Skirmish prompts for a title and creates a persistent copy in Custom Maps. The save addition
+is ready for user in-game testing; the branch has not been merged or pushed.
 
 The accepted checkpoint on `main` is **Regions V16 with all four biomes**, configuration 1 /
 player-settings schema 10. The user accepted the [Regions biome extension](REGIONS_BIOME_EXTENSION.md)

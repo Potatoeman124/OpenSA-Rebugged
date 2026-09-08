@@ -106,6 +106,11 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			if (!skirmishMode)
 				return;
 
+			var saveMapButton = lobby.Get<ButtonWidget>("RMG_SAVE_MAP_BUTTON");
+			saveMapButton.IsVisible = () => rmgView;
+			saveMapButton.IsDisabled = () => !CanSaveGeneratedMap();
+			saveMapButton.OnClick = OpenSaveMap;
+
 			rmgToggleButton = toggleButton;
 			startGameButton = lobby.Get<ButtonWidget>("START_GAME_BUTTON");
 			generateButton = lobby.Get<ButtonWidget>("RMG_GENERATE_BUTTON");
@@ -687,6 +692,28 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			{
 				generating = false;
 			}
+		}
+
+		bool CanSaveGeneratedMap() => !generating && !stale && generatedUid != null && CurrentMapUid() == generatedUid &&
+			modData.MapCache[generatedUid].Status == MapStatus.Available;
+
+		void OpenSaveMap()
+		{
+			if (!CanSaveGeneratedMap()) return;
+			var uid = generatedUid;
+			void Save(string name)
+			{
+				if (!CanSaveGeneratedMap() || generatedUid != uid)
+					throw new InvalidOperationException("The generated preview changed before saving.");
+				var saved = RmgMapSaver.Save(modData, modData.MapCache[uid], name);
+				SetStatus("Saved to custom maps: " + Path.GetFileName(saved.Path), StatusKind.Success);
+			}
+
+			Ui.OpenWindow("RMG_SAVE_MAP_PANEL", new WidgetArgs
+			{
+				{ "saveDisabled", (Func<bool>)(() => !CanSaveGeneratedMap() || generatedUid != uid) },
+				{ "onSave", (Action<string>)Save }
+			});
 		}
 
 		string NextCandidatePath(string userDirectory)

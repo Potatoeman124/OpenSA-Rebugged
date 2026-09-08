@@ -136,6 +136,7 @@ ChromeLayout:
 	sa|chrome/hostile-options.yaml
 	sa|chrome/rmg-colony-weights.yaml
 	sa|chrome/rmg-colony-ownership.yaml
+	sa|chrome/rmg-save-map.yaml
 	sa|chrome/lobby-presets.yaml
 	common|chrome/lobby-music.yaml
 	common|chrome/lobby-servers.yaml

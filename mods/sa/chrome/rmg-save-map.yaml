@@ -1,0 +1,54 @@
+Background@RMG_SAVE_MAP_PANEL:
+	Logic: RmgSaveMapLogic
+	X: (WINDOW_RIGHT - WIDTH) / 2
+	Y: (WINDOW_BOTTOM - HEIGHT) / 2
+	Width: 580
+	Height: 230
+	Background: dialog
+	Children:
+		Label@TITLE:
+			X: 20
+			Y: 14
+			Width: PARENT_RIGHT - 40
+			Height: 26
+			Text: Save Generated Map
+			Font: Bold
+			Align: Center
+		Label@HELP:
+			X: 20
+			Y: 48
+			Width: PARENT_RIGHT - 40
+			Height: 22
+			Text: Save a named copy to your custom maps.
+		Label@MAP_NAME_LABEL:
+			X: 20
+			Y: 82
+			Width: 105
+			Height: 28
+			Text: Map Name
+		TextField@MAP_NAME:
+			X: 130
+			Y: 82
+			Width: PARENT_RIGHT - 150
+			Height: 28
+		Label@ERROR:
+			X: 20
+			Y: 120
+			Width: PARENT_RIGHT - 40
+			Height: 52
+			WordWrap: True
+			TextColor: FF5555
+		Button@SAVE_BUTTON:
+			X: PARENT_RIGHT - 270
+			Y: PARENT_BOTTOM - 43
+			Width: 120
+			Height: 28
+			Text: Save
+			Font: Bold
+		Button@CANCEL_BUTTON:
+			X: PARENT_RIGHT - 140
+			Y: PARENT_BOTTOM - 43
+			Width: 120
+			Height: 28
+			Text: Cancel
+			Key: escape

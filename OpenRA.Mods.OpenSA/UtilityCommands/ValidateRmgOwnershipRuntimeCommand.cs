@@ -28,12 +28,12 @@ using Colony = OpenRA.Mods.OpenSA.Traits.Colony.Colony;
 namespace OpenRA.Mods.OpenSA.UtilityCommands
 {
 	// Opt-in integration check using an isolated server, worlds and real widgets. Never saves user settings.
-	public sealed class ValidateRmgOwnershipRuntimeCommand : IUtilityCommand
+	public sealed partial class ValidateRmgOwnershipRuntimeCommand : IUtilityCommand
 	{
 		string IUtilityCommand.Name => "--validate-sa-rmg-runtime";
-		bool IUtilityCommand.ValidateArguments(string[] args) => args.Length >= 2 && args.Length <= 4 && args.Skip(2).All(a => a is "--wide" or "--512");
+		bool IUtilityCommand.ValidateArguments(string[] args) => args.Length >= 2 && args.Length <= 4 && args.Skip(2).All(a => a is "--wide" or "--512" or "--save");
 
-		[Desc("OUTPUT-DIRECTORY [--wide] [--512]", "Exercise colony ownership, live previews and generated-map skirmish startup; --512 selects large-map runtime cases.")]
+		[Desc("OUTPUT-DIRECTORY [--wide] [--512|--save]", "Exercise colony ownership, live previews and skirmish startup; --512 checks large maps, --save checks saved copies.")]
 		void IUtilityCommand.Run(Utility utility, string[] args)
 		{
 			var output = Path.GetFullPath(args[1]);
@@ -56,6 +56,13 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			utility.ModData.InitializeLoaders(utility.ModData.DefaultFileSystem);
 			Game.Renderer.InitializeFonts(utility.ModData);
 			utility.ModData.MapCache.LoadMaps();
+			if (args.Contains("--save"))
+			{
+				CheckSavedMaps(utility, output);
+				Game.Renderer.Dispose();
+				return;
+			}
+
 			CheckWidgets(output);
 			CheckLobby(utility, output);
 			var results = new JArray();

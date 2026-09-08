@@ -24,6 +24,14 @@ Background@SERVER_LOBBY:
 			Font: Bold
 			Text: Random Map Generator
 			Visible: False
+		Button@RMG_SAVE_MAP_BUTTON:
+			X: 230
+			Y: 8
+			Width: 160
+			Height: 25
+			Font: Bold
+			Text: Save Map...
+			Visible: False
 		Container@RMG_PANEL:
 			Width: 1142
 			Height: 350
