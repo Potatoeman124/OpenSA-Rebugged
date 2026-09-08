@@ -281,7 +281,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 		public static RmgProfile Load(ModData modData, RmgGenerationSettings settings)
 		{
-			if (settings.TopologyPreset == RmgTopologyPreset.NaturalRegions && (settings.MapSize is 128 or 256 || (settings.MapSize == 64 && settings.GeneratorVersion == 16)))
+			if (settings.TopologyPreset == RmgTopologyPreset.NaturalRegions && (settings.MapSize is 128 or 256 || (settings.MapSize is 64 or 512 && settings.GeneratorVersion == 16)))
 			{
 				var profile = Load(modData, $"sa|rmg/normal-natural-regions-v{(settings.GeneratorVersion is 12 or 13 or 14 or 15 or 16 ? settings.GeneratorVersion : 11)}{(settings.MapSize == 128 ? string.Empty : $"-{settings.MapSize}")}.yaml");
 				if (!RmgBiome.IsSupported(settings.Tileset) || (settings.Tileset != "NORMAL" && settings.GeneratorVersion != 16))
@@ -304,7 +304,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				return Load(modData, settings.TopologyPreset);
 			if (settings.MapSize == 256 && settings.TopologyPreset == RmgTopologyPreset.NaturalTerrainV10)
 				return Load(modData, "sa|rmg/normal-natural-landscape-v10-256.yaml");
-			throw new ArgumentException("256x256 is supported only by Natural Landscape V10; other sizes remain unsupported.");
+			throw new ArgumentException("Requested size is not supported by this generator profile. Regions V16 supports 64, 128, 256 and 512.");
 		}
 
 		public static RmgProfile Load(ModData modData, RmgTopologyPreset topologyPreset) =>
@@ -419,7 +419,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			{
 				var suffix = PlayableWidth == 128 ? string.Empty : $"-{PlayableWidth}";
 				if (ProfileId != $"{Tileset.ToLowerInvariant()}-natural-regions-v{GeneratorVersion}" + suffix || ConfigurationVersion != (GeneratorVersion == 13 ? 4 : 1) ||
-					!RmgBiome.IsSupported(Tileset) || (Tileset != "NORMAL" && GeneratorVersion != 16) || (PlayableWidth is not (128 or 256) && !(PlayableWidth == 64 && GeneratorVersion == 16)) || PlayableHeight != PlayableWidth ||
+					!RmgBiome.IsSupported(Tileset) || (Tileset != "NORMAL" && GeneratorVersion != 16) || (PlayableWidth is not (128 or 256) && !(PlayableWidth is 64 or 512 && GeneratorVersion == 16)) || PlayableHeight != PlayableWidth ||
 					LogicalWidth * 2 != PlayableWidth || LogicalHeight != LogicalWidth || CordonWidth != 2 ||
 					ClearTemplateIds.Length == 0 || BlockedTemplateIds.Length == 0 || NeutralColonyActors.Length != 5 ||
 					ColonyCombatSafetyBufferNative != 1 || LandDecorationPerThousand != 3)

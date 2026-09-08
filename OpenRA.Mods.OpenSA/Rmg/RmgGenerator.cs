@@ -545,7 +545,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					throw new ArgumentException("Regions V15 and V16 support 1 through 8 players.");
 				if (settings.MapSize == 64 && settings.PlayerCount > 4)
 					throw new ArgumentException("64x64 supports 1 through 4 players.");
-				var multiplier = settings.MapSize == 256 ? 3 : 1;
+				var multiplier = settings.MapSize == 512 ? 9 : settings.MapSize == 256 ? 3 : 1;
 				var minimum = (4 + 2 * settings.PlayerCount) * multiplier;
 				var maximum = (40 + 6 * settings.PlayerCount) * multiplier;
 				if (settings.MapSize == 64)

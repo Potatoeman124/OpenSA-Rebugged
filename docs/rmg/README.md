@@ -10,6 +10,11 @@ The RMG must preserve that boundary: it may refer to terrain and actor identifie
 
 ## Current integration checkpoint
 
+The [512 x 512 extension](NATURAL_REGIONS_512.md) is implemented on `codex/rmg-512-map-size`
+from accepted main `5742b43`. It adds an optional 512 size for 1-8 players in all four Regions biomes,
+retaining the default 256 size and accepted smaller-map behavior. Native and live-world validation
+have passed; the branch is ready for user in-game testing.
+
 The accepted checkpoint on `main` is **Regions V16 with all four biomes**, configuration 1 /
 player-settings schema 10. The user accepted the [Regions biome extension](REGIONS_BIOME_EXTENSION.md)
 and authorized merge/push on 2026-09-08. Implementation commit `bb699f3` was developed on

@@ -2,7 +2,7 @@
 param(
     [Parameter(Mandatory = $true)][UInt64]$Seed,
     [ValidateSet("NORMAL", "DESERT", "SWAMP", "CANDY")][string]$Tileset = "NORMAL",
-    [ValidateSet(64, 128, 256)][int]$MapSize = 256,
+    [ValidateSet(64, 128, 256, 512)][int]$MapSize = 256,
     [ValidateRange(1, 8)][int]$Players = 4,
     [ValidateSet("small", "medium", "high", "extreme", "ultra")][string]$TerrainComplexity = "medium",
     [ValidateSet("low", "standard", "high", "extreme", "ultra")][string]$WaterAmount = "standard",

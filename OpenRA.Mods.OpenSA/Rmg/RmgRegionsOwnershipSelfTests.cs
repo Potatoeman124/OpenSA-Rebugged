@@ -58,9 +58,13 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				Reject(() => RmgPlayerSettingsContract.Resolve(new RmgPlayerSettings { SchemaVersion = schema, StartingColonyShares = new[] { 0, 0 }, LayoutFamily = RmgPlayerLayoutFamily.NaturalLandscape }), "Old schema accepted ownership.");
 				Reject(() => RmgPlayerSettingsContract.Resolve(new RmgPlayerSettings { SchemaVersion = schema, StartingColonyMode = RmgColonyOwnershipMode.Random, LayoutFamily = RmgPlayerLayoutFamily.NaturalLandscape }), "Old schema accepted random ownership.");
 			}
+			foreach (var schema in Enumerable.Range(1, 9))
+				Reject(() => RmgPlayerSettingsContract.Resolve(new RmgPlayerSettings { SchemaVersion = schema, MapSize = 512, LayoutFamily = RmgPlayerLayoutFamily.NaturalLandscape }), "Old schema accepted 512.");
+			foreach (var family in new[] { RmgPlayerLayoutFamily.StructuredCompetitive, RmgPlayerLayoutFamily.ArtificialBattlefield })
+				Reject(() => RmgPlayerSettingsContract.Resolve(new RmgPlayerSettings { SchemaVersion = 10, MapSize = 512, LayoutFamily = family }), "Historical layout accepted 512.");
 			foreach (var shares in new JToken[] { JValue.CreateNull(), new JArray(1), new JArray(-1, 0), new JArray(101, 0), new JArray(1.5, 0), new JArray("1", 0) })
 				Reject(() => RmgColonyOwnership.ParseShares(shares, 2), "Invalid ownership JSON accepted.");
-			foreach (var size in new[] { 64, 128, 256 })
+			foreach (var size in new[] { 64, 128, 256, 512 })
 				foreach (var players in Enumerable.Range(1, 8))
 				{
 					var requested = new RmgPlayerSettings { SchemaVersion = 10, MapSize = size, PlayerCount = players,
@@ -78,6 +82,14 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					var settings = RmgPlayerSettingsContract.Resolve(requested).Normalized;
 					var profile = RmgProfile.Load(modData, settings);
 					ValidateSettings(profile, settings);
+					if (size == 512)
+					{
+						Check(profile.PlayableWidth == 512 && profile.LogicalWidth == 256 && settings.NeutralColonyCount == (4 + 3 * players) * 9, "512 profile or Balanced colony scaling failed.");
+						settings.GeneratorVersion = 15;
+						Reject(() => RmgProfile.Load(modData, settings), "Historical direct generator accepted 512.");
+						settings.GeneratorVersion = 16;
+					}
+
 					Check(settings.Canonical(profile) == RmgPlayerSettingsContract.Resolve(RmgPlayerSettingsContract.Parse(requested.ToJson())).Normalized.Canonical(profile), "V16 round trip failed.");
 				}
 			Reject(() => RmgPlayerSettingsContract.Resolve(new RmgPlayerSettings { SchemaVersion = 10, LayoutFamily = RmgPlayerLayoutFamily.NaturalLandscape, NeutralColonyWeights = new(101) }), "V16 accepted weight above 100.");

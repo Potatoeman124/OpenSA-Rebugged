@@ -54,8 +54,8 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 	{
 		public static TerrainComparisonResult Generate(ModData modData, TerrainComparisonSettings settings, RmgLogicalMap reference = null)
 		{
-			if (settings.Size is not (64 or 128 or 256))
-				throw new ArgumentException("Terrain comparison supports 64, 128 or 256 native cells.");
+			if (settings.Size is not (64 or 128 or 256) && !(settings.Size == 512 && settings.Continuity && settings.Method == TerrainConstruction.Regions))
+				throw new ArgumentException("Terrain comparison supports 64, 128 or 256 native cells; continuous Regions also supports 512.");
 			if (settings.ExtendedComplexity && !settings.Continuity)
 				throw new ArgumentException("Extended complexity requires continuous Regions.");
 			if (!Enum.IsDefined(settings.Complexity) || (!settings.ExtendedComplexity && settings.Complexity > TerrainComplexity.High))
@@ -84,7 +84,7 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 
 			// Reuse only the audited fixed-tile shoreline emitter and variant banks.
 			// No legacy generator, water replenishment, route, or connectivity stage runs.
-			var profile = RmgProfile.Load(modData, settings.Size == 256 ?
+			var profile = RmgProfile.Load(modData, settings.Size >= 256 ?
 				"sa|rmg/normal-natural-landscape-v10-256.yaml" : "sa|rmg/normal-natural-landscape-v10.yaml");
 			var legacyTileSettings = new RmgGenerationSettings
 			{

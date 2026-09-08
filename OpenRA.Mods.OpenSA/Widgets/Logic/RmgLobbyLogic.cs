@@ -32,7 +32,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		const int RmgLobbyHeight = 412;
 
 		enum TerrainChoice { Normal, Desert, Swamp, Candy }
-		enum SizeChoice { Small, Standard, Large }
+		enum SizeChoice { Small, Standard, Large, Huge }
 		enum LayoutChoice { OpenFields, ContestedCenter, MixedFronts, NarrowPassages, Chaos }
 		enum StatusKind { Info, Success, Warning, Error }
 
@@ -242,7 +242,8 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 				{
 					new Choice<SizeChoice>(SizeChoice.Small, "64 x 64 (Natural Landscape)"),
 					new Choice<SizeChoice>(SizeChoice.Standard, "128 x 128"),
-					new Choice<SizeChoice>(SizeChoice.Large, "256 x 256 (Natural Landscape)")
+					new Choice<SizeChoice>(SizeChoice.Large, "256 x 256 (Natural Landscape)"),
+					new Choice<SizeChoice>(SizeChoice.Huge, "512 x 512 (Natural Landscape)")
 				}, () => size, value => { size = value; MarkStale(); },
 				value => value == SizeChoice.Standard || layoutFamily == RmgPlayerLayoutFamily.NaturalLandscape);
 
@@ -530,7 +531,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			if (terrain != TerrainChoice.Normal && layoutFamily != RmgPlayerLayoutFamily.NaturalLandscape)
 				return "Desert, Swamp and Candy require Natural Landscape.";
 			if (size != SizeChoice.Standard && layoutFamily != RmgPlayerLayoutFamily.NaturalLandscape)
-				return "64 x 64 and 256 x 256 require Natural Landscape.";
+				return "64 x 64, 256 x 256 and 512 x 512 require Natural Landscape.";
 			if (layoutFamily == RmgPlayerLayoutFamily.NaturalLandscape ? playerCount < 1 || playerCount > MaximumPlayers : playerCount != 2 && playerCount != 4)
 				return "64 x 64 supports 1 through 4 players; larger Natural Landscape maps support 1 through 8. Historical layouts support 2 or 4.";
 			if (layout is LayoutChoice.MixedFronts or LayoutChoice.NarrowPassages or LayoutChoice.Chaos)
@@ -596,7 +597,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 				var playerSettings = new RmgPlayerSettings
 				{
 					SchemaVersion = layoutFamily == RmgPlayerLayoutFamily.NaturalLandscape ? 10 : 3,
-					MapSize = size == SizeChoice.Large ? 256 : size == SizeChoice.Small ? 64 : 128,
+					MapSize = size switch { SizeChoice.Small => 64, SizeChoice.Standard => 128, SizeChoice.Large => 256, _ => 512 },
 					Preset = preset,
 					Seed = seed,
 					Tileset = terrain.ToString().ToUpperInvariant(),
@@ -800,7 +801,8 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		{
 			SizeChoice.Small => "64 x 64",
 			SizeChoice.Standard => "128 x 128",
-			_ => "256 x 256"
+			SizeChoice.Large => "256 x 256",
+			_ => "512 x 512"
 		};
 
 		static string LayoutFamilyDisplayName(RmgPlayerLayoutFamily value) => value switch

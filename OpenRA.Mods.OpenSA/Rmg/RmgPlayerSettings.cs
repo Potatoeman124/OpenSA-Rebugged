@@ -381,9 +381,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (!expandedPlayers && requested.NeutralColonyWeights != new RmgColonyWeights())
 				throw new ArgumentException("Neutral colony weights require schema 9 and Natural Landscape.");
 
-			if ((requested.MapSize != 128 && requested.MapSize != 256 && !(requested.MapSize == 64 && requested.SchemaVersion >= 10)) ||
+			if ((requested.MapSize != 128 && requested.MapSize != 256 && !(requested.MapSize is 64 or 512 && requested.SchemaVersion >= 10)) ||
 				(requested.MapSize != 128 && (requested.SchemaVersion < 4 || requested.LayoutFamily != RmgPlayerLayoutFamily.NaturalLandscape)))
-				throw new ArgumentException("64x64 requires schema 10 and Natural Landscape; 256x256 requires schema 4 and Natural Landscape. Historical layouts support 128x128.");
+				throw new ArgumentException("64x64 and 512x512 require schema 10 and Natural Landscape; 256x256 requires schema 4 and Natural Landscape. Historical layouts support 128x128.");
 
 			if (requested.MapSize == 64 && requested.PlayerCount > 4)
 				throw new ArgumentException("64x64 supports 1 through 4 players.");
@@ -405,7 +405,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				colonies = two + (requested.PlayerCount - 2) * (four - two) / 2;
 			}
 			// Larger geography supports more objectives without multiplying native combat clearances.
-			if (requested.MapSize == 256)
+			if (requested.MapSize == 512)
+				colonies *= 9;
+			else if (requested.MapSize == 256)
 				colonies *= 3;
 			else if (requested.MapSize == 64)
 				colonies = (colonies + 3) / 4;
@@ -960,12 +962,13 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			$"original-surface-relations={settings.OriginalSurfaceRelations}"
 		});
 
-		public static int ParseMapSize(string value, bool allowSmall = false) => value switch
+		public static int ParseMapSize(string value, bool allowV16Sizes = false) => value switch
 		{
-			"64,64" when allowSmall => 64,
+			"64,64" when allowV16Sizes => 64,
+			"512,512" when allowV16Sizes => 512,
 			"128,128" => 128,
 			"256,256" => 256,
-			_ => throw new ArgumentException(allowSmall ? "Map size must be 64,64, 128,128 or 256,256." : "Map size must be 128,128 or 256,256.")
+			_ => throw new ArgumentException(allowV16Sizes ? "Map size must be 64,64, 128,128, 256,256 or 512,512." : "Map size must be 128,128 or 256,256.")
 		};
 
 		static int RequiredInt(JObject json, string name)

@@ -31,9 +31,9 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 	public sealed class ValidateRmgOwnershipRuntimeCommand : IUtilityCommand
 	{
 		string IUtilityCommand.Name => "--validate-sa-rmg-runtime";
-		bool IUtilityCommand.ValidateArguments(string[] args) => args.Length == 2 || (args.Length == 3 && args[2] == "--wide");
+		bool IUtilityCommand.ValidateArguments(string[] args) => args.Length >= 2 && args.Length <= 4 && args.Skip(2).All(a => a is "--wide" or "--512");
 
-		[Desc("OUTPUT-DIRECTORY", "Exercise colony ownership, live previews and generated-map skirmish startup.")]
+		[Desc("OUTPUT-DIRECTORY [--wide] [--512]", "Exercise colony ownership, live previews and generated-map skirmish startup; --512 selects large-map runtime cases.")]
 		void IUtilityCommand.Run(Utility utility, string[] args)
 		{
 			var output = Path.GetFullPath(args[1]);
@@ -47,7 +47,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			var assembly = new AssemblyLoader(Path.Combine(Platform.BinDir, "OpenRA.Platforms.Default.dll")).LoadDefaultAssembly();
 			var platform = (IPlatform)Activator.CreateInstance(assembly.GetTypes().Single(t => typeof(IPlatform).IsAssignableFrom(t)));
 			Game.Settings.Graphics.Mode = WindowMode.Windowed;
-			Game.Settings.Graphics.WindowedSize = args.Length == 3 ? new int2(1280, 800) : new int2(1024, 600);
+			Game.Settings.Graphics.WindowedSize = args.Contains("--wide") ? new int2(1280, 800) : new int2(1024, 600);
 			Game.Settings.Graphics.DisableHardwareCursors = true;
 			Game.Settings.Graphics.UIScale = 1;
 			Game.Renderer = new Renderer(platform, Game.Settings.Graphics);
@@ -79,29 +79,40 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				results.Add(first);
 				Console.WriteLine($"PASS: {id}, pool {first["pool"]}, assigned {first["counts"]}, repeat world identical.");
 			}
-			Run("reported-crash", 256, new[] { 0, 10, 20, 30 }, new int[4], bots: true, seed: 748797295927410807, crowded: true);
-			Run("ai-other-seed", 128, new[] { 40, 40, 80 }, new int[3], bots: true, seed: 0);
-			Run("default-zero", 256, new[] { 0, 0, 0 }, new[] { 1, 2, 3 });
-			Run("percentages", 256, new[] { 0, 10, 50 }, new[] { 1, 2, 3 });
-			Run("weighted-swapped", 256, new[] { 40, 40, 80 }, new[] { 3, 2, 1 });
-			Run("closed-slot", 128, new[] { 40, 40, 80 }, new[] { 1, 2, 3 }, absent: 1);
-			Run("solo-small", 64, new[] { 100 }, new[] { 1 });
-			Run("eight-random", 256, Enumerable.Repeat(100, 8).ToArray(), new int[8]);
-			Run("empty-pool", 64, new[] { 100 }, new[] { 1 }, empty: true);
-			Run("random-reported", 256, new[] { 0, 10, 20, 30 }, new int[4], bots: true, seed: 748797295927410807, crowded: true, mode: RmgColonyOwnershipMode.Random);
-			Run("random-weighted", 128, new[] { 40, 40, 80 }, new int[3], bots: true, seed: ulong.MaxValue, mode: RmgColonyOwnershipMode.Random);
-			Run("random-closed", 128, new[] { 40, 40, 80 }, new[] { 3, 2, 1 }, absent: 1, mode: RmgColonyOwnershipMode.Random);
-			Run("random-solo", 64, new[] { 50 }, new[] { 1 }, mode: RmgColonyOwnershipMode.Random);
-			Run("random-eight", 256, Enumerable.Repeat(100, 8).ToArray(), new int[8], mode: RmgColonyOwnershipMode.Random);
-			Run("random-empty", 64, new[] { 100 }, new[] { 1 }, empty: true, mode: RmgColonyOwnershipMode.Random);
-			Run("random-zero", 128, new[] { 0, 0 }, new[] { 1, 2 }, mode: RmgColonyOwnershipMode.Random);
-			Run("normal-hostiles", 128, new[] { 0, 10, 50 }, new int[3], bots: true, hostiles: true);
-			foreach (var tileset in RmgBiome.Tilesets.Where(t => t != "NORMAL"))
+
+			if (args.Contains("--512"))
 			{
-				Run(tileset + "-closest", 128, new[] { 0, 10, 50 }, new int[3], bots: true, tileset: tileset, hostiles: true);
-				Run(tileset + "-random", 256, new[] { 0, 10, 20, 30 }, new int[4], bots: true, seed: 748797295927410807, crowded: true, mode: RmgColonyOwnershipMode.Random, tileset: tileset);
-				Run(tileset + "-solo", 64, new[] { 50 }, new[] { 1 }, mode: RmgColonyOwnershipMode.Random, tileset: tileset);
-				Run(tileset + "-eight", 256, Enumerable.Repeat(100, 8).ToArray(), new int[8], mode: RmgColonyOwnershipMode.Random, tileset: tileset);
+				Run("512-normal-closest", 512, new[] { 0, 10, 20, 30 }, new int[4], bots: true, hostiles: true);
+				Run("512-desert-random", 512, new[] { 0, 10, 20, 30 }, new int[4], bots: true, seed: 748797295927410807, crowded: true, mode: RmgColonyOwnershipMode.Random, tileset: "DESERT");
+				Run("512-swamp-solo", 512, new[] { 50 }, new[] { 1 }, mode: RmgColonyOwnershipMode.Random, tileset: "SWAMP");
+				Run("512-candy-eight", 512, Enumerable.Repeat(100, 8).ToArray(), new int[8], bots: true, mode: RmgColonyOwnershipMode.Random, tileset: "CANDY");
+			}
+			else
+			{
+				Run("reported-crash", 256, new[] { 0, 10, 20, 30 }, new int[4], bots: true, seed: 748797295927410807, crowded: true);
+				Run("ai-other-seed", 128, new[] { 40, 40, 80 }, new int[3], bots: true, seed: 0);
+				Run("default-zero", 256, new[] { 0, 0, 0 }, new[] { 1, 2, 3 });
+				Run("percentages", 256, new[] { 0, 10, 50 }, new[] { 1, 2, 3 });
+				Run("weighted-swapped", 256, new[] { 40, 40, 80 }, new[] { 3, 2, 1 });
+				Run("closed-slot", 128, new[] { 40, 40, 80 }, new[] { 1, 2, 3 }, absent: 1);
+				Run("solo-small", 64, new[] { 100 }, new[] { 1 });
+				Run("eight-random", 256, Enumerable.Repeat(100, 8).ToArray(), new int[8]);
+				Run("empty-pool", 64, new[] { 100 }, new[] { 1 }, empty: true);
+				Run("random-reported", 256, new[] { 0, 10, 20, 30 }, new int[4], bots: true, seed: 748797295927410807, crowded: true, mode: RmgColonyOwnershipMode.Random);
+				Run("random-weighted", 128, new[] { 40, 40, 80 }, new int[3], bots: true, seed: ulong.MaxValue, mode: RmgColonyOwnershipMode.Random);
+				Run("random-closed", 128, new[] { 40, 40, 80 }, new[] { 3, 2, 1 }, absent: 1, mode: RmgColonyOwnershipMode.Random);
+				Run("random-solo", 64, new[] { 50 }, new[] { 1 }, mode: RmgColonyOwnershipMode.Random);
+				Run("random-eight", 256, Enumerable.Repeat(100, 8).ToArray(), new int[8], mode: RmgColonyOwnershipMode.Random);
+				Run("random-empty", 64, new[] { 100 }, new[] { 1 }, empty: true, mode: RmgColonyOwnershipMode.Random);
+				Run("random-zero", 128, new[] { 0, 0 }, new[] { 1, 2 }, mode: RmgColonyOwnershipMode.Random);
+				Run("normal-hostiles", 128, new[] { 0, 10, 50 }, new int[3], bots: true, hostiles: true);
+				foreach (var tileset in RmgBiome.Tilesets.Where(t => t != "NORMAL"))
+				{
+					Run(tileset + "-closest", 128, new[] { 0, 10, 50 }, new int[3], bots: true, tileset: tileset, hostiles: true);
+					Run(tileset + "-random", 256, new[] { 0, 10, 20, 30 }, new int[4], bots: true, seed: 748797295927410807, crowded: true, mode: RmgColonyOwnershipMode.Random, tileset: tileset);
+					Run(tileset + "-solo", 64, new[] { 50 }, new[] { 1 }, mode: RmgColonyOwnershipMode.Random, tileset: tileset);
+					Run(tileset + "-eight", 256, Enumerable.Repeat(100, 8).ToArray(), new int[8], mode: RmgColonyOwnershipMode.Random, tileset: tileset);
+				}
 			}
 
 			File.WriteAllText(Path.Combine(output, "verification.json"), new JObject { ["status"] = "PASS", ["cases"] = results }.ToString());
@@ -209,8 +220,32 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				Require(terrain.SequenceEqual(world.Map.AllCells.Select(c => world.Map.Tiles[c])), "Hostiles changed generated terrain.");
 			}
 
+			if (world.Map.Bounds.Width == 512 && screenshot != null)
+				CheckLargeWorldRendering(renderer, screenshot);
+
 			Ui.ResetAll();
 			return result;
+		}
+
+		static void CheckLargeWorldRendering(WorldRenderer renderer, string path)
+		{
+			foreach (var (name, x, y) in new[] { ("nw", 8, 8), ("ne", 503, 8), ("sw", 8, 503), ("se", 503, 503), ("center", 256, 256) })
+			{
+				renderer.Viewport.Center(renderer.World.Map.CenterOfCell(new CPos(x + 2, y + 2)));
+				for (var frame = 0; frame < 3; frame++)
+				{
+					renderer.PrepareRenderables();
+					Game.Renderer.BeginWorld(renderer.Viewport.Rectangle);
+					renderer.Draw();
+					Game.Renderer.BeginUI();
+					Game.Renderer.EndFrame(new IgnoreInput());
+				}
+
+				var file = path + "-world-" + name + ".png";
+				Game.Renderer.SaveScreenshot(file);
+				for (var i = 0; i < 100 && !File.Exists(file); i++) Thread.Sleep(20);
+				Require(File.Exists(file), "512 world screenshot was not saved.");
+			}
 		}
 
 		static void CheckPreview(MapPreview map, OrderManager manager, ColonyPreviewSite[] sites, string path)
@@ -359,6 +394,10 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				panel.Children.OfType<ScrollItemWidget>().Single(r => r.Get<LabelWidget>("LABEL").GetText().StartsWith(prefix, StringComparison.Ordinal)).OnClick();
 				button.RemovePanel();
 			}
+			Size("512");
+			Require(lobby.Get<DropDownButtonWidget>("RMG_SIZE").GetText() == "512 x 512" && slider.MaximumValue == 8 && slider.GetValue() == 8 &&
+				!lobby.Get<ButtonWidget>("RMG_GENERATE_BUTTON").IsDisabled(), "512 size did not activate with eight players.");
+			if (Game.Renderer.Resolution.Width >= 1182) Draw(output, "rmg-512-eight-players");
 			Size("64");
 			Require(slider.MaximumValue == 4 && slider.GetValue() == 4 && lobby.Get<LabelWidget>("RMG_PLAYERS_MAX").GetText() == "4", "Small-map cap did not update actual widgets.");
 			slider.UpdateValue(8);

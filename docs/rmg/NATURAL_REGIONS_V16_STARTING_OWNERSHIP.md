@@ -83,7 +83,8 @@ lobby updates fall back to uncolored ownership until a consistent assignment can
 
 ## Sizes and defaults
 
-The RMG offers **64 x 64 (1-4 players), 128 x 128 and 256 x 256 (1-8 players)**.
+The initial accepted V16 checkpoint offers **64 x 64 (1-4 players), 128 x 128 and 256 x 256 (1-8 players)**.
+The subsequent [512 extension](NATURAL_REGIONS_512.md) adds 512 x 512 with 1-8 players.
 Selecting 64 x 64 reduces an existing higher player setting to four, updates the slider range, and
 marks the preview stale. JSON, direct generation and the wrapper reject more than four at 64 x 64. The 64 profile uses 32 x 32 logical stamps,
 a two-cell border, and the same native colony/start/production clearances. Its neutral density target
@@ -95,8 +96,8 @@ Engine dimensions are not restricted to powers of two. `NewMapLogic` clamps the 
 minimum to 2 x 2; `CPos` packs X and Y into signed 12-bit coordinates (-2048 through 2047).
 For this rectangular RMG, the resulting coordinate ceiling is 2048 stored cells per axis, or
 2044 playable cells with the existing four border cells. That is a representation ceiling, **not a
-supported or performance-tested RMG maximum**. Smaller than 64 and larger than 256 remain outside
-the exposed generation contract; larger-map performance work is deferred at the user's request.
+supported or performance-tested RMG maximum**. At that checkpoint, smaller than 64 and larger than 256 were outside the exposed contract. The
+user subsequently requested the optional 512 extension; sizes above 512 remain unsupported.
 
 Default configuration remains NORMAL, Regions, 256 x 256, four players, Balanced, Medium complexity,
 Standard quantities, Original Surface Relations On and Prevent Colony Overlapping On. Species weights
