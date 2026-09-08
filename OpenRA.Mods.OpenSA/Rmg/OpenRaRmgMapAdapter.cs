@@ -10,6 +10,7 @@
 #endregion
 
 using System;
+using System.Globalization;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -339,6 +340,11 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					new MiniYamlNode("ColonyActorNames", string.Join(", ", generation.Map.Actors.Select((actor, index) => (actor, index))
 						.Where(pair => pair.actor.Role == "neutral-colony").Select(pair => "Actor" + pair.index)))
 				}));
+				if (generation.Settings.StartingColonyMode != RmgColonyOwnershipMode.ClosestToSpawn)
+				{
+					ownership.Value.Nodes.Add(new MiniYamlNode("ChoiceMode", generation.Settings.StartingColonyMode.ToString()));
+					ownership.Value.Nodes.Add(new MiniYamlNode("RandomSeed", generation.Settings.Seed.ToString(CultureInfo.InvariantCulture)));
+				}
 				map.RuleDefinitions.Nodes.Add(new MiniYamlNode("World", new MiniYaml(null, new List<MiniYamlNode> { ownership })));
 			}
 

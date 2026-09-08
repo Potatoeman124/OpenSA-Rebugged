@@ -9,8 +9,30 @@ using Newtonsoft.Json.Linq;
 
 namespace OpenRA.Mods.OpenSA.Rmg
 {
+	public enum RmgColonyOwnershipMode
+	{
+		ClosestToSpawn,
+		Random
+	}
+
 	public static class RmgColonyOwnership
 	{
+		public static string ModeName(RmgColonyOwnershipMode mode) => mode switch
+		{
+			RmgColonyOwnershipMode.ClosestToSpawn => "closest-to-spawn",
+			RmgColonyOwnershipMode.Random => "random",
+			_ => throw new ArgumentException("Unknown starting colony ownership mode.")
+		};
+
+		public static string ModeDisplayName(RmgColonyOwnershipMode mode) => mode == RmgColonyOwnershipMode.Random ? "Random" : "Closest to Spawn";
+
+		public static RmgColonyOwnershipMode ParseMode(string value) => value switch
+		{
+			"closest-to-spawn" => RmgColonyOwnershipMode.ClosestToSpawn,
+			"random" => RmgColonyOwnershipMode.Random,
+			_ => throw new ArgumentException("starting_colony_mode must be closest-to-spawn or random.")
+		};
+
 		public static void ValidateShares(int[] shares, int players)
 		{
 			if (shares == null || (shares.Length != 0 && shares.Length != players) || shares.Any(value => value < 0 || value > 100))
@@ -41,13 +63,31 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			return counts;
 		}
 
-		// Globally closest eligible player/site pair first, with stable slot/site ties.
-		// This avoids giving the first player an unconditional first choice of every site.
-		public static int[] Assign(IReadOnlyList<RmgPoint> colonies, IReadOnlyList<RmgPoint> starts, IReadOnlyList<int> shares)
+		// Preserve the same quotas in both modes. Closest ranks player/site pairs by distance;
+		// Random shuffles quota labels across the entire colony pool.
+		public static int[] Assign(IReadOnlyList<RmgPoint> colonies, IReadOnlyList<RmgPoint> starts, IReadOnlyList<int> shares,
+			RmgColonyOwnershipMode mode = RmgColonyOwnershipMode.ClosestToSpawn, ulong seed = 0)
 		{
+			if (!Enum.IsDefined(mode)) throw new ArgumentException("Unknown starting colony ownership mode.");
 			if (starts.Count != shares.Count) throw new ArgumentException("Starting positions and shares must match.");
 			var remaining = Allocate(colonies.Count, shares);
 			var owners = Enumerable.Repeat(-1, colonies.Count).ToArray();
+			if (mode == RmgColonyOwnershipMode.Random)
+			{
+				// Shuffle quota labels across the entire pool, including unowned labels. Every colony has
+				// the same chance of each owner; neither player order nor distance grants first choice.
+				var next = 0;
+				for (var p = 0; p < remaining.Length; p++)
+					for (var n = 0; n < remaining[p]; n++) owners[next++] = p;
+				// Dedicated RMG ownership stream: never consume world/lobby or terrain random state.
+				var random = new DeterministicRandom(seed ^ 0x434F4C4F4E594F57UL);
+				for (var i = owners.Length - 1; i > 0; i--)
+				{
+					var j = random.NextInt(i + 1);
+					(owners[i], owners[j]) = (owners[j], owners[i]);
+				}
+				return owners;
+			}
 			long Distance(int p, int c) => (long)(starts[p].X - colonies[c].X) * (starts[p].X - colonies[c].X) +
 				(long)(starts[p].Y - colonies[c].Y) * (starts[p].Y - colonies[c].Y);
 			var pairs = Enumerable.Range(0, starts.Count).Where(p => remaining[p] > 0)

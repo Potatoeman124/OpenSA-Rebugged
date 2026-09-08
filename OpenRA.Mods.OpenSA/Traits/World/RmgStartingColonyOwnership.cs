@@ -17,6 +17,8 @@ namespace OpenRA.Mods.OpenSA.Traits.World
 	{
 		public readonly int[] PlayerShares = Array.Empty<int>();
 		public readonly string[] ColonyActorNames = Array.Empty<string>();
+		public readonly RmgColonyOwnershipMode ChoiceMode = RmgColonyOwnershipMode.ClosestToSpawn;
+		public readonly ulong RandomSeed = 0;
 		public override object Create(ActorInitializer init) => new RmgStartingColonyOwnership(this);
 	}
 
@@ -47,7 +49,7 @@ namespace OpenRA.Mods.OpenSA.Traits.World
 				var location = startingColony?.Location ?? player.HomeLocation;
 				return new RmgPoint(location.X, location.Y);
 			}).ToArray();
-			var owners = RmgColonyOwnership.Assign(colonies.Select(actor => new RmgPoint(actor.Location.X, actor.Location.Y)).ToArray(), starts, shares);
+			var owners = RmgColonyOwnership.Assign(colonies.Select(actor => new RmgPoint(actor.Location.X, actor.Location.Y)).ToArray(), starts, shares, info.ChoiceMode, info.RandomSeed);
 			AssignedCounts = new int[shares.Length];
 			// Owner-change notifications refresh production, capture conditions and render traits.
 			// Run once at the end of the setup frame, before players can issue normal orders.

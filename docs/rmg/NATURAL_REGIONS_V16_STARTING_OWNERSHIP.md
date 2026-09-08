@@ -10,16 +10,20 @@ V15's 0-1000 species weights. NORMAL / Natural Landscape is the supported terrai
 V16 adds 64 x 64 and Starting Colony Ownership. It lowers both current colony slider groups
 to integer values **0-100**. Terrain calibration, colony placement and native clearances are
 unchanged at 128 and 256. Changing ownership shares changes the map's setup rules/identity,
-but does not move terrain, player starts, neutral colonies or doodads.
+but does not move terrain, player starts, neutral colonies or doodads. The ownership choice mode also
+changes setup rules/identity while preserving this geography.
 
 ## Ownership contract
 
 The **Starting Ownership...** button opens **Starting Colony Ownership** with one row per
 configured player (1-4 at 64 x 64; 1-8 at larger sizes). Each row has the same slider, integer entry and default button as
 Neutral Colony Types. All ownership defaults are **0**. Apply commits the draft and marks the
-preview stale; Cancel discards it; Reset all shares sets every row to zero. Host/ready-state
+preview stale; Cancel discards it; Reset all shares sets every row to zero.
+The Ownership Choice selector offers **Closest to Spawn** (default) and **Random**. Apply/Cancel
+cover both the mode and the shares; Reset all shares leaves the selected mode intact. Host/ready-state
 guards apply. Reducing the player count excludes hidden rows from generation; increasing it
-again restores their previous values from the current RMG session. Applying an RMG preset clears all shares.
+again restores their previous values from the current RMG session. Applying an RMG preset clears all shares
+and restores Closest to Spawn.
 
 The pool contains only **successfully placed non-starting colonies**, regardless of species.
 A density target that could not be completely placed does not inflate the ownership pool.
@@ -49,11 +53,19 @@ match setup after actual starting colonies exist, so explicit, swapped and rando
 are honored. Unoccupied slots receive nothing and their shares are omitted from the sum and
 allocation. Thus closing a slot can change the total assigned when the remaining shares sum below 100.
 
-After quotas are fixed, globally sort eligible player/colony pairs by squared straight-line native-cell
+In **Closest to Spawn**, after quotas are fixed, globally sort eligible player/colony pairs by squared straight-line native-cell
 distance from the actual starting colony. Assign each still-unclaimed colony to that player if its
 quota is not yet filled. Distance ties use slot order, then saved colony order. This is a deterministic
 nearest-pair preference, not a promise of globally minimum total travel distance. It does not impose
 land connectivity or evaluate flying-unit availability.
+
+In **Random**, fill one label per placed colony with the quota's player slots and the remaining neutral
+labels, then perform a Fisher-Yates shuffle using the repository's deterministic PRNG. All colonies are
+eligible regardless of distance, species or land connectivity. The same quotas and rounding apply;
+starting colonies are still excluded. A dedicated stream derives from the full 64-bit **RMG map seed**
+(`seed XOR 0x434F4C4F4E594F57`), independent of lobby/terrain/world RNG state. The same seed, placed pool,
+participating slots and shares yield the same allocation. Changing spawn choices or colors does not
+reroll Random ownership. Changing participating slots can alter quotas and therefore allocation.
 
 Saved colony actors retain the existing `Creeps` owner. A map-local `RmgStartingColonyOwnership`
 World trait stores the shares and exact eligible actor IDs. It applies ownership once at the end of
@@ -86,7 +98,7 @@ the exposed generation contract; larger-map performance work is deferred at the 
 
 Default configuration remains NORMAL, Regions, 256 x 256, four players, Balanced, Medium complexity,
 Standard quantities, Original Surface Relations On and Prevent Colony Overlapping On. Species weights
-are 100 each; ownership shares are zero. The first generated-map selection sets Explored Map On and
+are 100 each; ownership shares are zero and Ownership Choice is Closest to Spawn. The first generated-map selection sets Explored Map On and
 Fog of War Off; later regeneration preserves deliberate changes.
 
 ## JSON and command line
@@ -95,6 +107,11 @@ Schema 10 accepts `starting_colony_shares` as an array of exactly one integer 0-
 Omission means all zero. Null, wrong length, negative, >100, floating-point and string entries reject.
 Explicit ownership shares require Natural Landscape and schema 10. Species weights retain the five
 named keys and relative-probability behavior; schema 10 caps each at 100, while replay schema 9 keeps 1000.
+The optional schema-10 `starting_colony_mode` accepts `closest-to-spawn` or `random`; omission means
+Closest to Spawn. Explicit default values normalize to the existing representation, so old V16 packages
+and identities remain exact. Random adds its mode to canonical settings and saves `ChoiceMode: Random`
+and the full `RandomSeed` on the map's ownership trait. Both runtime and the colored preview read these
+saved rules and call the same allocator. Invalid modes and use by older schemas/layouts are rejected.
 
 ```powershell
 .\scripts\rmg\Invoke-RegionsMapGenerator.ps1 -Seed 397716241463670640 -MapSize 64 -Players 1 `
@@ -102,6 +119,9 @@ named keys and relative-probability behavior; schema 10 caps each at 100, while 
 
 .\scripts\rmg\Invoke-RegionsMapGenerator.ps1 -Seed 397716241463670640 -Players 3 `
     -StartingColonyShares 0,10,50 -VerifyRepeatability
+
+.\scripts\rmg\Invoke-RegionsMapGenerator.ps1 -Seed 748797295927410807 -Players 4 `
+    -StartingColonyShares 0,10,20,30 -StartingColonyMode random -VerifyRepeatability
 ```
 
 Reports include requested shares, allocated counts if every configured slot participates, the remaining
@@ -200,3 +220,33 @@ The final fix verification passes:
 This fix does not rerun the full historical generator matrix; its three pre-existing V13 correlation
 failures documented above remain outside this change. The new runtime evidence covers the previously
 missing server-start path; a complete interactive match still awaits user testing.
+
+## Ownership choice extension (2026-09-08)
+
+The user accepted V16 including the preview/startup fixes at `ddce379`, then requested Random selection.
+The extension retains schema 10 / V16 configuration 1 with an optional mode; it does not recalibrate or
+replace the accepted Closest behavior. This new selector still awaits user in-game acceptance.
+
+Verification evidence is under `artifacts/rmg/regions-v16-random/` and adjacent logs:
+
+- `runtime-01/verification.json`: **16 scenarios initialized twice (32 worlds)**. The original nine
+  Closest cases still pass; seven Random cases cover partial allocation, weighted allocation, random
+  spawns/factions with AI, a closed slot, solo, eight players, an empty pool and zero shares. Preview
+  owners match every live colony. AI cases continue 600 additional ticks; production and later captures
+  remain functional. Both modes retain the real-server repeated-map startup regression.
+- Actual widgets verify default/choices, mode-only Apply, Cancel isolation, host guard, player-count
+  changes, share reset, and scrolling. The panel and scattered owner colors were rendered and inspected.
+- `regions-v16-random-contract.log`: 6,321 quota/conservation combinations also exercise Random,
+  with seed repeatability/diversity, independence from start distance, malformed input rejection,
+  settings round trips and unchanged generated terrain/actor hashes across modes.
+- `compatibility.json`: all nine previous V16 test packages preserve every archived member byte for
+  byte; the same reported seed under both modes preserves `map.bin`, `map.png` and actor definitions.
+  Only setup settings/rules/identity change for Random.
+- The Regions PowerShell wrapper exposes `-StartingColonyMode`; existing calls keep Closest by default.
+  Both default and case-insensitive `Random` calls pass native validation and repeatability at the
+  maximum unsigned seed (`wrapper-default`, `wrapper-random`).
+- `regions-v16-random-validate.log`: repository build and runtime-data validation passes.
+- `regions-v16-random-final-build.log`: final playable Release build, zero compiler warnings/errors.
+
+The full historical terrain matrix was not repeated for this setup-only extension; its documented
+pre-existing V13 correlation failures remain outside this change.

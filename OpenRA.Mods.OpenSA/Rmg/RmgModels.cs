@@ -99,6 +99,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public bool PreventColonyOverlapping { get; set; } = true;
 		public RmgColonyWeights NeutralColonyWeights { get; set; } = new();
 		public int[] StartingColonyShares { get; set; } = Array.Empty<int>();
+		public RmgColonyOwnershipMode StartingColonyMode { get; set; } = RmgColonyOwnershipMode.ClosestToSpawn;
 		public int EffectiveNeutralColonyCount => GeneratorVersion is 15 or 16 && NeutralColonyWeights.Total == 0 ? 0 : NeutralColonyCount;
 		public RmgPlayerSettingsResolution PlayerSettingsResolution { get; set; }
 
@@ -141,6 +142,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 			if (GeneratorVersion == 16)
 				fields.Add($"starting-colony-shares={string.Join(",", StartingColonyShares)}");
+
+			if (GeneratorVersion == 16 && StartingColonyMode != RmgColonyOwnershipMode.ClosestToSpawn)
+				fields.Add($"starting-colony-mode={RmgColonyOwnership.ModeName(StartingColonyMode)}");
 
 			if (MapSize != 128)
 				fields.Add($"size={MapSize},{MapSize}");

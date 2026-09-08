@@ -193,7 +193,10 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				var counts = RmgColonyOwnership.Allocate(colonyCount, settings.StartingColonyShares);
 				map.RegionsReport["starting_colonies_allocated_if_all_slots_occupied"] = new JArray(counts);
 				map.RegionsReport["unowned_colonies_if_all_slots_occupied"] = colonyCount - counts.Sum();
-				map.RegionsReport["ownership_assignment"] = "runtime-player-slot-and-actual-start";
+				map.RegionsReport["ownership_assignment"] = settings.StartingColonyMode == RmgColonyOwnershipMode.Random ?
+					"runtime-player-slot-and-seeded-random" : "runtime-player-slot-and-actual-start";
+				if (settings.StartingColonyMode != RmgColonyOwnershipMode.ClosestToSpawn)
+					map.RegionsReport["starting_colony_mode"] = RmgColonyOwnership.ModeName(settings.StartingColonyMode);
 			}
 			map.RegionsReport["doodads_requested"] = decorationTarget;
 			map.RegionsReport["doodads_placed"] = decorations.Count;

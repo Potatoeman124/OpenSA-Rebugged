@@ -31,15 +31,32 @@ namespace OpenRA.Mods.OpenSA.Rmg
 						var shares = new[] { a, b, 0 };
 						var counts = RmgColonyOwnership.Allocate(n, shares);
 						Check(counts.Sum() == (n * Math.Min(a + b, 100) + 99) / 100 && counts[2] == 0 && counts.All(c => c >= 0), "Allocation conservation failed.");
+						var owners = RmgColonyOwnership.Assign(Enumerable.Range(0, n).Select(i => new RmgPoint(i, 0)).ToArray(),
+							new RmgPoint[3], shares, RmgColonyOwnershipMode.Random, (ulong)n);
+						Check(Enumerable.Range(0, 3).All(p => owners.Count(o => o == p) == counts[p]) &&
+							owners.Count(o => o == -1) == n - counts.Sum(), "Random assignment violated ownership quotas.");
 					}
 			var positions = new[] { new RmgPoint(1, 0), new RmgPoint(9, 0), new RmgPoint(5, 0) };
 			var starts = new[] { new RmgPoint(0, 0), new RmgPoint(10, 0) };
 			Check(RmgColonyOwnership.Assign(positions, starts, new[] { 33, 33 }).SequenceEqual(new[] { 0, 1, -1 }), "Closest-site assignment failed.");
 			Check(RmgColonyOwnership.Assign(positions, starts.Reverse().ToArray(), new[] { 33, 33 }).SequenceEqual(new[] { 1, 0, -1 }), "Swapped starts did not move ownership.");
+			var randomSites = Enumerable.Range(0, 40).Select(i => new RmgPoint(i * 3, i % 7)).ToArray();
+			var randomShares = new[] { 40, 40 };
+			var layouts = new HashSet<string>();
+			foreach (var seed in new ulong[] { 0, 1, 748797295927410807, ulong.MaxValue })
+			{
+				var owners = RmgColonyOwnership.Assign(randomSites, starts, randomShares, RmgColonyOwnershipMode.Random, seed);
+				Check(owners.SequenceEqual(RmgColonyOwnership.Assign(randomSites, starts, randomShares, RmgColonyOwnershipMode.Random, seed)), "Random assignment is not repeatable.");
+				Check(owners.SequenceEqual(RmgColonyOwnership.Assign(randomSites, starts.Reverse().ToArray(), randomShares, RmgColonyOwnershipMode.Random, seed)), "Random ownership depends on spawn distance.");
+				layouts.Add(string.Join(",", owners));
+			}
+			Check(layouts.Count == 4, "Distinct ownership seeds did not change random selection.");
+			Reject(() => RmgColonyOwnership.Assign(positions, starts, new[] { 50, 50 }, (RmgColonyOwnershipMode)99), "Invalid assignment mode accepted.");
 			foreach (var schema in new[] { 8, 9 })
 			{
 				Reject(() => RmgPlayerSettingsContract.Resolve(new RmgPlayerSettings { SchemaVersion = schema, MapSize = 64, LayoutFamily = RmgPlayerLayoutFamily.NaturalLandscape }), "Old schema accepted 64.");
 				Reject(() => RmgPlayerSettingsContract.Resolve(new RmgPlayerSettings { SchemaVersion = schema, StartingColonyShares = new[] { 0, 0 }, LayoutFamily = RmgPlayerLayoutFamily.NaturalLandscape }), "Old schema accepted ownership.");
+				Reject(() => RmgPlayerSettingsContract.Resolve(new RmgPlayerSettings { SchemaVersion = schema, StartingColonyMode = RmgColonyOwnershipMode.Random, LayoutFamily = RmgPlayerLayoutFamily.NaturalLandscape }), "Old schema accepted random ownership.");
 			}
 			foreach (var shares in new JToken[] { JValue.CreateNull(), new JArray(1), new JArray(-1, 0), new JArray(101, 0), new JArray(1.5, 0), new JArray("1", 0) })
 				Reject(() => RmgColonyOwnership.ParseShares(shares, 2), "Invalid ownership JSON accepted.");
@@ -78,6 +95,27 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var changed = RmgPlayerSettingsContract.Resolve(RmgPlayerSettingsContract.Parse(json)).Normalized;
 			var bResult = Generate(RmgProfile.Load(modData, changed), changed);
 			Check(aResult.LogicalHash == bResult.LogicalHash && aResult.ActorHash == bResult.ActorHash, "Ownership changed generated terrain or placement.");
+			var closestCanonical = changed.Canonical(RmgProfile.Load(modData, changed));
+			var closestJson = RmgPlayerSettingsContract.Parse(json).ToJson().ToString();
+			json["starting_colony_mode"] = "closest-to-spawn";
+			Check(RmgPlayerSettingsContract.Parse(json).ToJson().ToString() == closestJson, "Explicit closest mode changed existing serialized settings.");
+			json["starting_colony_mode"] = "random";
+			var randomSettings = RmgPlayerSettingsContract.Resolve(RmgPlayerSettingsContract.Parse(json)).Normalized;
+			var randomProfile = RmgProfile.Load(modData, randomSettings);
+			Check(randomSettings.StartingColonyMode == RmgColonyOwnershipMode.Random && randomSettings.Canonical(randomProfile) != closestCanonical, "Random mode missing from map identity.");
+			Check(RmgPlayerSettingsContract.Resolve(RmgPlayerSettingsContract.Parse(RmgPlayerSettingsContract.Parse(json).ToJson())).Normalized.Canonical(randomProfile) == randomSettings.Canonical(randomProfile), "Random settings round trip failed.");
+			var randomResult = Generate(randomProfile, randomSettings);
+			Check(randomResult.LogicalHash == bResult.LogicalHash && randomResult.ActorHash == bResult.ActorHash, "Random mode changed terrain or colony placement.");
+			foreach (var invalid in new JToken[] { JValue.CreateNull(), new JValue(1), new JValue(true), new JValue("nearest"), new JArray("random") })
+			{
+				json["starting_colony_mode"] = invalid;
+				Reject(() => RmgPlayerSettingsContract.Parse(json), "Invalid ownership mode JSON accepted.");
+			}
+			json["starting_colony_mode"] = "random";
+			json["schema_version"] = 9;
+			Reject(() => RmgPlayerSettingsContract.Parse(json), "Old JSON schema accepted ownership mode.");
+			randomSettings.StartingColonyMode = (RmgColonyOwnershipMode)99;
+			Reject(() => ValidateSettings(randomProfile, randomSettings), "Direct generator accepted invalid ownership mode.");
 			return failures;
 		}
 	}

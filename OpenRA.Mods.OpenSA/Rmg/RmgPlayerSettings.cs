@@ -90,6 +90,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public bool PreventColonyOverlapping { get; init; } = true;
 		public RmgColonyWeights NeutralColonyWeights { get; init; } = new();
 		public int[] StartingColonyShares { get; init; } = Array.Empty<int>();
+		public RmgColonyOwnershipMode StartingColonyMode { get; init; } = RmgColonyOwnershipMode.ClosestToSpawn;
 
 		public JObject ToJson()
 		{
@@ -127,6 +128,10 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 			if (SchemaVersion >= 10 && LayoutFamily == RmgPlayerLayoutFamily.NaturalLandscape)
 				json["starting_colony_shares"] = new JArray(StartingColonyShares.Length == 0 ? new int[PlayerCount] : StartingColonyShares);
+
+			// Omit the default so existing V16 settings and generated package identities stay identical.
+			if (SchemaVersion >= 10 && LayoutFamily == RmgPlayerLayoutFamily.NaturalLandscape && StartingColonyMode != RmgColonyOwnershipMode.ClosestToSpawn)
+				json["starting_colony_mode"] = RmgColonyOwnership.ModeName(StartingColonyMode);
 
 			if (SchemaVersion >= 4)
 				json["size"] = $"{MapSize},{MapSize}";
@@ -190,6 +195,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				json["normalized"]["neutral_colony_weights"] = Normalized.NeutralColonyWeights.ToJson();
 			if (Normalized.GeneratorVersion == 16)
 				json["normalized"]["starting_colony_shares"] = new JArray(Normalized.StartingColonyShares);
+			if (Normalized.GeneratorVersion == 16 && Normalized.StartingColonyMode != RmgColonyOwnershipMode.ClosestToSpawn)
+				json["normalized"]["starting_colony_mode"] = RmgColonyOwnership.ModeName(Normalized.StartingColonyMode);
 			return json;
 		}
 	}
@@ -213,6 +220,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			"prevent_colony_overlapping",
 			"neutral_colony_weights",
 			"starting_colony_shares",
+			"starting_colony_mode",
 			"neutral_colony_density",
 			"water_amount",
 			"gravel_moss_amount",
@@ -266,6 +274,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var schemaVersion = RequiredInt(json, "schema_version");
 			if (schemaVersion < MinimumSchemaVersion || schemaVersion > SchemaVersion)
 				throw new ArgumentException($"Player settings schema_version must be from {MinimumSchemaVersion} through {SchemaVersion}.");
+			if (json.ContainsKey("starting_colony_mode") && (schemaVersion < 10 ||
+				OptionalText(json, "layout_family", "preset") != "natural-landscape"))
+				throw new ArgumentException("starting_colony_mode requires schema 10 and Natural Landscape.");
 			if (json.ContainsKey("starting_colony_shares") && (schemaVersion < 10 ||
 				OptionalText(json, "layout_family", "preset") != "natural-landscape"))
 				throw new ArgumentException("starting_colony_shares requires schema 10 and Natural Landscape.");
@@ -337,6 +348,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				OriginalSurfaceRelations = OptionalBool(json, "original_surface_relations", true),
 				PreventColonyOverlapping = OptionalBool(json, "prevent_colony_overlapping", true),
 				NeutralColonyWeights = json.ContainsKey("neutral_colony_weights") ? RmgColonyWeights.Parse(json["neutral_colony_weights"], schemaVersion >= 10 ? 100 : 1000) : new(),
+				StartingColonyMode = RmgColonyOwnership.ParseMode(OptionalText(json, "starting_colony_mode", "closest-to-spawn")),
 				StartingColonyShares = json.ContainsKey("starting_colony_shares") ? RmgColonyOwnership.ParseShares(json["starting_colony_shares"], RequiredInt(json, "players")) : Array.Empty<int>()
 			};
 		}
@@ -352,6 +364,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				throw new ArgumentException("Neutral colony weights must be an object.");
 			requested.NeutralColonyWeights.Validate(requested.SchemaVersion >= 10 ? 100 : 1000);
 			RmgColonyOwnership.ValidateShares(requested.StartingColonyShares, requested.PlayerCount);
+			if (!Enum.IsDefined(requested.StartingColonyMode) || (requested.StartingColonyMode != RmgColonyOwnershipMode.ClosestToSpawn && (requested.SchemaVersion < 10 || !expandedPlayers)))
+				throw new ArgumentException("Starting colony mode requires schema 10, Natural Landscape and a valid choice.");
 			if (requested.StartingColonyShares.Length != 0 && (requested.SchemaVersion < 10 || !expandedPlayers))
 				throw new ArgumentException("Starting colony shares require schema 10 and Natural Landscape.");
 			if (!expandedPlayers && requested.NeutralColonyWeights != new RmgColonyWeights())
@@ -438,6 +452,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				OriginalSurfaceRelations = requested.OriginalSurfaceRelations,
 				PreventColonyOverlapping = requested.PreventColonyOverlapping,
 				NeutralColonyWeights = requested.NeutralColonyWeights,
+				StartingColonyMode = requested.StartingColonyMode,
 				StartingColonyShares = requested.SchemaVersion >= 10 && expandedPlayers ?
 					(requested.StartingColonyShares.Length == 0 ? new int[requested.PlayerCount] : (int[])requested.StartingColonyShares.Clone()) : Array.Empty<int>()
 			};
@@ -465,6 +480,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				overrides.Add("neutral_colony_weights");
 			if (version == 16 && normalized.StartingColonyShares.Any(value => value != 0))
 				overrides.Add("starting_colony_shares");
+			if (version == 16 && requested.StartingColonyMode != RmgColonyOwnershipMode.ClosestToSpawn)
+				overrides.Add("starting_colony_mode");
 			var resolution = new RmgPlayerSettingsResolution(requested, normalized, overrides);
 			normalized.PlayerSettingsResolution = resolution;
 			return resolution;

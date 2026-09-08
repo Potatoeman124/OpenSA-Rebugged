@@ -27,7 +27,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		internal RmgColonyWeightsLogic() { }
 
 		internal void Configure(Widget widget, int[] values, string[] labels, int defaultValue, bool ownership,
-			Func<bool> configurationDisabled, Action<int[]> onApply)
+			Func<bool> configurationDisabled, Action<int[]> onApply, Func<string> colonySelection = null)
 		{
 			var validators = new List<Func<bool>>();
 			var width = Math.Min(900, Game.Renderer.Resolution.Width - 40);
@@ -82,7 +82,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			widget.Get<LabelWidget>("HELP").GetText = () => ownership ? "Below 100 total: percentages of colonies. At 100 or above: relative shares of all colonies." :
 				"Weights are relative shares (0-100). Zero excludes a type; all zero disables neutral colonies.";
 			widget.Get<LabelWidget>("NOTE").GetText = () => ownership ?
-				$"Total: {values.Sum()}. Ownership follows lobby slots and nearby colonies. The total is rounded up; whole colonies are then apportioned." :
+				$"Total: {values.Sum()}. Ownership follows lobby slots and {colonySelection?.Invoke() ?? "nearby colonies"}. The total is rounded up; whole colonies are then apportioned." :
 				"Shares are selection probabilities, not exact quotas. Terrain capacity can limit placement. Starting colonies are unaffected.";
 			var apply = widget.Get<ButtonWidget>("APPLY");
 			apply.IsDisabled = () => configurationDisabled() || validators.Any(valid => !valid());

@@ -59,11 +59,11 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			CheckWidgets(output);
 			CheckLobby(utility, output);
 			var results = new JArray();
-			void Run(string id, int size, int[] shares, int[] spawns, int absent = -1, bool empty = false, bool bots = false, ulong seed = 397716241463670640, bool crowded = false)
+			void Run(string id, int size, int[] shares, int[] spawns, int absent = -1, bool empty = false, bool bots = false, ulong seed = 397716241463670640, bool crowded = false, RmgColonyOwnershipMode mode = RmgColonyOwnershipMode.ClosestToSpawn)
 			{
 				var requested = new RmgPlayerSettings { SchemaVersion = 10, MapSize = size, PlayerCount = shares.Length,
 					Seed = seed, NeutralColonyDensity = crowded ? RmgPlayerColonyDensity.Ultra : RmgPlayerColonyDensity.Standard, LayoutFamily = RmgPlayerLayoutFamily.NaturalLandscape,
-					StartingColonyShares = shares, NeutralColonyWeights = empty ? new(0, 0, 0, 0, 0) : new() };
+					StartingColonyShares = shares, StartingColonyMode = mode, NeutralColonyWeights = empty ? new(0, 0, 0, 0, 0) : new() };
 				var settings = RmgPlayerSettingsContract.Resolve(requested).Normalized;
 				var package = OpenRaRmgMapAdapter.GenerateAndSave(utility.ModData, RmgProfile.Load(utility.ModData, settings),
 					settings, Path.Combine(output, id + ".oramap"), false, verifyRepeatability: true);
@@ -88,6 +88,13 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			Run("solo-small", 64, new[] { 100 }, new[] { 1 });
 			Run("eight-random", 256, Enumerable.Repeat(100, 8).ToArray(), new int[8]);
 			Run("empty-pool", 64, new[] { 100 }, new[] { 1 }, empty: true);
+			Run("random-reported", 256, new[] { 0, 10, 20, 30 }, new int[4], bots: true, seed: 748797295927410807, crowded: true, mode: RmgColonyOwnershipMode.Random);
+			Run("random-weighted", 128, new[] { 40, 40, 80 }, new int[3], bots: true, seed: ulong.MaxValue, mode: RmgColonyOwnershipMode.Random);
+			Run("random-closed", 128, new[] { 40, 40, 80 }, new[] { 3, 2, 1 }, absent: 1, mode: RmgColonyOwnershipMode.Random);
+			Run("random-solo", 64, new[] { 50 }, new[] { 1 }, mode: RmgColonyOwnershipMode.Random);
+			Run("random-eight", 256, Enumerable.Repeat(100, 8).ToArray(), new int[8], mode: RmgColonyOwnershipMode.Random);
+			Run("random-empty", 64, new[] { 100 }, new[] { 1 }, empty: true, mode: RmgColonyOwnershipMode.Random);
+			Run("random-zero", 128, new[] { 0, 0 }, new[] { 1, 2 }, mode: RmgColonyOwnershipMode.Random);
 			File.WriteAllText(Path.Combine(output, "verification.json"), new JObject { ["status"] = "PASS", ["cases"] = results }.ToString());
 			Game.Renderer.Dispose();
 		}
@@ -139,7 +146,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			var startingActors = players.Select(p => p == null ? null : world.Actors.Single(a => a.Owner == p && a.TraitOrDefault<Colony>() != null)).ToArray();
 			var starts = startingActors.Select(a => a == null ? new RmgPoint(0, 0) : new RmgPoint(a.Location.X, a.Location.Y)).ToArray();
 			var effective = shares.Select((v, i) => players[i] == null ? 0 : v).ToArray();
-			var expected = RmgColonyOwnership.Assign(colonies.Select(a => new RmgPoint(a.Location.X, a.Location.Y)).ToArray(), starts, effective);
+			var expected = RmgColonyOwnership.Assign(colonies.Select(a => new RmgPoint(a.Location.X, a.Location.Y)).ToArray(), starts, effective, info.ChoiceMode, info.RandomSeed);
 			var terrain = world.Map.AllCells.Select(c => world.Map.Tiles[c]).ToArray();
 			void Tick() { world.Tick(); manager.LocalFrameNumber++; }
 			Tick();
@@ -159,7 +166,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			}
 			Require(startingActors.Select((a, i) => a == null || a.Owner == players[i]).All(v => v), "Starting colony changed owner.");
 			Require(terrain.SequenceEqual(world.Map.AllCells.Select(c => world.Map.Tiles[c])), "Ownership changed terrain.");
-			var result = new JObject { ["preview_matches_runtime"] = true, ["ai_opponents"] = bots, ["pool"] = colonies.Length, ["counts"] = new JArray(controller.AssignedCounts),
+			var result = new JObject { ["ownership_mode"] = RmgColonyOwnership.ModeName(info.ChoiceMode), ["preview_matches_runtime"] = true, ["ai_opponents"] = bots, ["pool"] = colonies.Length, ["counts"] = new JArray(controller.AssignedCounts),
 				["starts"] = new JArray(starts.Select(p => $"{p.X},{p.Y}")),
 				["owners"] = new JArray(colonies.Select(a => a.Owner.InternalName)) };
 			var captured = colonies.FirstOrDefault(a => !a.Owner.NonCombatant);
@@ -202,6 +209,9 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			Draw(Path.GetDirectoryName(path), Path.GetFileName(path) + "-changed-spawns-preview");
 			Require(view.Ownership != null && active.All(c => view.Ownership.SpawnOccupants.TryGetValue(c.SpawnPoint, out var occupant) && occupant.PlayerName == c.Name),
 				"Preview did not refresh changed spawn assignments.");
+			if (map.WorldActorInfo.TraitInfo<RmgStartingColonyOwnershipInfo>().ChoiceMode == RmgColonyOwnershipMode.Random)
+				Require(first.ColonyOwners.Count == view.Ownership.ColonyOwners.Count && first.ColonyOwners.All(pair => view.Ownership.ColonyOwners.TryGetValue(pair.Key, out var slot) && slot == pair.Value),
+					"Random ownership changed when starting positions changed.");
 			for (var i = 0; i < active.Length; i++) active[i].SpawnPoint = originalSpawns[i];
 			Require(manager.LobbyInfo.Serialize() == original, "Preview mutated lobby settings or random state.");
 			Ui.ResetAll();
@@ -319,12 +329,20 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			lobby.Get<ButtonWidget>("RMG_COLONY_OWNERSHIP").OnClick();
 			dialog = Ui.CurrentWindow();
 			Require(dialog.Get<ScrollPanelWidget>("SETTINGS").Children.First().Get<TextFieldWidget>("VALUE").Text == "35", "Lobby ownership Apply was not retained.");
+			// Change only the mode: it must commit even with unchanged shares.
+			ChooseMode(dialog, "Random");
+			dialog.Get<ButtonWidget>("APPLY").OnClick();
+			lobby.Get<ButtonWidget>("RMG_COLONY_OWNERSHIP").OnClick();
+			dialog = Ui.CurrentWindow();
+			Require(dialog.Get<DropDownButtonWidget>("OWNERSHIP_MODE").GetText() == "Random", "Lobby mode-only Apply was not retained.");
+			ChooseMode(dialog, "Closest to Spawn");
 			dialog.Get<ButtonWidget>("CANCEL").OnClick();
 			Size("256"); slider.UpdateValue(8);
 			Require(slider.MaximumValue == 8 && slider.GetValue() == 8, "Large-map range did not restore.");
 			lobby.Get<ButtonWidget>("RMG_COLONY_OWNERSHIP").OnClick();
 			dialog = Ui.CurrentWindow();
 			Require(dialog.Get<ScrollPanelWidget>("SETTINGS").Children.Count == 8, "Large map opened wrong number of ownership sliders.");
+			Require(dialog.Get<DropDownButtonWidget>("OWNERSHIP_MODE").GetText() == "Random", "Cancel or player-count change lost applied mode.");
 			dialog.Get<ButtonWidget>("CANCEL").OnClick();
 			lobby.Get<ButtonWidget>("RMG_COLONY_WEIGHTS").OnClick();
 			Require(Ui.CurrentWindow().Id == "RMG_COLONY_WEIGHTS_PANEL", "Species launcher opened wrong window.");
@@ -333,17 +351,31 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			Console.WriteLine("PASS: actual RMG launchers, default range, 8 -> 4 small-map cap, 4 -> 8 larger range, ownership row counts and Apply persistence.");
 		}
 
+		static void ChooseMode(Widget widget, string label)
+		{
+			var button = widget.Get<DropDownButtonWidget>("OWNERSHIP_MODE");
+			button.OnMouseDown(default);
+			var panel = Ui.Root.Children.OfType<ScrollPanelWidget>().Last();
+			Require(panel.Children.OfType<ScrollItemWidget>().Count() == 2, "Wrong ownership mode choices.");
+			panel.Children.OfType<ScrollItemWidget>().Single(r => r.Get<LabelWidget>("LABEL").GetText() == label).OnClick();
+			button.RemovePanel();
+			Require(button.GetText() == label, "Ownership mode did not change.");
+		}
+
 		static void CheckWidgets(string output)
 		{
 			foreach (var count in new[] { 1, 3, 8 })
 			{
 				int[] applied = null;
+				RmgColonyOwnershipMode? appliedMode = null;
 				var disabled = false;
 				var original = new int[count];
 				Widget Open() => Ui.OpenWindow("RMG_COLONY_OWNERSHIP_PANEL", new WidgetArgs {
-					{ "initialShares", original }, { "configurationDisabled", (Func<bool>)(() => disabled) },
-					{ "onApply", (Action<int[]>)(v => applied = v) } });
+					{ "initialShares", original }, { "initialMode", RmgColonyOwnershipMode.ClosestToSpawn }, { "configurationDisabled", (Func<bool>)(() => disabled) },
+					{ "onApply", (Action<int[], RmgColonyOwnershipMode>)((v, mode) => { applied = v; appliedMode = mode; }) } });
 				var widget = Open();
+				Require(widget.Get<DropDownButtonWidget>("OWNERSHIP_MODE").GetText() == "Closest to Spawn", "Ownership mode default changed.");
+				ChooseMode(widget, "Random");
 				var panel = widget.Get<ScrollPanelWidget>("SETTINGS");
 				Require(panel.Children.Count == count, "Wrong ownership row count.");
 				Require(panel.Children.All(r => r.Get<SliderWidget>("SLIDER").MaximumValue == 100), "Wrong slider maximum.");
@@ -354,19 +386,22 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				Draw(output, "ownership-" + count);
 				if (count == 8) { panel.ScrollToBottom(); Draw(output, "ownership-8-bottom"); }
 				disabled = true;
+				Require(widget.Get<DropDownButtonWidget>("OWNERSHIP_MODE").IsDisabled(), "Non-host can change ownership mode.");
 				widget.Get<ButtonWidget>("APPLY").OnClick();
 				Require(applied == null, "Non-host applied ownership.");
 				disabled = false;
 				widget.Get<ButtonWidget>("CANCEL").OnClick();
 				Require(applied == null && original.All(v => v == 0), "Cancel mutated ownership.");
 				widget = Open();
+				Require(widget.Get<DropDownButtonWidget>("OWNERSHIP_MODE").GetText() == "Closest to Spawn" && appliedMode == null, "Cancel retained draft ownership mode.");
+				ChooseMode(widget, "Random");
 				field = widget.Get<ScrollPanelWidget>("SETTINGS").Children.First().Get<TextFieldWidget>("VALUE");
 				field.Text = "100"; field.OnTextEdited();
 				widget.Get<ButtonWidget>("RESET").OnClick();
 				Require(field.Text == "0", "Reset did not clear shares.");
 				field.Text = "25"; field.OnTextEdited();
 				widget.Get<ButtonWidget>("APPLY").OnClick();
-				Require(applied[0] == 25 && original[0] == 0, "Apply failed or mutated original.");
+				Require(applied[0] == 25 && original[0] == 0 && appliedMode == RmgColonyOwnershipMode.Random, "Apply failed or mutated original.");
 			}
 			RmgColonyWeights weights = null;
 			var species = Ui.OpenWindow("RMG_COLONY_WEIGHTS_PANEL", new WidgetArgs {

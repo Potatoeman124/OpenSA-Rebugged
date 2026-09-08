@@ -62,6 +62,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 
 		RmgColonyWeights colonyWeights = new();
 		readonly int[] ownershipShares = new int[8];
+		RmgColonyOwnershipMode ownershipMode = RmgColonyOwnershipMode.ClosestToSpawn;
 		RmgPlayerPreset preset = RmgPlayerPreset.Balanced;
 		TerrainChoice terrain = TerrainChoice.Normal;
 		SizeChoice size = SizeChoice.Large;
@@ -388,10 +389,12 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			ownershipButton.OnClick = () => Ui.OpenWindow("RMG_COLONY_OWNERSHIP_PANEL", new WidgetArgs
 			{
 				{ "initialShares", ownershipShares.Take(playerCount).ToArray() },
+				{ "initialMode", ownershipMode },
 				{ "configurationDisabled", (Func<bool>)(() => !CanConfigure()) },
-				{ "onApply", (Action<int[]>)(shares =>
+				{ "onApply", (Action<int[], RmgColonyOwnershipMode>)((shares, mode) =>
 				{
-					if (!CanConfigure() || shares.SequenceEqual(ownershipShares.Take(playerCount))) return;
+					if (!CanConfigure() || (mode == ownershipMode && shares.SequenceEqual(ownershipShares.Take(playerCount)))) return;
+					ownershipMode = mode;
 					Array.Copy(shares, ownershipShares, shares.Length);
 					presetCustomized = true;
 					MarkStale();
@@ -474,6 +477,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			preventColonyOverlapping = true;
 			colonyWeights = new();
 			Array.Clear(ownershipShares);
+			ownershipMode = RmgColonyOwnershipMode.ClosestToSpawn;
 			complexity = selected switch
 			{
 				RmgPlayerPreset.OpenConflict => TerrainComplexity.Low,
@@ -602,6 +606,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					OriginalSurfaceRelations = originalSurfaceRelations,
 					PreventColonyOverlapping = layoutFamily != RmgPlayerLayoutFamily.NaturalLandscape || preventColonyOverlapping,
 					NeutralColonyWeights = layoutFamily == RmgPlayerLayoutFamily.NaturalLandscape ? colonyWeights : new(),
+					StartingColonyMode = layoutFamily == RmgPlayerLayoutFamily.NaturalLandscape ? ownershipMode : RmgColonyOwnershipMode.ClosestToSpawn,
 					StartingColonyShares = layoutFamily == RmgPlayerLayoutFamily.NaturalLandscape ? ownershipShares.Take(playerCount).ToArray() : Array.Empty<int>()
 				};
 				var settingsResolution = RmgPlayerSettingsContract.Resolve(playerSettings);

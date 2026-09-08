@@ -14,9 +14,11 @@ The current development branch is `codex/rmg-eight-players-colony-weights`, star
 `main` commit `1143fad394ef845fd21ac986b93c3b322f14b25e`.
 [Regions V16: small maps and starting ownership](NATURAL_REGIONS_V16_STARTING_OWNERSHIP.md)
 adds **64 x 64**, per-player starting colony shares, and **0-100** ranges for both colony slider groups.
-The lobby and Regions wrapper now select schema 10 / V16 configuration 1. V16 awaits in-game acceptance.
-Its 2026-09-08 fixes add live ownership colors to the preview and prevent the repeated-map-selection
-invalid-host startup crash.
+The lobby and Regions wrapper select schema 10 / V16 configuration 1. The user accepted V16 through
+`ddce379` on 2026-09-08, including live preview ownership colors and the skirmish-start fix. The next
+extension adds **Ownership Choice: Closest to Spawn / Random** in Starting Ownership. Closest remains
+the default; Random uses the RMG seed and the same quotas, with matching preview colors. This extension
+awaits in-game acceptance. Existing V16 map contents and default settings remain exact.
 [Regions V15](NATURAL_REGIONS_V15_PLAYERS_AND_WEIGHTS.md), commit `7035e00`, was accepted in-game and
 provides the 1-8 player and species-weight foundation. V14 remains the frozen checkpoint on `main`.
 

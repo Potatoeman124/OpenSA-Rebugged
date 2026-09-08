@@ -532,6 +532,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				throw new ArgumentException("Neutral colony weights must be an object.");
 			settings.NeutralColonyWeights.Validate(settings.GeneratorVersion == 16 ? 100 : 1000);
 			RmgColonyOwnership.ValidateShares(settings.StartingColonyShares, settings.PlayerCount);
+			if (!Enum.IsDefined(settings.StartingColonyMode) || (settings.GeneratorVersion != 16 && settings.StartingColonyMode != RmgColonyOwnershipMode.ClosestToSpawn))
+				throw new ArgumentException("Starting colony mode requires Regions V16 and a valid choice.");
 			if (settings.GeneratorVersion != 16 && settings.StartingColonyShares.Length != 0)
 				throw new ArgumentException("Starting colony shares require Regions V16.");
 			if (settings.GeneratorVersion is 15 or 16)

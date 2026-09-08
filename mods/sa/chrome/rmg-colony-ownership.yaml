@@ -20,6 +20,17 @@ Background@RMG_COLONY_OWNERSHIP_PANEL:
 			Width: PARENT_RIGHT - 40
 			Height: 22
 			Text: Weights are relative shares (0-100). Zero excludes a type; all zero disables neutral colonies.
+		Label@OWNERSHIP_MODE_LABEL:
+			X: 20
+			Y: 76
+			Width: 190
+			Height: 28
+			Text: Ownership Choice
+		DropDownButton@OWNERSHIP_MODE:
+			X: 220
+			Y: 76
+			Width: 260
+			Height: 28
 		ScrollPanel@SETTINGS:
 			X: 20
 			Y: 80

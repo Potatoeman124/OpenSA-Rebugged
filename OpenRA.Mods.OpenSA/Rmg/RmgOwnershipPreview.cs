@@ -67,7 +67,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			}
 			var byName = sites.ToDictionary(s => s.Name);
 			var eligible = info.ColonyActorNames.Where(byName.ContainsKey).Select(name => byName[name]).ToArray();
-			var owners = RmgColonyOwnership.Assign(eligible.Select(s => new RmgPoint(s.Location.X, s.Location.Y)).ToArray(), starts, shares);
+			var owners = RmgColonyOwnership.Assign(eligible.Select(s => new RmgPoint(s.Location.X, s.Location.Y)).ToArray(), starts, shares, info.ChoiceMode, info.RandomSeed);
 			for (var i = 0; i < owners.Length; i++)
 				if (owners[i] >= 0)
 				{

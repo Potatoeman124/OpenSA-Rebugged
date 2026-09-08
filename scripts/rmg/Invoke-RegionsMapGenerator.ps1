@@ -15,11 +15,13 @@ param(
     [ValidateRange(0, 100)][int]$SpidersWeight = 100,
     [ValidateRange(0, 100)][int]$WaspsWeight = 100,
     [ValidateRange(0, 100)][int[]]$StartingColonyShares = @(),
+    [ValidateSet("closest-to-spawn", "random")][string]$StartingColonyMode = "closest-to-spawn",
     [string]$OutputDirectory,
     [switch]$VerifyRepeatability,
     [switch]$Overwrite
 )
 $ErrorActionPreference = "Stop"
+$StartingColonyMode = $StartingColonyMode.ToLowerInvariant()
 if ($StartingColonyShares.Count -ne 0 -and $StartingColonyShares.Count -ne $Players) {
     throw "StartingColonyShares must have one value per configured player."
 }
@@ -28,14 +30,14 @@ if ($MapSize -eq 64 -and $Players -gt 4) {
 }
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
-    $OutputDirectory = Join-Path $root "artifacts\rmg\regions-v16\$Seed-$MapSize-$Players-$TerrainComplexity-W$WaterAmount-G$GravelMossAmount-N$NeutralColonyDensity-R$OriginalSurfaceRelations-O$PreventColonyOverlapping-C$AntsWeight-$BeetlesWeight-$ScorpionsWeight-$SpidersWeight-$WaspsWeight-S$($StartingColonyShares -join '-')"
+    $OutputDirectory = Join-Path $root "artifacts\rmg\regions-v16\$Seed-$MapSize-$Players-$TerrainComplexity-W$WaterAmount-G$GravelMossAmount-N$NeutralColonyDensity-R$OriginalSurfaceRelations-O$PreventColonyOverlapping-C$AntsWeight-$BeetlesWeight-$ScorpionsWeight-$SpidersWeight-$WaspsWeight-S$($StartingColonyShares -join '-')$(if ($StartingColonyMode -eq 'random') { '-random' })"
 }
 [IO.Directory]::CreateDirectory($OutputDirectory) | Out-Null
 $settingsPath = Join-Path $OutputDirectory "settings.json"
 if ((Test-Path -LiteralPath $settingsPath) -and !$Overwrite) {
     throw "Output already exists. Choose a new directory or pass -Overwrite."
 }
-[ordered]@{
+$settings = [ordered]@{
     starting_colony_shares = @(if ($StartingColonyShares.Count -eq 0) { @(0) * $Players } else { $StartingColonyShares })
     schema_version = 10
     preset = "balanced"
@@ -50,7 +52,9 @@ if ((Test-Path -LiteralPath $settingsPath) -and !$Overwrite) {
     original_surface_relations = $OriginalSurfaceRelations
     prevent_colony_overlapping = $PreventColonyOverlapping
     neutral_colony_weights = [ordered]@{ ants = $AntsWeight; beetles = $BeetlesWeight; scorpions = $ScorpionsWeight; spiders = $SpidersWeight; wasps = $WaspsWeight }
-} | ConvertTo-Json | Set-Content -LiteralPath $settingsPath -Encoding utf8
+}
+if ($StartingColonyMode -ne "closest-to-spawn") { $settings.starting_colony_mode = $StartingColonyMode }
+$settings | ConvertTo-Json | Set-Content -LiteralPath $settingsPath -Encoding utf8
 & (Join-Path $PSScriptRoot "Invoke-MapGenerator.ps1") -PlayerSettingsPath $settingsPath `
     -OutputPath (Join-Path $OutputDirectory "map.oramap") -ReportPath (Join-Path $OutputDirectory "report.json") `
     -VerifyRepeatability:$VerifyRepeatability -Overwrite:$Overwrite

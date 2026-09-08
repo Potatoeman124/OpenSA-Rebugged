@@ -107,7 +107,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				var ownership = map.Rules.Actors[SystemActors.World].TraitInfoOrDefault<Traits.World.RmgStartingColonyOwnershipInfo>();
 				var colonyNames = map.ActorDefinitions.Where(node => profile.NeutralColonyActors.Contains(node.Value.Value)).Select(node => node.Key).ToArray();
 				Require(ownership != null && ownership.PlayerShares.SequenceEqual(settings.StartingColonyShares) &&
-					ownership.ColonyActorNames.SequenceEqual(colonyNames), "STARTING_OWNERSHIP_RULE", "Saved startup ownership settings differ from the generated colony pool.");
+					ownership.ColonyActorNames.SequenceEqual(colonyNames) && ownership.ChoiceMode == settings.StartingColonyMode &&
+					(settings.StartingColonyMode != RmgColonyOwnershipMode.Random || ownership.RandomSeed == settings.Seed), "STARTING_OWNERSHIP_RULE", "Saved startup ownership settings differ from the generated colony pool.");
 			}
 			Require(costsAccepted, "NATIVE_COSTS", costMessage);
 			Require(exits == 0, "LOCAL_PRODUCTION_EXITS", $"{exits} exits are blocked or outside playable bounds.");
