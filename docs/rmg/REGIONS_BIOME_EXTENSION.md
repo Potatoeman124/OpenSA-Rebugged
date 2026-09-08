@@ -5,6 +5,9 @@
 Work branch: `codex/rmg-desert-swamp-candy`, from accepted main `bede09e`.
 The user requested Desert, Swamp and Candy using the same Regions generation and existing hostile defaults.
 
+The user accepted the completed extension and authorized merge to main and push to origin on
+2026-09-08. Implementation commit: `bb699f3`. The automated evidence below records the accepted behavior.
+
 The four source tilesets share template IDs 0-100, 2x2 dimensions, frame order 0-3, native terrain types
 and heights. The categories are Clear / Water / Rock / Vegetation, with shared ground speeds 100 / blocked /
 75 / 50 and wasp speeds 100 on all four. The NORMAL water/land transition roles can therefore be used as

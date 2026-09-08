@@ -10,17 +10,18 @@ The RMG must preserve that boundary: it may refer to terrain and actor identifie
 
 ## Current integration checkpoint
 
-The [Regions biome extension](REGIONS_BIOME_EXTENSION.md) is implemented on
-`codex/rmg-desert-swamp-candy`, from main `bede09e`, and ready for in-game review.
+The accepted checkpoint on `main` is **Regions V16 with all four biomes**, configuration 1 /
+player-settings schema 10. The user accepted the [Regions biome extension](REGIONS_BIOME_EXTENSION.md)
+and authorized merge/push on 2026-09-08. Implementation commit `bb699f3` was developed on
+`codex/rmg-desert-swamp-candy` from main `bede09e`.
 The Terrain selector supports **Normal, Desert, Swamp and Candy** for Natural Landscape. All accepted
 RMG options remain available; changing only the theme preserves terrain and actor geometry. Native
 map validation and live-world checks passed for all four themes. Normal remains the default and
-replays the accepted packages exactly. This extension has not yet been accepted or promoted to main.
+replays the accepted packages exactly.
 
-The accepted checkpoint on `main` is **Regions V16**, configuration 1 / player-settings schema 10.
-The user accepted the complete update, including Random ownership, and authorized merge/push on
-2026-09-08. The implementation ends at `4bfcdad`, developed on `codex/rmg-eight-players-colony-weights`
-from the previous main checkpoint `1143fad394ef845fd21ac986b93c3b322f14b25e`.
+The preceding V16 checkpoint, including Random ownership, was accepted and promoted on 2026-09-08.
+Its implementation ends at `4bfcdad`, developed on `codex/rmg-eight-players-colony-weights`
+from main `1143fad394ef845fd21ac986b93c3b322f14b25e`; checkpoint notes were recorded at `bede09e`.
 
 [Regions V16: small maps and starting ownership](NATURAL_REGIONS_V16_STARTING_OWNERSHIP.md)
 provides **64 x 64** maps, per-player starting colony shares, **0-100** ranges for both colony slider
