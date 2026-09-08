@@ -77,6 +77,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public int SchemaVersion { get; init; } = 3;
 		public int MapSize { get; init; } = 128;
 		public RmgPlayerPreset Preset { get; init; } = RmgPlayerPreset.Balanced;
+		public string Tileset { get; init; } = "NORMAL";
 		public ulong Seed { get; init; }
 		public int PlayerCount { get; init; } = 2;
 		public RmgPlayerSymmetry Symmetry { get; init; } = RmgPlayerSymmetry.Automatic;
@@ -129,6 +130,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (SchemaVersion >= 10 && LayoutFamily == RmgPlayerLayoutFamily.NaturalLandscape)
 				json["starting_colony_shares"] = new JArray(StartingColonyShares.Length == 0 ? new int[PlayerCount] : StartingColonyShares);
 
+			if (SchemaVersion >= 10 && Tileset != "NORMAL") json["tileset"] = Tileset;
+
 			// Omit the default so existing V16 settings and generated package identities stay identical.
 			if (SchemaVersion >= 10 && LayoutFamily == RmgPlayerLayoutFamily.NaturalLandscape && StartingColonyMode != RmgColonyOwnershipMode.ClosestToSpawn)
 				json["starting_colony_mode"] = RmgColonyOwnership.ModeName(StartingColonyMode);
@@ -174,7 +177,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				["water_amount"] = RmgPlayerSettingsContract.ParameterLevelName(Normalized.WaterAmount),
 				["tactical_terrain"] = RmgPlayerSettingsContract.ParameterLevelName(Normalized.TacticalTerrain),
 				["original_surface_relations"] = Normalized.OriginalSurfaceRelations,
-				["tileset"] = "NORMAL",
+				["tileset"] = Normalized.Tileset,
 				["size"] = $"{Normalized.MapSize},{Normalized.MapSize}"
 			},
 			["overrides"] = new JArray(Overrides),
@@ -209,6 +212,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		static readonly HashSet<string> AllowedFields = new(new[]
 		{
 			"schema_version",
+			"tileset",
 			"size",
 			"preset",
 			"seed",
@@ -274,6 +278,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var schemaVersion = RequiredInt(json, "schema_version");
 			if (schemaVersion < MinimumSchemaVersion || schemaVersion > SchemaVersion)
 				throw new ArgumentException($"Player settings schema_version must be from {MinimumSchemaVersion} through {SchemaVersion}.");
+			if (json.ContainsKey("tileset") && (schemaVersion < 10 || OptionalText(json, "layout_family", "preset") != "natural-landscape"))
+				throw new ArgumentException("tileset requires schema 10 and Natural Landscape.");
 			if (json.ContainsKey("starting_colony_mode") && (schemaVersion < 10 ||
 				OptionalText(json, "layout_family", "preset") != "natural-landscape"))
 				throw new ArgumentException("starting_colony_mode requires schema 10 and Natural Landscape.");
@@ -330,6 +336,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			return new RmgPlayerSettings
 			{
 				SchemaVersion = schemaVersion,
+				Tileset = RmgBiome.Parse(OptionalText(json, "tileset", "NORMAL")),
 				MapSize = schemaVersion >= 4 ? ParseMapSize(OptionalText(json, "size", "128,128"), schemaVersion >= 10) : 128,
 				Preset = ParsePreset(RequiredText(json, "preset")),
 				Seed = seed,
@@ -357,6 +364,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		{
 			if (requested.SchemaVersion < MinimumSchemaVersion || requested.SchemaVersion > SchemaVersion)
 				throw new ArgumentException($"Player settings schema_version must be from {MinimumSchemaVersion} through {SchemaVersion}.");
+			if (!RmgBiome.IsSupported(requested.Tileset) || (requested.Tileset != "NORMAL" &&
+				(requested.SchemaVersion < 10 || requested.LayoutFamily != RmgPlayerLayoutFamily.NaturalLandscape)))
+				throw new ArgumentException("Additional tilesets require schema 10 and Natural Landscape.");
 			var expandedPlayers = requested.SchemaVersion >= 9 && requested.LayoutFamily == RmgPlayerLayoutFamily.NaturalLandscape;
 			if (expandedPlayers ? requested.PlayerCount < 1 || requested.PlayerCount > 8 : requested.PlayerCount != 2 && requested.PlayerCount != 4)
 				throw new ArgumentException(expandedPlayers ? "Player settings players must be from 1 through 8." : "Player settings players must be 2 or 4.");
@@ -430,6 +440,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var normalized = new RmgGenerationSettings
 			{
 				Seed = requested.Seed,
+				Tileset = requested.Tileset,
 				MapSize = requested.MapSize,
 				PlayerCount = requested.PlayerCount,
 				Symmetry = version is 11 or 12 or 13 or 14 or 15 or 16 ? RmgSymmetry.MirrorHorizontal : symmetry,
@@ -457,6 +468,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					(requested.StartingColonyShares.Length == 0 ? new int[requested.PlayerCount] : (int[])requested.StartingColonyShares.Clone()) : Array.Empty<int>()
 			};
 			var overrides = new List<string>();
+			if (requested.Tileset != "NORMAL") overrides.Add("tileset");
 			if (requested.MapSize != 128)
 				overrides.Add("size");
 			if (requested.Layout != RmgPlayerLayout.Preset)

@@ -83,6 +83,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 	public sealed class RmgGenerationSettings
 	{
+		public string Tileset { get; set; } = "NORMAL";
 		public ulong Seed { get; set; }
 		public int MapSize { get; set; } = 128;
 		public int PlayerCount { get; set; } = 2;
@@ -145,6 +146,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 			if (GeneratorVersion == 16 && StartingColonyMode != RmgColonyOwnershipMode.ClosestToSpawn)
 				fields.Add($"starting-colony-mode={RmgColonyOwnership.ModeName(StartingColonyMode)}");
+
+			if (Tileset != "NORMAL") fields.Add($"tileset={Tileset}");
 
 			if (MapSize != 128)
 				fields.Add($"size={MapSize},{MapSize}");
@@ -279,7 +282,24 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public static RmgProfile Load(ModData modData, RmgGenerationSettings settings)
 		{
 			if (settings.TopologyPreset == RmgTopologyPreset.NaturalRegions && (settings.MapSize is 128 or 256 || (settings.MapSize == 64 && settings.GeneratorVersion == 16)))
-				return Load(modData, $"sa|rmg/normal-natural-regions-v{(settings.GeneratorVersion is 12 or 13 or 14 or 15 or 16 ? settings.GeneratorVersion : 11)}{(settings.MapSize == 128 ? string.Empty : $"-{settings.MapSize}")}.yaml");
+			{
+				var profile = Load(modData, $"sa|rmg/normal-natural-regions-v{(settings.GeneratorVersion is 12 or 13 or 14 or 15 or 16 ? settings.GeneratorVersion : 11)}{(settings.MapSize == 128 ? string.Empty : $"-{settings.MapSize}")}.yaml");
+				if (!RmgBiome.IsSupported(settings.Tileset) || (settings.Tileset != "NORMAL" && settings.GeneratorVersion != 16))
+					throw new ArgumentException("Additional tilesets require Regions V16.");
+				if (settings.Tileset != "NORMAL")
+				{
+					profile.Tileset = settings.Tileset;
+					profile.ProfileId = settings.Tileset.ToLowerInvariant() + profile.ProfileId[6..];
+					var decorations = RmgBiome.Decorations(settings.Tileset);
+					profile.SoilDecorationActors = decorations.Take(2).ToArray();
+					profile.RockDecorationActors = new[] { decorations[2] };
+					profile.VegetationDecorationActors = new[] { decorations[3] };
+					profile.Validate();
+				}
+
+				return profile;
+			}
+
 			if (settings.MapSize == 128)
 				return Load(modData, settings.TopologyPreset);
 			if (settings.MapSize == 256 && settings.TopologyPreset == RmgTopologyPreset.NaturalTerrainV10)
@@ -398,8 +418,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (UsesRegionsTerrain)
 			{
 				var suffix = PlayableWidth == 128 ? string.Empty : $"-{PlayableWidth}";
-				if (ProfileId != $"normal-natural-regions-v{GeneratorVersion}" + suffix || ConfigurationVersion != (GeneratorVersion == 13 ? 4 : 1) ||
-					Tileset != "NORMAL" || (PlayableWidth is not (128 or 256) && !(PlayableWidth == 64 && GeneratorVersion == 16)) || PlayableHeight != PlayableWidth ||
+				if (ProfileId != $"{Tileset.ToLowerInvariant()}-natural-regions-v{GeneratorVersion}" + suffix || ConfigurationVersion != (GeneratorVersion == 13 ? 4 : 1) ||
+					!RmgBiome.IsSupported(Tileset) || (Tileset != "NORMAL" && GeneratorVersion != 16) || (PlayableWidth is not (128 or 256) && !(PlayableWidth == 64 && GeneratorVersion == 16)) || PlayableHeight != PlayableWidth ||
 					LogicalWidth * 2 != PlayableWidth || LogicalHeight != LogicalWidth || CordonWidth != 2 ||
 					ClearTemplateIds.Length == 0 || BlockedTemplateIds.Length == 0 || NeutralColonyActors.Length != 5 ||
 					ColonyCombatSafetyBufferNative != 1 || LandDecorationPerThousand != 3)

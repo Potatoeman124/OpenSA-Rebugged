@@ -488,6 +488,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		{
 			if (settings.MapSize != profile.PlayableWidth || settings.MapSize != profile.PlayableHeight)
 				throw new ArgumentException("Requested map size does not match the generation profile.");
+			if (!RmgBiome.IsSupported(settings.Tileset) || settings.Tileset != profile.Tileset ||
+				(settings.Tileset != "NORMAL" && (settings.GeneratorVersion != 16 || !profile.UsesRegionsTerrain)))
+				throw new ArgumentException("RMG tileset and profile must match the supported Regions contract.");
 			if (settings.GeneratorVersion != profile.GeneratorVersion)
 				throw new ArgumentException($"Generator Version {settings.GeneratorVersion} is not supported by profile {profile.ProfileId}.");
 			if (profile.UsesRegionsTerrain && (settings.TopologyPreset != RmgTopologyPreset.NaturalRegions ||

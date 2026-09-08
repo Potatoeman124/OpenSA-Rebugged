@@ -63,7 +63,7 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 			var size = result.Settings.Size;
 			new Png(native, SpriteFrameType.Indexed8, size, size, colors).Save(Path.Combine(directory, "semantic.png"));
 			new Png(result.Intent, SpriteFrameType.Indexed8, size, size, colors).Save(Path.Combine(directory, "intent.png"));
-			var renderer = new TextureRenderer(modData);
+			var renderer = new TextureRenderer(modData, "NORMAL");
 			renderer.Write(reloaded, Path.Combine(directory, "textures.png"), 0, 0, size, Math.Max(1, size * renderer.CellPixels / 2048));
 			var crops = new JArray();
 			foreach (var (label, x, y) in new[]
@@ -117,7 +117,7 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 				for (var x = 0; x < width; x++)
 					native[y * width + x] = (byte)Enum.Parse<RmgNativeTerrainIntent>(map.GetTerrainInfo(new CPos(x + 2, y + 2)).Type);
 			File.WriteAllBytes(Path.Combine(directory, "semantic.u8"), native);
-			var renderer = new TextureRenderer(modData);
+			var renderer = new TextureRenderer(modData, map.Tileset);
 			renderer.Write(map, Path.Combine(directory, "textures.png"), 0, 0, width, Math.Max(1, width * renderer.CellPixels / 2048));
 			foreach (var (label, x, y) in new[]
 			{
@@ -336,10 +336,10 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 			readonly Color[] palette;
 			public int CellPixels { get; }
 
-			public TextureRenderer(ModData modData)
+			public TextureRenderer(ModData modData, string tileset)
 			{
 				frames = new FrameCache(modData.DefaultFileSystem, modData.SpriteLoaders);
-				terrain = (ITemplatedTerrainInfo)modData.DefaultTerrainInfo["NORMAL"];
+				terrain = (ITemplatedTerrainInfo)modData.DefaultTerrainInfo[tileset];
 				CellPixels = Frames(terrain.Templates.Values.First().Id)[0].Size.Width;
 				palette = new Color[Palette.Size];
 				using var stream = modData.DefaultFileSystem.Open("OpenSA.PAL");

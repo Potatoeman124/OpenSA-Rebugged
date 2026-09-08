@@ -167,3 +167,44 @@ plant_choc_chip:
 		Images: plant_choc_chip_1, plant_choc_chip_2, plant_choc_chip_3
 	EditorOnlyTooltip:
 		Name: Candyland tileset plant.
+
+# Passable RMG counterparts; stock map actors retain their existing footprints.
+rmg_plant_desert_grass:
+	Inherits: plant_desert_grass
+	Building:
+		Footprint: _
+
+rmg_plant_gumnut:
+	Inherits: plant_gumnut
+	Building:
+		Footprint: _
+
+rmg_plant_serata:
+	Inherits: plant_serata
+	Building:
+		Footprint: _
+
+rmg_plant_clover:
+	Inherits: plant_clover
+	Building:
+		Footprint: _
+
+rmg_plant_moon_mushroom:
+	Inherits: plant_moon_mushroom
+	Building:
+		Footprint: _
+
+rmg_plant_moon_flower:
+	Inherits: plant_moon_flower
+	Building:
+		Footprint: _
+
+rmg_plant_jelly_bean:
+	Inherits: plant_jelly_bean
+	Building:
+		Footprint: _
+
+rmg_plant_jaffa:
+	Inherits: plant_jaffa
+	Building:
+		Footprint: _

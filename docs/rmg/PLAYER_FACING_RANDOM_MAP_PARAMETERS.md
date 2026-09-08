@@ -66,6 +66,11 @@ The 128 x 128 baseline remains unchanged. The new 256 x 256 Natural Landscape pr
 
 ### Tileset or biome
 
+**V16 update (2026-09-08):** the [Regions biome extension](REGIONS_BIOME_EXTENSION.md) completes
+the audit and validation for Normal, Desert, Swamp and Candy. All four are selectable for Natural
+Landscape. Their shared template IDs implement the audited identity translation; separate duplicate
+catalogues are unnecessary. The following paragraph records the earlier deferral.
+
 The current audited transition catalogue is NORMAL-specific. Candy, Desert, and Swamp should not be selectable until each tileset has its own terrain-semantic audit, transition catalogue, movement-cost contract, materializer, and validation corpus. A tileset choice is a later feature, not merely an art swap.
 
 ### Teams and faction

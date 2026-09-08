@@ -59,10 +59,10 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			CheckWidgets(output);
 			CheckLobby(utility, output);
 			var results = new JArray();
-			void Run(string id, int size, int[] shares, int[] spawns, int absent = -1, bool empty = false, bool bots = false, ulong seed = 397716241463670640, bool crowded = false, RmgColonyOwnershipMode mode = RmgColonyOwnershipMode.ClosestToSpawn)
+			void Run(string id, int size, int[] shares, int[] spawns, int absent = -1, bool empty = false, bool bots = false, ulong seed = 397716241463670640, bool crowded = false, RmgColonyOwnershipMode mode = RmgColonyOwnershipMode.ClosestToSpawn, string tileset = "NORMAL", bool hostiles = false)
 			{
 				var requested = new RmgPlayerSettings { SchemaVersion = 10, MapSize = size, PlayerCount = shares.Length,
-					Seed = seed, NeutralColonyDensity = crowded ? RmgPlayerColonyDensity.Ultra : RmgPlayerColonyDensity.Standard, LayoutFamily = RmgPlayerLayoutFamily.NaturalLandscape,
+					Seed = seed, Tileset = tileset, NeutralColonyDensity = crowded ? RmgPlayerColonyDensity.Ultra : RmgPlayerColonyDensity.Standard, LayoutFamily = RmgPlayerLayoutFamily.NaturalLandscape,
 					StartingColonyShares = shares, StartingColonyMode = mode, NeutralColonyWeights = empty ? new(0, 0, 0, 0, 0) : new() };
 				var settings = RmgPlayerSettingsContract.Resolve(requested).Normalized;
 				var package = OpenRaRmgMapAdapter.GenerateAndSave(utility.ModData, RmgProfile.Load(utility.ModData, settings),
@@ -72,8 +72,8 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				utility.ModData.MapCache.LoadMap(id + ".oramap", directory, MapClassification.User, utility.ModData.Manifest.Get<MapGrid>(), null);
 				var map = utility.ModData.MapCache[package.EngineUid];
 				if (bots && crowded) CheckServer(utility, map);
-				var first = CheckWorld(utility, map, shares, spawns, absent, bots, Path.Combine(output, id));
-				var second = CheckWorld(utility, map, shares, spawns, absent, bots, null);
+				var first = CheckWorld(utility, map, shares, spawns, absent, bots, Path.Combine(output, id), hostiles);
+				var second = CheckWorld(utility, map, shares, spawns, absent, bots, null, hostiles);
 				Require(JToken.DeepEquals(first, second), id + " changed between identical world initializations.");
 				first["id"] = id;
 				results.Add(first);
@@ -95,17 +95,27 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			Run("random-eight", 256, Enumerable.Repeat(100, 8).ToArray(), new int[8], mode: RmgColonyOwnershipMode.Random);
 			Run("random-empty", 64, new[] { 100 }, new[] { 1 }, empty: true, mode: RmgColonyOwnershipMode.Random);
 			Run("random-zero", 128, new[] { 0, 0 }, new[] { 1, 2 }, mode: RmgColonyOwnershipMode.Random);
+			Run("normal-hostiles", 128, new[] { 0, 10, 50 }, new int[3], bots: true, hostiles: true);
+			foreach (var tileset in RmgBiome.Tilesets.Where(t => t != "NORMAL"))
+			{
+				Run(tileset + "-closest", 128, new[] { 0, 10, 50 }, new int[3], bots: true, tileset: tileset, hostiles: true);
+				Run(tileset + "-random", 256, new[] { 0, 10, 20, 30 }, new int[4], bots: true, seed: 748797295927410807, crowded: true, mode: RmgColonyOwnershipMode.Random, tileset: tileset);
+				Run(tileset + "-solo", 64, new[] { 50 }, new[] { 1 }, mode: RmgColonyOwnershipMode.Random, tileset: tileset);
+				Run(tileset + "-eight", 256, Enumerable.Repeat(100, 8).ToArray(), new int[8], mode: RmgColonyOwnershipMode.Random, tileset: tileset);
+			}
+
 			File.WriteAllText(Path.Combine(output, "verification.json"), new JObject { ["status"] = "PASS", ["cases"] = results }.ToString());
 			Game.Renderer.Dispose();
 		}
 
-		static JObject CheckWorld(Utility utility, MapPreview map, int[] shares, int[] spawns, int absent, bool bots, string screenshot)
+		static JObject CheckWorld(Utility utility, MapPreview map, int[] shares, int[] spawns, int absent, bool bots, string screenshot, bool hostiles)
 		{
 			var manager = new OrderManager(new EchoConnection());
 			foreach (var definition in map.WorldActorInfo.TraitInfos<ILobbyOptions>().Concat(map.PlayerActorInfo.TraitInfos<ILobbyOptions>()).SelectMany(x => x.LobbyOptions(map)))
 				manager.LobbyInfo.GlobalSettings.LobbyOptions[definition.Id] = new Session.LobbyOptionState { Value = definition.DefaultValue };
 			void Set(string key, string value) => manager.LobbyInfo.GlobalSettings.LobbyOptions[key] = new Session.LobbyOptionState { Value = value };
 			foreach (var key in new[] { "creeps", "plants", "flyers", "fog" }) Set(key, "False");
+			if (hostiles) { Set("plants", "True"); Set("flyers", "True"); }
 			Set("h-initial-count", "0");
 			Set("explored", "True");
 			for (var i = 0; i < shares.Length; i++)
@@ -130,6 +140,12 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			typeof(Game).GetField("OrderManager", BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, manager);
 			var world = (World)Activator.CreateInstance(typeof(World), BindingFlags.Instance | BindingFlags.NonPublic,
 				null, new object[] { map.Uid, utility.ModData, manager, WorldType.Regular }, null);
+			string firstPlant = null, firstFlier = null;
+			world.ActorAdded += actor =>
+			{
+				if (HostileOptions.Plants.Contains(actor.Info.Name)) firstPlant ??= actor.Info.Name;
+				if (HostileOptions.Fliers.Contains(actor.Info.Name)) firstFlier ??= actor.Info.Name;
+			};
 			manager.World = world;
 			Game.Renderer.InitializeDepthBuffer(utility.ModData.Manifest.Get<MapGrid>());
 			using var renderer = (WorldRenderer)Activator.CreateInstance(typeof(WorldRenderer), BindingFlags.Instance | BindingFlags.NonPublic,
@@ -166,7 +182,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			}
 			Require(startingActors.Select((a, i) => a == null || a.Owner == players[i]).All(v => v), "Starting colony changed owner.");
 			Require(terrain.SequenceEqual(world.Map.AllCells.Select(c => world.Map.Tiles[c])), "Ownership changed terrain.");
-			var result = new JObject { ["ownership_mode"] = RmgColonyOwnership.ModeName(info.ChoiceMode), ["preview_matches_runtime"] = true, ["ai_opponents"] = bots, ["pool"] = colonies.Length, ["counts"] = new JArray(controller.AssignedCounts),
+			var result = new JObject { ["tileset"] = world.Map.Tileset, ["ownership_mode"] = RmgColonyOwnership.ModeName(info.ChoiceMode), ["preview_matches_runtime"] = true, ["ai_opponents"] = bots, ["pool"] = colonies.Length, ["counts"] = new JArray(controller.AssignedCounts),
 				["starts"] = new JArray(starts.Select(p => $"{p.X},{p.Y}")),
 				["owners"] = new JArray(colonies.Select(a => a.Owner.InternalName)) };
 			var captured = colonies.FirstOrDefault(a => !a.Owner.NonCombatant);
@@ -177,6 +193,22 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				Require(captured.Owner.InternalName == "Neutral", "Setup ownership reapplied after capture.");
 			}
 			if (bots) for (var i = 0; i < 600; i++) Tick();
+			if (hostiles)
+			{
+				for (var i = 0; i < 1600; i++) Tick();
+				var theme = Array.IndexOf(RmgBiome.Tilesets, world.Map.Tileset);
+				var expectedPlant = new[] { "popcorn", "thorn", "puff", "freckle" } [theme];
+				var expectedFlier = new[] { "dragonfly", "fly", "moth", "flying_machine" } [theme];
+				Require(firstPlant == expectedPlant && firstFlier == expectedFlier, $"{world.Map.Tileset} default hostiles mismatch: {firstPlant}/{firstFlier}.");
+				var plantWeights = HostileOptions.Weights(manager.LobbyInfo.GlobalSettings, "plant", world.Map.Tileset);
+				Require(plantWeights.Count(w => w > 0) == 1 && plantWeights[Array.IndexOf(HostileOptions.Plants, expectedPlant)] == 100, "Default biome plant weights changed.");
+				Set("h-plant-0", "77");
+				Set("h-flier-0", "33");
+				Require(RmgBiome.Tilesets.All(t => HostileOptions.Weights(manager.LobbyInfo.GlobalSettings, "plant", t)[0] == 77 && HostileOptions.Weights(manager.LobbyInfo.GlobalSettings, "flier", t)[0] == 33), "Changing biome discarded explicit hostile weights.");
+				result["default_plant"] = firstPlant; result["default_flier"] = firstFlier;
+				Require(terrain.SequenceEqual(world.Map.AllCells.Select(c => world.Map.Tiles[c])), "Hostiles changed generated terrain.");
+			}
+
 			Ui.ResetAll();
 			return result;
 		}
@@ -304,6 +336,18 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			node.Value.Nodes.Add(new MiniYamlNode("Logic", "RmgLobbyLogic"));
 			var lobby = utility.ModData.WidgetLoader.LoadWidget(new WidgetArgs { { "orderManager", manager }, { "skirmishMode", true } }, Ui.Root, node);
 			lobby.Get<ButtonWidget>("RMG_TOGGLE_BUTTON").OnClick();
+			var terrain = lobby.Get<DropDownButtonWidget>("RMG_TERRAIN");
+			foreach (var label in new[] { "Desert", "Swamp", "Candy", "Normal" })
+			{
+				terrain.OnMouseDown(default);
+				var options = Ui.Root.Children.OfType<ScrollPanelWidget>().Last();
+				Require(options.Children.OfType<ScrollItemWidget>().Count() == 4, "Missing playable RMG tileset choices.");
+				options.Children.OfType<ScrollItemWidget>().Single(r => r.Get<LabelWidget>("LABEL").GetText() == label).OnClick();
+				terrain.RemovePanel();
+				Require(terrain.GetText() == label && !lobby.Get<ButtonWidget>("RMG_GENERATE_BUTTON").IsDisabled(), "Terrain choice remains a disabled placeholder.");
+				if (Game.Renderer.Resolution.Width >= 1182 && label != "Normal") Draw(output, "rmg-" + label);
+			}
+
 			var slider = lobby.Get<SliderWidget>("RMG_PLAYERS");
 			Require(slider.MaximumValue == 8 && slider.GetValue() == 4, "Default RMG player range changed.");
 			slider.UpdateValue(8);

@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)][UInt64]$Seed,
+    [ValidateSet("NORMAL", "DESERT", "SWAMP", "CANDY")][string]$Tileset = "NORMAL",
     [ValidateSet(64, 128, 256)][int]$MapSize = 256,
     [ValidateRange(1, 8)][int]$Players = 4,
     [ValidateSet("small", "medium", "high", "extreme", "ultra")][string]$TerrainComplexity = "medium",
@@ -22,6 +23,7 @@ param(
 )
 $ErrorActionPreference = "Stop"
 $StartingColonyMode = $StartingColonyMode.ToLowerInvariant()
+$Tileset = $Tileset.ToUpperInvariant()
 if ($StartingColonyShares.Count -ne 0 -and $StartingColonyShares.Count -ne $Players) {
     throw "StartingColonyShares must have one value per configured player."
 }
@@ -30,7 +32,7 @@ if ($MapSize -eq 64 -and $Players -gt 4) {
 }
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
-    $OutputDirectory = Join-Path $root "artifacts\rmg\regions-v16\$Seed-$MapSize-$Players-$TerrainComplexity-W$WaterAmount-G$GravelMossAmount-N$NeutralColonyDensity-R$OriginalSurfaceRelations-O$PreventColonyOverlapping-C$AntsWeight-$BeetlesWeight-$ScorpionsWeight-$SpidersWeight-$WaspsWeight-S$($StartingColonyShares -join '-')$(if ($StartingColonyMode -eq 'random') { '-random' })"
+    $OutputDirectory = Join-Path $root "artifacts\rmg\regions-v16\$Seed-$MapSize-$Players-$TerrainComplexity-W$WaterAmount-G$GravelMossAmount-N$NeutralColonyDensity-R$OriginalSurfaceRelations-O$PreventColonyOverlapping-C$AntsWeight-$BeetlesWeight-$ScorpionsWeight-$SpidersWeight-$WaspsWeight-S$($StartingColonyShares -join '-')$(if ($StartingColonyMode -eq 'random') { '-random' })$(if ($Tileset -ne 'NORMAL') { '-' + $Tileset })"
 }
 [IO.Directory]::CreateDirectory($OutputDirectory) | Out-Null
 $settingsPath = Join-Path $OutputDirectory "settings.json"
@@ -53,6 +55,7 @@ $settings = [ordered]@{
     prevent_colony_overlapping = $PreventColonyOverlapping
     neutral_colony_weights = [ordered]@{ ants = $AntsWeight; beetles = $BeetlesWeight; scorpions = $ScorpionsWeight; spiders = $SpidersWeight; wasps = $WaspsWeight }
 }
+if ($Tileset -ne "NORMAL") { $settings.tileset = $Tileset }
 if ($StartingColonyMode -ne "closest-to-spawn") { $settings.starting_colony_mode = $StartingColonyMode }
 $settings | ConvertTo-Json | Set-Content -LiteralPath $settingsPath -Encoding utf8
 & (Join-Path $PSScriptRoot "Invoke-MapGenerator.ps1") -PlayerSettingsPath $settingsPath `

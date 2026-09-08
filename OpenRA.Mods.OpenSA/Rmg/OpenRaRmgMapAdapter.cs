@@ -201,6 +201,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (terrainInfo is not ITemplatedTerrainInfo templated)
 				throw new InvalidDataException($"Tileset {profile.Tileset} is not template-based.");
 
+			if (profile.GeneratorVersion == 16) RmgBiome.ValidateCatalogue(modData, profile.Tileset);
+
 			ValidateTemplates(profile.ClearTemplateIds, "Clear");
 			if (profile.UsesClearLandDetails)
 				ValidateTemplates(profile.ClearLandDetailTemplateIds, "Clear");
@@ -237,9 +239,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			void ValidateTransition(NormalWaterTransition transition)
 			{
 				if (!templated.Templates.TryGetValue(transition.TemplateId, out var template))
-					throw new InvalidDataException($"Audited NORMAL transition {transition.TemplateId} does not exist in the active tileset.");
+					throw new InvalidDataException($"Audited {profile.Tileset} transition {transition.TemplateId} does not exist in the active tileset.");
 				if (template.Size.X != 2 || template.Size.Y != 2 || template.TilesCount != 4)
-					throw new InvalidDataException($"Audited NORMAL transition {transition.TemplateId} is not a complete 2x2 macro template.");
+					throw new InvalidDataException($"Audited {profile.Tileset} transition {transition.TemplateId} is not a complete 2x2 macro template.");
 
 				for (var frame = 0; frame < 4; frame++)
 				{
@@ -247,16 +249,16 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					var expected = transition.NativeTerrain[frame].ToString();
 					var actual = tile == null ? "missing" : terrainInfo.TerrainTypes[tile.TerrainType].Type;
 					if (!string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase))
-						throw new InvalidDataException($"Audited NORMAL transition {transition.TemplateId}, frame {frame} is {actual}; expected {expected}.");
+						throw new InvalidDataException($"Audited {profile.Tileset} transition {transition.TemplateId}, frame {frame} is {actual}; expected {expected}.");
 				}
 			}
 
 			void ValidateLandTemplate(NormalLandTemplate landTemplate)
 			{
 				if (!templated.Templates.TryGetValue(landTemplate.TemplateId, out var template))
-					throw new InvalidDataException($"Audited NORMAL land template {landTemplate.TemplateId} does not exist in the active tileset.");
+					throw new InvalidDataException($"Audited {profile.Tileset} land template {landTemplate.TemplateId} does not exist in the active tileset.");
 				if (template.Size.X != 2 || template.Size.Y != 2 || template.TilesCount != 4)
-					throw new InvalidDataException($"Audited NORMAL land template {landTemplate.TemplateId} is not a complete 2x2 macro template.");
+					throw new InvalidDataException($"Audited {profile.Tileset} land template {landTemplate.TemplateId} is not a complete 2x2 macro template.");
 
 				for (var frame = 0; frame < 4; frame++)
 				{
@@ -264,7 +266,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					var expected = landTemplate.NativeTerrain[frame].ToString();
 					var actual = tile == null ? "missing" : terrainInfo.TerrainTypes[tile.TerrainType].Type;
 					if (!string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase))
-						throw new InvalidDataException($"Audited NORMAL land template {landTemplate.TemplateId}, frame {frame} is {actual}; expected {expected}.");
+						throw new InvalidDataException($"Audited {profile.Tileset} land template {landTemplate.TemplateId}, frame {frame} is {actual}; expected {expected}.");
 				}
 			}
 
@@ -300,6 +302,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 			if (profile.UsesRegionsTerrain)
 				map.Title = $"OpenSA Regions C-{RmgPlayerSettingsContract.ComplexityDisplayName(generation.Settings.TerrainComplexity, generation.Settings.GeneratorVersion is 13 or 14 or 15 or 16)} W-{generation.Settings.WaterAmount} G-{generation.Settings.TacticalTerrain} {generation.Settings.Seed}";
+			if (profile.Tileset != "NORMAL") map.Title = profile.Tileset + " " + map.Title;
 			if (generation.Settings.MapSize != 128)
 				map.Title += $" ({generation.Settings.MapSize}x{generation.Settings.MapSize})";
 

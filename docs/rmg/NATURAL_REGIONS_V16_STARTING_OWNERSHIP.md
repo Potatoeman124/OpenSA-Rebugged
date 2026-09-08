@@ -5,7 +5,9 @@
 Player-settings schema **10** selects **Regions V16, configuration 1**, developed on
 `codex/rmg-eight-players-colony-weights` after the accepted V15 implementation `7035e00`.
 The lobby and Regions wrapper select V16. Schemas 1-9 keep their historical results, including
-V15's 0-1000 species weights. NORMAL / Natural Landscape is the supported terrain/layout.
+V15's 0-1000 species weights. The initial accepted checkpoint supports NORMAL / Natural Landscape.
+The subsequent [biome extension](REGIONS_BIOME_EXTENSION.md) enables Desert, Swamp and Candy for
+Natural Landscape using the same V16 ownership contract and an optional schema-10 tileset field.
 
 V16 adds 64 x 64 and Starting Colony Ownership. It lowers both current colony slider groups
 to integer values **0-100**. Terrain calibration, colony placement and native clearances are

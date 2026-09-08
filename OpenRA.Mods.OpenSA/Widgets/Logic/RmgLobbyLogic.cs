@@ -229,8 +229,12 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			BindDropDown(terrainButton,
 				new[]
 				{
-					new Choice<TerrainChoice>(TerrainChoice.Normal, "Normal")
-				}, () => terrain, value => { terrain = value; MarkStale(); });
+					new Choice<TerrainChoice>(TerrainChoice.Normal, "Normal"),
+					new Choice<TerrainChoice>(TerrainChoice.Desert, "Desert"),
+					new Choice<TerrainChoice>(TerrainChoice.Swamp, "Swamp"),
+					new Choice<TerrainChoice>(TerrainChoice.Candy, "Candy")
+				}, () => terrain, value => { terrain = value; MarkStale(); },
+				value => value == TerrainChoice.Normal || layoutFamily == RmgPlayerLayoutFamily.NaturalLandscape);
 
 			sizeButton.GetText = () => SizeDisplayName(size);
 			BindDropDown(sizeButton,
@@ -254,6 +258,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					layoutFamily = value;
 					if (value != RmgPlayerLayoutFamily.NaturalLandscape)
 					{
+						terrain = TerrainChoice.Normal;
 						size = SizeChoice.Standard;
 						playerCount = playerCount <= 2 ? 2 : 4;
 						if (waterAmount > RmgPlayerParameterLevel.High)
@@ -522,8 +527,8 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 
 		string UnsupportedReason()
 		{
-			if (terrain != TerrainChoice.Normal)
-				return $"{TerrainDisplayName(terrain)} terrain is a planned placeholder; NORMAL is currently supported.";
+			if (terrain != TerrainChoice.Normal && layoutFamily != RmgPlayerLayoutFamily.NaturalLandscape)
+				return "Desert, Swamp and Candy require Natural Landscape.";
 			if (size != SizeChoice.Standard && layoutFamily != RmgPlayerLayoutFamily.NaturalLandscape)
 				return "64 x 64 and 256 x 256 require Natural Landscape.";
 			if (layoutFamily == RmgPlayerLayoutFamily.NaturalLandscape ? playerCount < 1 || playerCount > MaximumPlayers : playerCount != 2 && playerCount != 4)
@@ -594,6 +599,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					MapSize = size == SizeChoice.Large ? 256 : size == SizeChoice.Small ? 64 : 128,
 					Preset = preset,
 					Seed = seed,
+					Tileset = terrain.ToString().ToUpperInvariant(),
 					PlayerCount = playerCount,
 					Symmetry = RmgPlayerSymmetry.Automatic,
 					Layout = layoutFamily == RmgPlayerLayoutFamily.NaturalLandscape ? RmgPlayerLayout.Preset :
@@ -642,7 +648,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					var closerColonies = (int?)result.Generation.Map.RegionsReport["neutral_colonies_fallback"] ?? 0;
 					var spacingSummary = closerColonies > 0 ? $" {closerColonies} placed with closer spacing." : string.Empty;
 					SetStatus($"Ready: Regions / {RmgPlayerSettingsContract.ComplexityDisplayName(complexity, true)} ({result.Performance.TotalMilliseconds / 1000d:0.0}s). " +
-						$"Water {100D * water / cells.Length:0.0}%; gravel/moss {100D * gravel / land:0.0}/{100D * moss / land:0.0}% of land; " +
+						$"Water {100D * water / cells.Length:0.0}%; {(terrain == TerrainChoice.Normal ? "gravel/moss" : "surface modifiers")} {100D * gravel / land:0.0}/{100D * moss / land:0.0}% of land; " +
 						$"colonies {placedColonies}/{settingsResolution.Normalized.EffectiveNeutralColonyCount}.{spacingSummary}",
 						result.Generation.Validation.Warnings.Count > 0 ? StatusKind.Warning : StatusKind.Success);
 				}
@@ -785,9 +791,9 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		static string TerrainDisplayName(TerrainChoice value) => value switch
 		{
 			TerrainChoice.Normal => "Normal",
-			TerrainChoice.Desert => "Desert (planned)",
-			TerrainChoice.Swamp => "Swamp (planned)",
-			_ => "Candy (planned)"
+			TerrainChoice.Desert => "Desert",
+			TerrainChoice.Swamp => "Swamp",
+			_ => "Candy"
 		};
 
 		static string SizeDisplayName(SizeChoice value) => value switch

@@ -116,6 +116,34 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			Reject(() => RmgPlayerSettingsContract.Parse(json), "Old JSON schema accepted ownership mode.");
 			randomSettings.StartingColonyMode = (RmgColonyOwnershipMode)99;
 			Reject(() => ValidateSettings(randomProfile, randomSettings), "Direct generator accepted invalid ownership mode.");
+			json["schema_version"] = 10;
+			json["tileset"] = "NORMAL";
+			Check(!RmgPlayerSettingsContract.Parse(json).ToJson().ContainsKey("tileset"), "Explicit NORMAL altered the saved default settings.");
+			foreach (var tileset in RmgBiome.Tilesets)
+			{
+				RmgBiome.ValidateCatalogue(modData, tileset);
+				json["tileset"] = tileset.ToLowerInvariant();
+				var requestedBiome = RmgPlayerSettingsContract.Parse(json);
+				var biome = RmgPlayerSettingsContract.Resolve(requestedBiome).Normalized;
+				var biomeProfile = RmgProfile.Load(modData, biome);
+				Check(biome.Tileset == tileset && biomeProfile.Tileset == tileset, "Tileset did not reach the selected profile.");
+				Check(biome.Canonical(biomeProfile) == RmgPlayerSettingsContract.Resolve(RmgPlayerSettingsContract.Parse(requestedBiome.ToJson())).Normalized.Canonical(biomeProfile), "Biome round trip failed.");
+				var generated = Generate(biomeProfile, biome);
+				Check(generated.LogicalHash == randomResult.LogicalHash && generated.Map.Starts.SequenceEqual(randomResult.Map.Starts) &&
+					generated.Map.Actors.Where(a => a.Role != "decoration-passable").SequenceEqual(randomResult.Map.Actors.Where(a => a.Role != "decoration-passable")), "Changing biome moved terrain, starts or colonies.");
+				Check(generated.Map.Actors.Where(a => a.Role == "decoration-passable").All(a => RmgBiome.Decorations(tileset).Contains(a.Type)), "Biome contains foreign decorations.");
+			}
+
+			foreach (var invalid in new JToken[] { JValue.CreateNull(), new JValue(1), new JValue("ICE"), new JArray("DESERT") })
+			{
+				json["tileset"] = invalid;
+				Reject(() => RmgPlayerSettingsContract.Parse(json), "Invalid tileset JSON accepted.");
+			}
+
+			json["tileset"] = "DESERT";
+			json["schema_version"] = 9;
+			Reject(() => RmgPlayerSettingsContract.Parse(json), "Historical schema accepted a biome.");
+			Reject(() => RmgPlayerSettingsContract.Resolve(new RmgPlayerSettings { SchemaVersion = 10, Tileset = "DESERT", LayoutFamily = RmgPlayerLayoutFamily.StructuredCompetitive }), "Historical layout accepted a biome.");
 			return failures;
 		}
 	}
