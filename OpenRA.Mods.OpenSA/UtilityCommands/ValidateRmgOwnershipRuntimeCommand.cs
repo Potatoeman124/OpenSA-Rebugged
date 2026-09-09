@@ -67,9 +67,9 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			else { CheckWidgets(output); CheckLobby(utility, output); }
 			var results = new JArray();
 			var battlefield = args.Contains("--battlefield");
-			void Run(string id, int size, int[] shares, int[] spawns, int absent = -1, bool empty = false, bool bots = false, ulong seed = 397716241463670640, bool crowded = false, RmgColonyOwnershipMode mode = RmgColonyOwnershipMode.ClosestToSpawn, string tileset = "NORMAL", bool hostiles = false, int axes = 0)
+			void Run(string id, int size, int[] shares, int[] spawns, int absent = -1, bool empty = false, bool bots = false, ulong seed = 397716241463670640, bool crowded = false, RmgColonyOwnershipMode mode = RmgColonyOwnershipMode.ClosestToSpawn, string tileset = "NORMAL", bool hostiles = false, int axes = 0, RmgPlayerSettings options = null)
 			{
-				var requested = new RmgPlayerSettings { SchemaVersion = battlefield ? 12 : axes == 0 ? 10 : 11, MirroringAxes = axes, MapSize = size, PlayerCount = shares.Length,
+				var requested = options ?? new RmgPlayerSettings { SchemaVersion = battlefield ? 12 : axes == 0 ? 10 : 11, MirroringAxes = axes, MapSize = size, PlayerCount = shares.Length,
 					Seed = seed, Tileset = tileset, NeutralColonyDensity = crowded ? RmgPlayerColonyDensity.Ultra : RmgPlayerColonyDensity.Standard, LayoutFamily = battlefield ? RmgPlayerLayoutFamily.ArtificialBattlefield : axes == 0 ? RmgPlayerLayoutFamily.NaturalLandscape : RmgPlayerLayoutFamily.NaturalLandscapePvp,
 					StartingColonyShares = shares, StartingColonyMode = mode, NeutralColonyWeights = empty ? new(0, 0, 0, 0, 0) : new() };
 				var settings = RmgPlayerSettingsContract.Resolve(requested).Normalized;
@@ -95,6 +95,14 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				Run("battlefield-desert", 128, new[] { 0, 10, 20, 30 }, new int[4], bots: true, crowded: true, tileset: "DESERT", hostiles: true);
 				Run("battlefield-swamp", 256, new[] { 40, 80 }, new int[2], seed: 1, bots: true, mode: RmgColonyOwnershipMode.Random, tileset: "SWAMP");
 				Run("battlefield-candy-eight", 512, Enumerable.Repeat(100, 8).ToArray(), new int[8], bots: true, mode: RmgColonyOwnershipMode.Random, tileset: "CANDY");
+				Run("battlefield-review-eight", 256, new int[8], new int[8], bots: true, options: new RmgPlayerSettings
+				{
+					SchemaVersion = 12, LayoutFamily = RmgPlayerLayoutFamily.ArtificialBattlefield,
+					Seed = 104842342679145068, MapSize = 256, PlayerCount = 8, StartingColonyShares = new int[8],
+					BlockShape = RmgBattlefieldBlockShape.Diamonds, LaneWidth = RmgBattlefieldLaneWidth.Wide,
+					TerrainComplexity = Rmg.Reassessment.TerrainComplexity.Ultra, WaterAmount = RmgPlayerParameterLevel.Extreme,
+					TacticalTerrain = RmgPlayerParameterLevel.Extreme, NeutralColonyDensity = RmgPlayerColonyDensity.Sparse
+				});
 			}
 			else if (args.Contains("--pvp"))
 			{

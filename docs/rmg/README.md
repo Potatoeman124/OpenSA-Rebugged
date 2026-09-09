@@ -12,12 +12,14 @@ The RMG must preserve that boundary: it may refer to terrain and actor identifie
 
 [Artificial Battlefield V18](ARTIFICIAL_BATTLEFIELD_V18.md) is implemented on
 `codex/rmg-artificial-battlefield`, pending user in-game review. It replaces the lobby's old Battlefield
-with planned colony plazas, connected clear streets and geometric terrain, adds Block Shape and Lane
-Width, and supports all current biomes/quantities/ownership features with 2/4/8 players.
+with distributed colony plazas, connected ground routes and geometric terrain. Configuration 2 revises
+the rejected four-reservoir plan: complexity subdivides seeded districts, Block Shape also changes route
+corners, and Lane Width changes the protected ground corridor. All current biomes, quantities and
+ownership features remain supported with 2/4/8 players.
 
 Its base is [Natural Landscape PVP](NATURAL_LANDSCAPE_PVP.md), implementation `15f4882`, accepted by the
 user on 2026-09-09. It has not yet been promoted to main. Ordinary Natural Landscape remains the default.
-PVP uses V17/configuration 1/schema 11; the new Battlefield uses V18/configuration 1/schema 12. Older
+PVP uses V17/configuration 1/schema 11; the new Battlefield uses V18/configuration 2/schema 12. Older
 schemas preserve historical generators. Structured Competitive remains retired from the lobby selector.
 The linked documents record the agreed one-layout-at-a-time roadmap and validation evidence.
 

@@ -42,6 +42,14 @@ def schedule():
     add('random-ownership',starting_colony_mode='random')
     add('wasps-only',neutral_colony_weights=dict.fromkeys(COMMON.KEYS,0)|dict(wasps=100))
     add('no-colonies',neutral_colony_weights=dict.fromkeys(COMMON.KEYS,0))
+    # Reproduce the rejected eight-player screenshots, and isolate each control.
+    review=dict(seed='104842342679145068',players=8,neutral_colony_density='sparse',gravel_moss_amount='extreme')
+    for shape in ('rectangles','cut-corners','diamonds'):
+        for level in LEVELS:
+            add('review-'+shape+'-'+level,**review,block_shape=shape,lane_width='narrow',water_amount='extreme',terrain_complexity=level)
+    add('review-diamonds-wide-ultra',**review,block_shape='diamonds',lane_width='wide',water_amount='extreme',terrain_complexity='ultra')
+    add('review-diamonds-wide-small-low',**review,block_shape='diamonds',lane_width='wide',water_amount='low',terrain_complexity='small')
+    add('review-diamonds-small-low',**review,block_shape='diamonds',lane_width='narrow',water_amount='low',terrain_complexity='small')
     cases.extend(c for c in COMMON.schedule() if 'baseline' in c)
     old=ROOT/'artifacts/rmg/natural-pvp/runtime-final'
     for name in ('pvp-desert-six','pvp-candy-eight'):
@@ -68,7 +76,7 @@ def generate(folder,cases):
 
 
 def verify(folder,cases):
-    records=[];maps={};objectives={}
+    records=[];maps={};objectives={};plans={}
     for case in cases:
         out=folder/case['id'];s=case['settings'];r=json.loads((out/'report.json').read_text())
         if 'baseline' in case:
@@ -90,7 +98,7 @@ def verify(folder,cases):
         colonies=[a for a in targets if a[0].endswith('_colony')]
         assert len(targets)-len(colonies)==s['players'] and len(colonies)%s['players']==0,case['id']
         assert all(s['neutral_colony_weights'][t.removesuffix('_colony')]>0 for t,x,y in colonies),case['id']
-        maps[case['id']]=native;objectives[case['id']]=targets
+        maps[case['id']]=native;objectives[case['id']]=targets;plans[case['id']]=g['battlefield_plan']
         records.append(dict(id=case['id'],placed=len(colonies),target=g['neutral_colonies_requested'],generation_ms=r['performance']['logical_generation_ms'],water=g['metrics']['water_percent_map'],gravel=g['metrics']['gravel_percent_land'],moss=g['metrics']['moss_percent_land'],total_surface=g['metrics']['gravel_percent_land']+g['metrics']['moss_percent_land']))
     reference=objectives['cut-corners-medium']
     for case in cases:
@@ -105,7 +113,27 @@ def verify(folder,cases):
     byid={c['id']:c for c in records}
     for field,key,levels in (('water_amount','water',('low','high','extreme','ultra')),('gravel_moss_amount','total_surface',('low','high','extreme','ultra')),('neutral_colony_density','placed',('sparse','dense','extreme','ultra'))):
         values=[byid[field+'-'+level][key] for level in levels];assert values==sorted(values),(field,values)
-    result=dict(status='PASS',accepted_battlefields=len(records),exact_legacy_replays=sum('baseline' in c for c in cases),cases=records)
+    # Require visible changes in actual native surfaces, not just unequal hashes.
+    def changed(a,b):return sum(x!=y for x,y in zip(maps[a],maps[b]))/len(maps[a])
+    response={}
+    for shape in ('rectangles','cut-corners','diamonds'):
+        lo='review-'+shape+'-small';hi='review-'+shape+'-ultra'
+        response[shape+'_small_to_ultra']=changed(lo,hi)
+        assert response[shape+'_small_to_ultra']>=.10,('complexity response too small',shape,response)
+        for level in LEVELS:assert objectives['review-'+shape+'-'+level]==objectives[lo],('lost seed objective continuity',shape,level)
+    for shape in ('rectangles','cut-corners'):
+        response[shape+'_vs_diamonds']=changed('review-'+shape+'-ultra','review-diamonds-ultra')
+        assert response[shape+'_vs_diamonds']>=.03,('shape response too small',shape,response)
+    response['narrow_to_wide']=changed('review-diamonds-ultra','review-diamonds-wide-ultra')
+    assert response['narrow_to_wide']>=.05,('lane response too small',response)
+    response['low_to_extreme_water']=byid['review-diamonds-small']['water']-byid['review-diamonds-small-low']['water']
+    assert response['low_to_extreme_water']>=10,('water coverage response too small',response)
+    assert byid['review-diamonds-wide-ultra']['total_surface']>=20,'Extreme modifiers disappeared behind route reservations'
+    review_colonies=[(x,y) for t,x,y in objectives['review-diamonds-ultra'] if t.endswith('_colony')]
+    response['interior_colonies']=sum(64<=x<192 and 64<=y<192 for x,y in review_colonies)
+    assert response['interior_colonies']>=8,'No full player-sized group of interior objectives'
+    assert plans['review-diamonds-ultra']['protected_land_cells']<plans['review-diamonds-wide-ultra']['protected_land_cells']
+    result=dict(status='PASS',accepted_battlefields=len(records),exact_legacy_replays=sum('baseline' in c for c in cases),control_response=response,cases=records)
     (folder/'verification.json').write_text(json.dumps(result,indent=2));print(json.dumps(result,indent=2))
 
 if __name__=='__main__':

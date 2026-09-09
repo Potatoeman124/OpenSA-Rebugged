@@ -92,7 +92,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			report["mirroring_axes"] = settings.MirroringAxes;
 			report["mirror_orientation"] = settings.MirroringAxes != 1 ? "horizontal-vertical" + (settings.MirroringAxes == 4 ? "-diagonals" : "") : (settings.Seed & 1) == 0 ? "vertical" : "horizontal";
 			report["symmetry_requirement"] = "NATIVE_TERRAIN_STARTS_AND_TYPED_COLONIES";
-			report["strategic_routes_requirement"] = planned == null ? "NOT_REQUIRED" : "CONNECTED_CLEAR_LANE_NETWORK";
+			report["strategic_routes_requirement"] = planned == null ? "NOT_REQUIRED" : "CONNECTED_GROUND_LANE_NETWORK";
 			report["neutral_colonies_requested"] = settings.EffectiveNeutralColonyCount;
 			report["neutral_colonies_density_target"] = settings.NeutralColonyCount;
 			report["neutral_colonies_group_target"] = settings.EffectiveNeutralColonyCount / groupSize * groupSize;

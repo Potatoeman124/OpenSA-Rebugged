@@ -2,156 +2,134 @@
 
 ## Scope and status (2026-09-09)
 
-Branch: `codex/rmg-artificial-battlefield`, based on `15f4882`, the Natural Landscape PVP
-implementation accepted by the user on 2026-09-09. No merge or push was requested for this step.
-This replacement for Artificial Battlefield is **generator 18 / configuration 1 / player schema 12**,
-pending user in-game review. Historical Artificial Battlefield V7 remains available through its older
-settings schemas. Ordinary Natural Landscape V16 and Natural Landscape PVP V17 remain unchanged.
+Branch: `codex/rmg-artificial-battlefield`, based on accepted Natural Landscape PVP `15f4882`.
+The current implementation is **generator 18 / configuration 2 / player schema 12**, pending renewed
+user in-game review. No merge or push was requested. Ordinary Natural Landscape V16 and Natural
+Landscape PVP V17 retain their accepted output; historical V7 remains available through older schemas.
 
-The user requested visibly artificial, geometric terrain, pre-planned colony placement and a field
-built for fair PvP, delegating parameter design. The central design decision is to reserve player
-plazas, colony sites and connected clear lanes before constructing water and slow terrain. This is
-separate from the terrain-first Natural families. Their absence of a global ground-access requirement
-still applies to them; Battlefield has an explicit ground-access and terrain-cost parity requirement.
+The user requested deliberate geometric terrain, pre-planned colonies and fair PvP opportunities.
+Their review of configuration 1 rejected the weak response to Block Shape, Lane Width and Complexity:
+seed `104842342679145068`, 256x256, eight players kept four large reservoirs around a straight cross.
+Hash differences and successful gameplay validation did not establish sufficient design variation.
+Configuration 2 replaces that plan, rather than tuning only the old scalar detail strengths.
 
-## Player controls
+## Controls
 
-Select **Layout Family -> Artificial Battlefield**. The two layout-specific controls are:
+Select **Layout Family -> Artificial Battlefield**. Defaults remain **Cut Corners / Standard lanes**;
+ordinary Natural Landscape remains the global RMG default.
 
-| Control | Choices | Effect |
-|---|---|---|
-| Block Shape | Rectangles, Cut Corners, Diamonds | The geometric distance shape used for water and slow-terrain blocks and their subdivisions |
-| Lane Width | Narrow, Standard, Wide | Nominal clear street widths of 6, 10 or 16 native cells, with larger plazas around actors |
+| Control | Effect |
+|---|---|
+| Block Shape: Rectangles | Rectangular terrain compounds and right-angle route corners |
+| Block Shape: Cut Corners | Chamfered terrain compounds and beveled route corners |
+| Block Shape: Diamonds | Diamond distance fields and diagonal route corners |
+| Lane Width: Narrow / Standard / Wide | Nominal protected ground corridors of 6 / 10 / 16 native cells |
+| Terrain Complexity: Small / Medium / High / Extreme / Ultra | 0 / 1 / 2 / 3 / 4 recursive district splits, yielding 1 / 2 / 4 / 8 / 16 blocks per full district; increasing route offsets |
+| Water Amount | Selects water coverage from those blocks; retains 16 / 20 / 24 / 32 / 44 percent targets |
+| Surface Modifiers | Selects gravel/moss coverage, including travel lanes outside colony plazas |
 
-Default Block Shape is **Cut Corners** and Lane Width is **Standard**. The global RMG default stays
-ordinary Natural Landscape. Quantity presets retain the selected Battlefield family.
+The nominal block count describes construction fields, not a guarantee of that many water bodies:
+coverage, reflection, map edges, routes and native tile transitions can split or join visible regions.
 
-Terrain Complexity controls subdivision inside fixed districts, rather than relocating starts or
-colony sites. Low uses the broad blocks; Medium through Ultra add progressively stronger geometric
-substructure. The detail strengths are 0, 0.35, 0.70, 1.20 and 2.00. These are specific to Battlefield;
-the accepted Natural Landscape 2.70/2.60 Ultra calibration is untouched.
+Normal, Desert, Swamp and Candy support 64, 128, 256 and 512 square maps. Battlefield supports 2, 4
+or 8 players, with a four-player cap at 64. Two players use one reflection axis (vertical for even
+seeds, horizontal for odd), four use horizontal/vertical reflection, and eight also use diagonals.
+All starts belong to one symmetry group. Natural families retain their own player limits and controls.
 
-Normal, Desert, Swamp and Candy support 64, 128, 256 and 512 square maps. Battlefield supports **2, 4
-or 8 players**, limited to 2 or 4 at 64. The slider selects those discrete counts. Eight players use
-horizontal, vertical and diagonal symmetry; four use horizontal and vertical symmetry. Two have
-opposite starts and one reflection axis, vertical for even seeds and horizontal for odd seeds. Every
-start belongs to one complete symmetry group. Natural families retain their own player ranges.
+All five quantity levels, colony species weights, overlap prevention, original surface relations,
+starting ownership shares and modes, colored previews, biome hostiles and named map saving apply.
 
-All five levels of Water Amount, Surface Modifiers and Neutral Colony Density remain available,
-along with colony species weights, overlap prevention, original surface relations, both starting
-ownership modes/shares, colored colony previews, biome-specific hostiles and named map saving.
-The retired Battlefield Plan control is replaced by the new controls in this family.
+## Construction and seed continuity
 
-## Construction
+1. **Player plazas:** fix opposite ends for two players, corners for four, or an approximately regular
+   eight-position octagon. Validate the union of possible starting species' footprints, exits and
+   combat spacing. These starting positions match configuration 1.
+2. **Distributed colony plan:** rank complete player-sized groups on an eight-native-cell lattice by
+   distance from starts and previously ranked groups. A seeded tie order preserves repeatability.
+   This spreads candidate opportunities into the interior instead of prioritizing perimeter streets.
+   The existing weighted-species, strict spacing and optional minimum-overlap placement run afterward.
+   Physical footprints, exits and starting protection never relax. Targets round down to complete
+   player-sized groups; actual placement can still be below target.
+3. **Ground routes:** build a minimum spanning network between all objectives and a central junction.
+   Canonicalize each undirected edge under the selected reflections, then route it once and reflect
+   the result. This avoids accumulating multiple independently bent copies of the same connection.
+   Complexity adds local doglegs with offsets up to 0 / 4 / 8 / 12 / 16 native cells, also capped at
+   one quarter of an edge's length. Block Shape controls square, chamfered or diagonal corners.
+   Reflection introduces matching connections and local loops.
+4. **Separate reservations:** colony plazas and the actual footprint/exit union stay clear. Connected
+   routes exclude water but allow gravel and moss, so Surface Modifiers can influence movement costs.
+   Colony plazas do not grow with Lane Width. Both reservations include the complete reflected union
+   because stock actor footprints are not themselves rotated. After materialization, every protected
+   clear cell and every protected ground cell is checked against actual native terrain.
+5. **Nested geometric districts:** the seed fixes district pitch (48 on 64/128 maps, otherwise
+   88/96/104), roles and cut positions. Complexity recursively splits those same districts in alternating
+   directions, with seed-selected 44/48/52/56-percent cuts. Rectangle, chamfer and diamond distance
+   fields shape the resulting blocks. Water and surface quantities select coverage from these fields.
+   Whole-group selections, contact cleanup and the existing native tile banks preserve exact symmetry.
+6. **Finish and validate:** add mirrored passable doodads, write/reload the engine package, and check
+   actual terrain and actors. Ownership applies afterward using the accepted slot/closest/random rules.
 
-1. **Player plazas:** reserve opposite ends for two players, corners for four, or an eight-position
-   approximately regular octagon for eight. Starting positions use fixed native coordinates and are
-   checked against all possible starting species' footprints, production exits and combat envelopes.
-2. **Colony plan:** choose sites from a regular eight-native-cell lattice in complete player-sized
-   groups. Prioritize expansion opportunities about 36 native cells from starts, then proximity to the
-   planned street grid. The seed resolves the remaining order. Draw a species once per group according
-   to the existing weights. Zero-weight exclusions and all-zero disabling still apply.
-3. **Spacing:** use the accepted strict combat-spacing rule first. If overlap prevention is disabled,
-   use the existing minimum-overlap ordering within remaining planned sites. Footprints, exits and
-   starting protections stay mandatory. Targets round down to complete groups and may hit capacity.
-4. **Streets and plazas:** construct an orthogonal street network and outer supply routes, connect
-   every planned objective to it, and reserve clear ground around all actor footprints and exits.
-   Reflect the complete reservation, including asymmetric stock footprint offsets. District spacing
-   is 48 native cells on small maps and seed-selected 80/88/96 on larger maps. Lane Width changes these
-   reservations without relocating the objectives.
-5. **Terrain blocks:** construct deterministic rectangle, chamfered-square or diamond distance fields
-   per district. The seed fixes district roles and shape variation. Complexity adds geometric detail;
-   quantities select coverage from the same fields. All selections and transition cleanup operate on
-   complete reflection groups, using the existing audited native tile materializer and biome mapping.
-6. **Finish:** validate the reserved clear space, add mirrored passable doodads, emit the map, reload
-   it through OpenRA, and validate native gameplay surfaces and actual actors.
+Changing only complexity, shape, width, water, modifiers, surface relations, biome or ownership keeps
+start and colony positions/types fixed. Complexity refines the same district partition, while routes
+bend locally around the fixed objectives. Density, species weights, overlap policy, players, size or
+seed may change the colony plan. Configuration 1 colony placement is deliberately superseded.
 
-Changing only **Block Shape, Lane Width, Terrain Complexity, Water Amount, Surface Modifiers,
-Original Surface Relations, biome or ownership** preserves planned start and colony positions/types.
-Changing density, species weights, overlap policy, players, size or seed can change the colony plan.
-This is deliberate continuity: terrain controls shape the field around an established objective plan.
+Original Surface Relations controls contact rules outside the clear plazas. Moss still uses the stock
+nested gravel envelope. Ground corridors are not guaranteed to be bare dirt or the fastest path.
+The native fairness check includes their actual movement costs. Natural Landscape retains its separate
+policy without a global ground-access requirement.
 
-All plazas remain clear even with Original Surface Relations off. That toggle still controls the
-surface-contact restriction outside the protected plan. Moss remains within the gravel envelope,
-using the accepted tileset grammar. Wider streets and larger colony populations can consume terrain
-capacity. The generator reports actual coverage and displays **Lanes/plazas limit terrain coverage**
-when a requested water/rock/moss target is missed by more than two percentage points. It never moves
-objectives or weakens clearance simply to fill a terrain percentage.
+Routes, physical colony space and legal surface transitions can limit coverage, especially on small or
+crowded maps. The report records actual coverage and percentage-point shortfalls. The lobby displays
+**Routes/plazas/transitions limit coverage** when a target misses by more than two percentage points.
+At 64 with four players there may be no room for neutral colonies; high density on larger maps can also
+reach capacity. Large maps remain the useful setting for judging the full range of geometric detail.
 
-At 64 with four players, the protected plazas and streets can consume the entire map, with no space
-for neutral colonies or modifiers. This is a supported but capacity-limited close-quarters configuration;
-256 is the useful starting size for assessing the full layout. At high colony densities, large maps
-can also reach the planned-site limit or leave very little room for water/modifiers.
+## Validation
 
-## Fairness and access validation
+The native gate verifies exact reflected surfaces, typed colony/start symmetry, zero footprint overlap,
+valid production exits and local colony terrain. It checks that every objective shares ground access
+after neutral buildings and the union of possible starting footprints are applied. Weighted pathing
+then compares each player's sorted travel costs to every colony species pool and other starting anchors.
+This establishes equivalent static terrain opportunities, before asymmetric starting ownership choices;
+it does not claim that every faction matchup or human strategy is equally strong.
 
-The native gate checks exact reflected terrain and typed colony/start positions, zero physical
-footprint overlaps, valid production exits, local terrain requirements, and the stock movement costs.
-It adds two Battlefield checks:
+`Verify-ArtificialBattlefield.py` now contains the rejected screenshot seed, all five complexity levels
+for each shape, width comparisons and isolated water changes. In addition to repeatability and native
+validation, it requires meaningful differences in actual materialized surfaces: at least 10 percent of
+cells between Small and Ultra, 3 percent between the tested shape pairs, and 5 percent between Narrow
+and Wide. It checks an interior objective group, a ten-percentage-point water response and that Extreme
+modifiers remain substantial with Wide lanes. These are regression floors, not a substitute for visual
+inspection. The same matrix replays accepted V16/V17 and historical V7/V8 packages byte for byte.
 
-- All player plazas and neutral-colony objectives must share a ground-access component after actual
-  neutral footprints and the union of all possible starting footprints are applied.
-- Run weighted native terrain pathing once from each starting anchor. Compare the complete sorted
-  distance distribution to each colony species and to the other starting anchors. Every player must
-  have the same reachable cost profile. Costs use the established ground validator's Clear/Rock/Moss
-  and diagonal-step rules. This compares terrain opportunities before static actor obstruction and
-  ownership; occupied access is checked separately above.
+The opt-in runtime command `--validate-sa-rmg-runtime OUTPUT --wide --battlefield` exercises real widgets,
+map saving, lobby/server setup, AI, ownership previews and repeated world startup across all four biomes.
+It also includes the reported eight-player Diamonds/Wide/Ultra setup. Generated evidence stays under
+`artifacts/rmg/artificial-battlefield/`, excluded from version control. No original artwork is committed.
 
-Starting ownership remains a later operation based on lobby slots, selected starts and configured
-Closest to Spawn / Random mode. Unequal shares, factions, teams and runtime hostiles are intentional
-lobby choices, outside the equal-terrain-opportunity guarantee. Native validation does not claim
-balance for every faction matchup or predict dynamic battle behavior.
+Configuration 2 verification results:
 
-## Reproduction
+- `artifacts/rmg/artificial-battlefield/revision-native-01/verification.json`: **65 accepted Battlefield
+  maps**, each generated twice, package-linted and checked against native terrain; **11 exact older
+  package replays**. The largest logical generation time in this local matrix was about 1.28 seconds.
+- On the reported seed with Narrow lanes and Extreme water, Small-to-Ultra changes **25.8-33.5 percent**
+  of native surface cells, depending on shape. Ultra Diamonds versus Cut Corners changes **10.0 percent**;
+  versus Rectangles, **19.8 percent**. Narrow versus Wide changes **25.3 percent**. Low-to-Extreme water
+  at Small complexity changes coverage from **15.2 to 30.4 percent**. These comparisons change only the
+  named control. The five-level strip is `revision-native-01/complexity-comparison.jpg`.
+- The reported Diamonds/Wide/Ultra case now has **29.5 percent water** and **17.3/15.8 percent gravel/moss
+  of land**, compared with configuration 1's 28.1 percent water and 0.5/0.0 gravel/moss. The new spread
+  places 48 of the requested 60 colonies, including an eight-colony interior group; the earlier plan
+  placed 56 around the perimeter. The capacity warning reports this shortfall. The annotated native
+  preview comparison is `revision-native-01/review-comparison.jpg`.
+- `revision-runtime-01/verification.json`: **five passing runtime cases, each initialized twice**,
+  including the reported eight-player map, 64/128/256/512 sizes, all biomes, AI, both ownership modes,
+  actual widget integration, named saved copies and lobby/server startup. Screenshots accompany it.
+- `artifacts/rmg/battlefield-revision-validation.log`: full repository build and runtime-data validation
+  passed. A final style build (`battlefield-revision-style.log`) has the same 236 existing warnings as
+  the preceding checkpoint, with no new warnings. The final Release build has zero warnings/errors,
+  recorded in `battlefield-revision-release-final.log`. Focused settings/ownership regression also passed
+  (`battlefield-revision-ownership.log`).
 
-```powershell
-.\scripts\rmg\Invoke-RegionsMapGenerator.ps1 -Battlefield -Seed 1 -MapSize 256 -Players 2 `
-    -BlockShape diamonds -LaneWidth narrow -Tileset DESERT -StartingColonyShares 40,80 `
-    -StartingColonyMode random -VerifyRepeatability
-
-python scripts/rmg/Verify-ArtificialBattlefield.py artifacts/rmg/artificial-battlefield/native-new
-```
-
-The public wrapper retains its name and all existing arguments; `-Battlefield` selects schema 12.
-It cannot be combined with `-Pvp` or `-MirroringAxes`. The JSON fields are `block_shape`
-(`rectangles`, `cut-corners`, `diamonds`) and `lane_width` (`narrow`, `standard`, `wide`). They require
-schema 12 and explicit `layout_family: artificial-battlefield`. Other families and older schemas reject
-them. Symmetry is derived from the player count; no manual axis field is accepted for Battlefield.
-
-The matrix uses local accepted artifact corpora for preservation cases. `--verify-only` checks an
-existing matrix without generation. The runtime command is
-`OpenRA.Utility.exe sa --validate-sa-rmg-runtime OUTPUT --wide --battlefield`, with the normal local
-engine/runtime environment. It uses isolated worlds/map-save locations and does not save user settings.
-
-## Evidence
-
-- **47 accepted Battlefield maps** and **11 exact older-package replays**, recorded in
-  `artifacts/rmg/artificial-battlefield/native-01/verification.json`. Coverage includes all three
-  shapes, all five complexity and quantity levels, every map size, 2/4/8 players, multiple seeds,
-  all four biomes, disabled/excluded colony species, both ownership modes, and strict/relaxed all-Ultra
-  512 placement. Every package is generated repeatedly, linted and reloaded. Exported native semantics
-  and actor orbits are independently checked. No capacity rejection occurred in this matrix.
-- Tests verify fixed objectives under terrain controls, distinct outputs for all shapes/complexities
-  and lane widths, nondecreasing achieved water/total-modifier/colony coverage as corresponding targets
-  increase, and exact theme-only geometry preservation. Individual gravel coverage can fall as moss
-  occupies more of its envelope; combined modifier coverage is the appropriate quantity comparison.
-- Eleven preservation cases cover seven V16 packages, two V17 packages, historical V7 Artificial
-  Battlefield and V8 Structured Competitive. Map package member contents compare exactly.
-- Live tests cover four biomes, all four sizes, 2/4/8 players, ownership allocation/preview agreement,
-  recoloring and changed spawn choices, saved map copies, hostiles, bots, repeated world initialization,
-  and an actual loopback server start. Real widgets exercise **288 Battlefield settings combinations
-  (99 valid)** plus the existing 96 PVP combinations. Logs and screenshots are under
-  `artifacts/rmg/artificial-battlefield/runtime-final/`.
-- The public PowerShell wrapper and focused existing settings/ownership tests pass. Full repository
-  validation passes with 236 existing Debug style warnings (one fewer than the preceding checkpoint)
-  and no errors. The final Release build has zero warnings/errors. Logs:
-  `battlefield-validation-final.log`, `battlefield-release-final.log`, `battlefield-regression-final.log`
-  and `battlefield-wrapper-final.log` under `artifacts/rmg/`.
-- Typical 256 generation in the matrix is about 0.13-0.16 seconds. The eight-player 512 all-Ultra case
-  takes about 0.45 seconds with strict spacing (592/792 colonies), or 1.04 seconds with relaxed spacing
-  (792/792). Their water coverage is respectively 8.5% and 2.5%, illustrating the terrain-space tradeoff.
-  These are local logical-generation times, excluding package/native validation and long-session play.
-
-Generated maps, images, native exports and reports remain ignored artifacts. No original map or
-artwork is added to version control. The next step is the user's in-game review of this implementation;
-Crossroads and the later layout families remain separate future work.
+Automated fairness and startup checks complement, but do not replace, the user's gameplay review.
+Crossroads, Ring, Divided Lands, Strongholds, Labyrinth and Chaos remain separate future work.

@@ -712,7 +712,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					var closerColonies = (int?)result.Generation.Map.RegionsReport["neutral_colonies_fallback"] ?? 0;
 					var spacingSummary = closerColonies > 0 ? $" {closerColonies} placed with closer spacing." : string.Empty;
 					if (IsBattlefield && result.Generation.Validation.Warnings.Any(w => w.Code == "BATTLEFIELD_TERRAIN_CAPACITY"))
-						spacingSummary += " Lanes/plazas limit terrain coverage.";
+						spacingSummary += " Routes/plazas/transitions limit coverage.";
 					SetStatus($"Ready: {(IsBattlefield ? "Battlefield" : "Regions")} / {RmgPlayerSettingsContract.ComplexityDisplayName(complexity, true)} ({result.Performance.TotalMilliseconds / 1000d:0.0}s). " +
 						$"Water {100D * water / cells.Length:0.0}%; {(terrain == TerrainChoice.Normal ? "gravel/moss" : "surface modifiers")} {100D * gravel / land:0.0}/{100D * moss / land:0.0}% of land; " +
 						$"colonies {placedColonies}/{settingsResolution.Normalized.EffectiveNeutralColonyCount}.{spacingSummary}",

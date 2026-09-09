@@ -14,7 +14,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 	public static partial class RmgGenerator
 	{
 		sealed record BattlefieldPlan(List<RmgPoint> Starts, RmgActorPlan[] Colonies, int StrictCount,
-			long Evaluations, string[] DrawnTypes, bool[] Clear, TerrainComparisonFields Fields, JObject Report);
+			long Evaluations, string[] DrawnTypes, bool[] Clear, bool[] Land, TerrainComparisonFields Fields, JObject Report);
 
 		static RmgGenerationResult GenerateArtificialBattlefield(RmgProfile profile, RmgGenerationSettings settings)
 		{
@@ -28,7 +28,10 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var terrain = TerrainComparison.Generate(Game.ModData, terrainSettings, fields: plan.Fields);
 			for (var i = 0; i < plan.Clear.Length; i++)
 				if (plan.Clear[i] && TerrainComparison.Native(terrain.Map, i % settings.MapSize, i / settings.MapSize) != RmgNativeTerrainIntent.Clear)
-					throw new InvalidOperationException("Battlefield materialization changed a planned clear lane or colony plaza.");
+					throw new InvalidOperationException("Battlefield materialization changed a planned colony plaza.");
+			for (var i = 0; i < plan.Land.Length; i++)
+				if (plan.Land[i] && TerrainComparison.Native(terrain.Map, i % settings.MapSize, i / settings.MapSize) == RmgNativeTerrainIntent.Water)
+					throw new InvalidOperationException("Battlefield materialization blocked a planned ground route.");
 			var result = CompleteMirroredRegions(profile, settings, terrain, null, plan);
 			result.Map.RegionsReport["characteristic_scale_native"] = plan.Report["district_pitch_native"];
 			result.Map.RegionsReport["experiment_id"] = "artificial-battlefield-v18";
@@ -43,7 +46,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			};
 			plan.Report["terrain_shortfalls"] = shortfalls;
 			if (shortfalls.Properties().Any(p => (double)p.Value > 2))
-				result.Validation.Warnings.Add(new RmgValidationIssue("BATTLEFIELD_TERRAIN_CAPACITY", "Planned clear lanes and colony plazas limit the requested water or surface coverage."));
+				result.Validation.Warnings.Add(new RmgValidationIssue("BATTLEFIELD_TERRAIN_CAPACITY", "Ground routes, colony plazas and surface transitions limit the requested terrain coverage."));
 			return result;
 		}
 
@@ -66,99 +69,79 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (!sites.NativeOrbitFits(null, starts) || starts.SelectMany((p, i) => starts.Skip(i + 1).Select(q => profile.ColonyCombatRules.StartMarginAtNative(p, q))).Any(m => m < 0))
 				throw new RmgGenerationRejectedException("BATTLEFIELD_STARTS", "This map size cannot safely fit the planned player plazas.");
 			sites.ReserveNativeOrbit(null, starts);
-			var pitch = size <= 128 ? 48 : 80 + 8 * (int)(TerrainComparison.Mix(settings.Seed, 1801) % 3);
-			var streets = Enumerable.Range(-size / pitch, 2 * (size / pitch) + 1).Select(k => center + k * pitch)
-				.Where(c => c >= margin && c <= size - 1 - margin).Concat(new[] { margin, size - 1D - margin }).Distinct().ToArray();
-			double StreetDistance(double value) => streets.Min(c => Math.Abs(c - value));
-			var candidates = Enumerable.Range(0, size * size)
-				.Where(i => RmgMirroring.Canonical(i, size, settings.MirroringAxes, settings.Seed) == i)
-				.Select(i => new RmgPoint(i % size, i / size))
-				.Where(p => p.X >= 8 && p.Y >= 8 && p.X < size - 8 && p.Y < size - 8 &&
-					(size / 2 - 1 - Math.Min(p.X, size - 1 - p.X)) % 8 == 0 && (size / 2 - 1 - Math.Min(p.Y, size - 1 - p.Y)) % 8 == 0)
-				.Select(p => RmgMirroring.Points(p, size, settings.MirroringAxes, settings.Seed)).Where(o => o.Length == settings.PlayerCount)
-				.OrderBy(o => Math.Abs(Math.Sqrt(starts.Min(s => RegionDistanceSquared(s, o[0]))) - 36) < 12 ? 0 : 1)
-				.ThenBy(o => StreetDistance(o[0].X) + StreetDistance(o[0].Y))
-				.ThenBy(o => TerrainComparison.Mix(settings.Seed, (ulong)(1802 + o[0].Y * size + o[0].X))).ToArray();
+			var pitch = size <= 128 ? 48 : 88 + 8 * (int)(TerrainComparison.Mix(settings.Seed, 1801) % 3);
+			var candidates = OrderBattlefieldSites(settings, starts);
 			PlaceMirroredColonies(blank, profile, settings, sites, candidates, starts, out var strict, out var evaluations, out var types);
 			var colonies = blank.Actors.ToArray();
 			var planningMs = timer.Elapsed.TotalMilliseconds;
-			var clear = new bool[size * size];
-			var half = RmgBattlefieldParameters.Width(settings.LaneWidth) / 2;
-			void Box(int left, int top, int right, int bottom)
-			{
-				for (var y = Math.Max(0, top); y <= Math.Min(size - 1, bottom); y++)
-					for (var x = Math.Max(0, left); x <= Math.Min(size - 1, right); x++) clear[y * size + x] = true;
-			}
-
-			foreach (var street in streets)
-			{
-				Box((int)Math.Ceiling(street - half), 0, (int)Math.Floor(street + half), size - 1);
-				Box(0, (int)Math.Ceiling(street - half), size - 1, (int)Math.Floor(street + half));
-			}
-
-			foreach (var point in starts.Concat(colonies.Select(RmgMirroring.Native)))
-			{
-				var radius = half + (starts.Contains(point) ? 8 : 3);
-				Box(point.X - radius, point.Y - radius, point.X + radius, point.Y + radius);
-				var x = (int)Math.Round(streets.OrderBy(c => Math.Abs(c - point.X)).First());
-				var y = (int)Math.Round(streets.OrderBy(c => Math.Abs(c - point.Y)).First());
-				Box(Math.Min(x, point.X), point.Y - half, Math.Max(x, point.X), point.Y + half);
-				Box(point.X - half, Math.Min(y, point.Y), point.X + half, Math.Max(y, point.Y));
-			}
-
-			// Include actual species footprints/exits and mirror the union, because actor
-			// artwork/footprint orientation itself is not rotated by OpenRA.
-			foreach (var cell in sites.ReservedCells) Box(cell.X - 2, cell.Y - 2, cell.X + 2, cell.Y + 2);
-			var original = (bool[])clear.Clone();
-			for (var i = 0; i < clear.Length; i++)
-				if (original[i]) foreach (var member in RmgMirroring.Orbit(i, size, settings.MirroringAxes, settings.Seed)) clear[member] = true;
-			var fields = BattlefieldFields(settings, clear, pitch);
+			var (clear, land, routes) = BattlefieldLanes(settings, starts, colonies, sites);
+			var fields = BattlefieldFields(settings, clear, land, pitch);
 			var report = new JObject
 			{
 				["actor_planning_ms"] = planningMs,
 				["block_shape"] = RmgBattlefieldParameters.Name(settings.BlockShape), ["lane_width"] = RmgBattlefieldParameters.Name(settings.LaneWidth),
-				["lane_width_native"] = 2 * half, ["district_pitch_native"] = pitch,
+				["lane_width_native"] = RmgBattlefieldParameters.Width(settings.LaneWidth), ["district_pitch_native"] = pitch,
+				["subdivision_depth"] = BattlefieldDepth(settings.TerrainComplexity),
+				["blocks_per_district"] = 1 << BattlefieldDepth(settings.TerrainComplexity),
 				["planned_starts"] = new JArray(starts.Select(p => p.ToString())), ["planned_colony_sites"] = colonies.Length,
 				["planned_site_candidates"] = candidates.Length, ["protected_clear_cells"] = clear.Count(c => c),
-				["placement_order"] = "PLAYER_PLAZAS_COLONIES_LANES_THEN_TERRAIN",
+				["protected_land_cells"] = land.Count(c => c),
+				["placement_order"] = "DISTRIBUTED_OBJECTIVES_CONNECTED_ROUTES_SUBDIVIDED_BLOCKS",
+				["routes"] = routes, ["construction_revision"] = 2,
 				["fairness_scope"] = "EQUAL_TERRAIN_TRAVEL_COSTS_TO_TYPED_COLONY_POOLS_BEFORE_OWNERSHIP"
 			};
-			return new BattlefieldPlan(starts, colonies, strict, evaluations, types, clear, fields, report);
+			return new BattlefieldPlan(starts, colonies, strict, evaluations, types, clear, land, fields, report);
 		}
 
-		static TerrainComparisonFields BattlefieldFields(RmgGenerationSettings settings, bool[] clear, int pitch)
+		static TerrainComparisonFields BattlefieldFields(RmgGenerationSettings settings, bool[] clear, bool[] land, int pitch)
 		{
 			var size = settings.MapSize;
 			var width = size / 2;
 			var center = (size - 1) / 2D;
-			var detail = settings.TerrainComplexity switch
-			{
-				TerrainComplexity.Low => 0D, TerrainComplexity.Standard => .35, TerrainComplexity.High => .7,
-				TerrainComplexity.Extreme => 1.2, _ => 2D
-			};
-			double Norm(double x, double y) => settings.BlockShape switch
-			{
-				RmgBattlefieldBlockShape.Rectangles => Math.Max(Math.Abs(x), Math.Abs(y)),
-				RmgBattlefieldBlockShape.Diamonds => Math.Abs(x) + Math.Abs(y),
-				_ => Math.Max(Math.Max(Math.Abs(x), Math.Abs(y)), .72 * (Math.Abs(x) + Math.Abs(y)))
-			};
+			var depth = BattlefieldDepth(settings.TerrainComplexity);
 			double Priority(double x, double y, bool geology)
 			{
 				var bx = (int)Math.Floor((x - center) / pitch); var by = (int)Math.Floor((y - center) / pitch);
-				var dx = (x - center) / pitch - bx - .5; var dy = (y - center) / pitch - by - .5;
 				var salt = TerrainComparison.Mix(settings.Seed, (ulong)(1803 + (bx + 32) * 128 + by + 32));
-				var radius = .29 + salt % 5 * .025;
-				var broad = Norm(dx / radius, dy / radius);
-				var fine = Norm((Math.Abs(dx) - .20) / .13, (Math.Abs(dy) - .20) / .13);
+				var left = center + bx * pitch; var top = center + by * pitch;
+				double w = pitch, h = pitch;
+
+				// All levels refine the same seed-fixed districts. Cuts alternate direction;
+				// their positions are independent of the selected final subdivision depth.
+				for (var d = 0; d < depth; d++)
+				{
+					var fraction = .44 + (salt >> (d * 3) & 3) * .04;
+					if ((d + (int)(salt & 1)) % 2 == 0)
+					{
+						var cut = w * fraction;
+						if (x < left + cut) w = cut;
+						else { left += cut; w -= cut; }
+					}
+					else
+					{
+						var cut = h * fraction;
+						if (y < top + cut) h = cut;
+						else { top += cut; h -= cut; }
+					}
+				}
+
+				var dx = (x - left - w / 2) / Math.Max(3, w / 2 - 2);
+				var dy = (y - top - h / 2) / Math.Max(3, h / 2 - 2);
+				var norm = settings.BlockShape switch
+				{
+					RmgBattlefieldBlockShape.Rectangles => Math.Max(Math.Abs(dx), Math.Abs(dy)),
+					RmgBattlefieldBlockShape.Diamonds => (Math.Abs(dx) + Math.Abs(dy)) / Math.Sqrt(2),
+					_ => Math.Max(Math.Max(Math.Abs(dx), Math.Abs(dy)), .70 * (Math.Abs(dx) + Math.Abs(dy)))
+				};
 				var district = salt % 3 == 0;
-				return -broad + (geology ? (district ? -1.0 : .5) : (district ? 1.2 : 0)) + detail * Math.Max(-1.5, 1 - fine) + salt % 7 * .045;
+				return -norm + (geology ? (district ? -.3 : .3) : (district ? .3 : 0)) + salt % 7 * .025;
 			}
 
-			bool Protected(int x, int y, int radius)
+			bool Protected(bool[] mask, int x, int y, int radius)
 			{
 				for (var py = Math.Max(0, y - radius); py <= Math.Min(size - 1, y + radius); py++)
 					for (var px = Math.Max(0, x - radius); px <= Math.Min(size - 1, x + radius); px++)
-						if (clear[py * size + px]) return true;
+						if (mask[py * size + px]) return true;
 				return false;
 			}
 
@@ -168,7 +151,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			{
 				var canonical = RmgMirroring.Canonical(i, width, settings.MirroringAxes, settings.Seed);
 				water[i] = Priority(2 * (canonical % width) + .5, 2 * (canonical / width) + .5, false);
-				waterAllowed[i] = !Protected(2 * (i % width), 2 * (i / width), 2);
+				waterAllowed[i] = !Protected(land, 2 * (i % width), 2 * (i / width), 2);
 			}
 
 			for (var i = 0; i < geology.Length; i++)
@@ -176,7 +159,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				var canonical = RmgMirroring.Canonical(i, lattice, settings.MirroringAxes, settings.Seed);
 				var x = 2 * (canonical % lattice) - .5; var y = 2 * (canonical / lattice) - .5;
 				geology[i] = Priority(x, y, true); moisture[i] = Priority(x + pitch / 3D, y + pitch / 3D, true);
-				landAllowed[i] = !Protected(2 * (i % lattice), 2 * (i / lattice), 2);
+				landAllowed[i] = !Protected(clear, 2 * (i % lattice), 2 * (i / lattice), 2);
 			}
 
 			return new TerrainComparisonFields(water, geology, moisture, waterAllowed, landAllowed);
