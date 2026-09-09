@@ -78,6 +78,15 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				Require(rejected, "Invalid PvP schema/family/axes combination accepted.");
 			}
 
+			foreach (var invalid in new[] { ("schema_version", "11"), ("layout_family", "natural-landscape"), ("block_shape", "circles"), ("lane_width", "ultra"), ("mirroring_axes", "1") })
+			{
+				var requested = new RmgPlayerSettings { SchemaVersion = 12, LayoutFamily = RmgPlayerLayoutFamily.ArtificialBattlefield }.ToJson();
+				requested[invalid.Item1] = invalid.Item1 is "schema_version" or "mirroring_axes" ? new Newtonsoft.Json.Linq.JValue(int.Parse(invalid.Item2)) : new Newtonsoft.Json.Linq.JValue(invalid.Item2);
+				var rejected = false;
+				try { RmgPlayerSettingsContract.Resolve(RmgPlayerSettingsContract.Parse(requested)); } catch (ArgumentException) { rejected = true; }
+				Require(rejected, "Invalid Battlefield field/schema accepted: " + invalid.Item1);
+			}
+
 			var manager = new OrderManager(new EchoConnection());
 			manager.LobbyInfo.Clients.Add(new Session.Client { Index = manager.Connection.LocalClientId, IsAdmin = true, State = Session.ClientState.NotReady });
 			typeof(Game).GetField("OrderManager", BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, manager);
@@ -112,19 +121,61 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			slider.UpdateValue(4);
 			Choose("RMG_MIRRORING_AXES", "4 axes (8 sectors)");
 			Require(Settings().PlayerCount == 8 && slider.MinimumValue == 8, "Four axes did not require eight players.");
-			Choose("RMG_SIZE", "512 x 512 (Natural Landscape)");
+			Choose("RMG_SIZE", "512 x 512");
 			Require(Settings().MapSize == 512 && !lobby.Get<ButtonWidget>("RMG_GENERATE_BUTTON").IsDisabled(), "512 PvP generation disabled.");
 			Draw(output, "pvp-512-four-axes");
 			lobby.Get<ButtonWidget>("RMG_COLONY_OWNERSHIP").OnClick();
 			Require(Ui.CurrentWindow().Get<ScrollPanelWidget>("SETTINGS").Children.Count == 8, "Ownership sliders disagree with mirrored player count.");
 			Ui.CurrentWindow().Get<ButtonWidget>("CANCEL").OnClick();
 			lobby.Get<ButtonWidget>("RMG_COLONY_WEIGHTS").OnClick(); Ui.CurrentWindow().Get<ButtonWidget>("CANCEL").OnClick();
-			Choose("RMG_SIZE", "64 x 64 (Natural Landscape)");
+			Choose("RMG_SIZE", "64 x 64");
 			Require(Settings().PlayerCount == 4 && Settings().MirroringAxes == 2 && slider.MaximumValue == 4, "Small-map symmetry cap failed.");
 			Draw(output, "pvp-64-two-axes");
 			Choose("RMG_LAYOUT_FAMILY", "Natural Landscape (Regions)");
 			slider.UpdateValue(1);
 			Require(Settings().GeneratorVersion == 16 && Settings().MirroringAxes == 0 && Settings().PlayerCount == 1 && !lobby.Get("RMG_MIRRORING_AXES").IsVisible(), "Returning to Natural changed the baseline contract.");
+			Choose("RMG_LAYOUT_FAMILY", "Artificial Battlefield");
+			Require(Settings().GeneratorVersion == 18 && Settings().PlayerCount == 2, "Artificial Battlefield did not select the new generator.");
+			Choose("RMG_SIZE", "512 x 512");
+			slider.UpdateValue(1); Require(Settings().PlayerCount == 4, "Battlefield slider middle position is not four players.");
+			slider.UpdateValue(2); Require(Settings().PlayerCount == 8, "Battlefield slider maximum is not eight players.");
+			Choose("RMG_BLOCK_SHAPE", "Diamonds"); Choose("RMG_LANE_WIDTH", "Wide");
+			Choose("RMG_TERRAIN", "Candy"); Choose("RMG_TERRAIN_COMPLEXITY", "Ultra");
+			Require(Settings().BlockShape == RmgBattlefieldBlockShape.Diamonds && Settings().LaneWidth == RmgBattlefieldLaneWidth.Wide && Settings().Tileset == "CANDY", "Battlefield controls do not reach generation settings.");
+			Require(!lobby.Get("RMG_MIRRORING_AXES").IsVisible() && lobby.Get("RMG_BLOCK_SHAPE").IsVisible(), "Wrong family controls visible.");
+			Draw(output, "battlefield-512-options");
+			Choose("RMG_PRESET", "Balanced"); Require(Settings().GeneratorVersion == 18, "Preset selection exited Battlefield.");
+			Choose("RMG_SIZE", "64 x 64"); Require(Settings().PlayerCount == 4 && slider.MaximumValue == 1, "Battlefield small-map cap failed.");
+			lobby.Get<ButtonWidget>("RMG_COLONY_OWNERSHIP").OnClick();
+			Require(Ui.CurrentWindow().Get<ScrollPanelWidget>("SETTINGS").Children.Count == 4, "Battlefield ownership rows disagree with the player count.");
+			Ui.CurrentWindow().Get<ButtonWidget>("CANCEL").OnClick();
+			Draw(output, "battlefield-64-options");
+			Choose("RMG_LAYOUT_FAMILY", "Natural Landscape (Regions)");
+			Require(Settings().GeneratorVersion == 16 && !lobby.Get("RMG_BLOCK_SHAPE").IsVisible(), "Leaving Battlefield changed the Natural baseline.");
+			var battlefieldValid = 0;
+			foreach (var size in new[] { 64, 128, 256, 512 })
+				for (var players = 1; players <= 8; players++)
+					foreach (var shape in Enum.GetValues<RmgBattlefieldBlockShape>())
+						foreach (var lane in Enum.GetValues<RmgBattlefieldLaneWidth>())
+						{
+							var expected = players is 2 or 4 or 8 && players <= (size == 64 ? 4 : 8);
+							var accepted = false;
+							try
+							{
+								var requested = new RmgPlayerSettings
+								{
+									SchemaVersion = 12, LayoutFamily = RmgPlayerLayoutFamily.ArtificialBattlefield, MapSize = size,
+									PlayerCount = players, BlockShape = shape, LaneWidth = lane, Tileset = "SWAMP"
+								};
+								var parsed = RmgPlayerSettingsContract.Resolve(RmgPlayerSettingsContract.Parse(requested.ToJson())).Normalized;
+								accepted = parsed.GeneratorVersion == 18 && parsed.BlockShape == shape && parsed.LaneWidth == lane && parsed.MirroringAxes == RmgBattlefieldParameters.Axes(players);
+							}
+							catch (ArgumentException) { }
+							Require(accepted == expected, $"Battlefield contract disagrees at {size}/{players}/{shape}/{lane}.");
+							if (accepted) battlefieldValid++;
+						}
+
+			Console.WriteLine($"PASS: 288 Battlefield size/player/shape/lane settings ({battlefieldValid} valid), actual Battlefield UI, all modern controls and baseline switching.");
 			Ui.ResetAll();
 			Console.WriteLine($"PASS: 96 size/player/axes combinations ({valid} allowed), invalid axes, actual PvP UI settings, size limits, ownership and baseline switching.");
 		}

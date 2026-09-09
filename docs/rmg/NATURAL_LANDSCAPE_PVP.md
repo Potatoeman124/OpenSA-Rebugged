@@ -3,7 +3,8 @@
 ## Scope and status (2026-09-08)
 
 Implemented on `codex/rmg-natural-landscape-pvp`, from accepted main `e100d92`.
-This is **Regions V17, configuration 1 / player-settings schema 11**, pending user in-game review.
+This is **Regions V17, configuration 1 / player-settings schema 11**, accepted by the user on
+2026-09-09 at implementation `15f4882`. It has not yet been merged or pushed.
 The accepted default remains ordinary Natural Landscape, V16/schema 10. No merge or push is part
 of this implementation step.
 
@@ -17,7 +18,7 @@ connections across the map.
 The user selected the following order of work, with a separate review of each layout:
 
 1. Natural Landscape PVP: this implementation.
-2. Artificial Battlefield: general rework of the existing structured PvP family.
+2. [Artificial Battlefield V18](ARTIFICIAL_BATTLEFIELD_V18.md): implemented next, pending user review.
 3. Crossroads.
 4. Ring.
 5. Divided Lands.
@@ -28,7 +29,7 @@ The user selected the following order of work, with a separate review of each la
 Ordinary Natural Landscape is the finished baseline. Open Battlefield needs no separate family:
 its character can be obtained through Natural Landscape parameters. Structured Competitive is
 removed from the lobby family selector; its historical schema/CLI implementation remains readable
-for exact reproduction of old maps. The other new families above are not implemented in this step.
+for exact reproduction of old maps. The later new families remain future work.
 
 ## Controls
 
@@ -146,4 +147,4 @@ saving into its artifact folder, restores that location, and does not save perso
   are local logical-generation measurements, not a long-session performance or balance claim.
 
 Generated maps, screenshots, native exports and logs remain ignored artifacts. No game artwork or
-map package is added to version control. In-game review of the new layout remains with the user.
+map package is added to version control. The user accepted the in-game result on 2026-09-09; subsequent work is the separate Battlefield rework.

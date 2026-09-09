@@ -10,12 +10,16 @@ The RMG must preserve that boundary: it may refer to terrain and actor identifie
 
 ## Current development
 
-[Natural Landscape PVP](NATURAL_LANDSCAPE_PVP.md) is implemented on
-`codex/rmg-natural-landscape-pvp` from `e100d92`, pending user in-game review. It adds 1/2/4 mirroring
-axes for native terrain, starts and typed colonies, with complete mirrored player groups. All current
-Regions controls remain available. Ordinary Natural Landscape stays the default and preserves V16;
-PVP uses V17/configuration 1/schema 11. Structured Competitive is retired from the lobby selector.
-The linked document records the agreed one-layout-at-a-time roadmap and validation evidence.
+[Artificial Battlefield V18](ARTIFICIAL_BATTLEFIELD_V18.md) is implemented on
+`codex/rmg-artificial-battlefield`, pending user in-game review. It replaces the lobby's old Battlefield
+with planned colony plazas, connected clear streets and geometric terrain, adds Block Shape and Lane
+Width, and supports all current biomes/quantities/ownership features with 2/4/8 players.
+
+Its base is [Natural Landscape PVP](NATURAL_LANDSCAPE_PVP.md), implementation `15f4882`, accepted by the
+user on 2026-09-09. It has not yet been promoted to main. Ordinary Natural Landscape remains the default.
+PVP uses V17/configuration 1/schema 11; the new Battlefield uses V18/configuration 1/schema 12. Older
+schemas preserve historical generators. Structured Competitive remains retired from the lobby selector.
+The linked documents record the agreed one-layout-at-a-time roadmap and validation evidence.
 
 ## Current integration checkpoint
 
@@ -69,7 +73,8 @@ generated-map selection initializes Explored Map On and Fog of War Off; later re
 user changes. With overlap prevention off, the generator fills neutral-colony shortfalls using the smallest
 available turret-spacing overlaps while retaining physical clearance and all player-start protections.
 
-Schema 11 selects V17 for Natural Landscape PVP and preserves V16 for ordinary Natural Landscape.
+Schema 12 selects V18 for explicit Artificial Battlefield.
+Schema 11 and newer select V17 for Natural Landscape PVP and preserve V16 for ordinary Natural Landscape.
 Schema 10 selects V16; schema 9 preserves V15; schema 8 preserves V14; schema 7 preserves [accepted V13 complexity](NATURAL_REGIONS_V13_EXTENDED_OPTIONS.md);
 schema 6 replays [Regions V12](NATURAL_REGIONS_V12_CONTINUITY.md); schema 5 preserves
 [Regions V11](NATURAL_REGIONS_V11.md). Schemas 1-4 retain their historical generator selections, including V10.
@@ -87,7 +92,8 @@ A generated skirmish map must be loadable by the existing OpenSA map pipeline an
 - terrain and actor placement that satisfy native-cell bounds and passability checks; and
 - the standard starting-unit, production, and victory behavior supplied by the existing rules.
 
-Starting colonies are not serialized into reference maps. At runtime, `SpawnStartingUnits` creates the configured base actor at each `mpspawn`, so the generator must provide valid local spawn positions. Regions does not impose cross-map connectivity or competitive fairness parity.
+Starting colonies are not serialized into reference maps. At runtime, `SpawnStartingUnits` creates the configured base actor at each `mpspawn`, so the generator must provide valid local spawn positions. Natural Regions does not impose cross-map connectivity or competitive fairness parity. Artificial
+Battlefield V18 adds its own connected-access and terrain-cost parity checks.
 
 ## Terrain model
 

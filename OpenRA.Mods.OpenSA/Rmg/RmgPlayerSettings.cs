@@ -77,6 +77,10 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		// Keep the 128x128 default and its seed mapping frozen at schema 3.
 		public int SchemaVersion { get; init; } = 3;
 		public int MirroringAxes { get; init; }
+		public RmgBattlefieldBlockShape BlockShape { get; init; } = RmgBattlefieldBlockShape.CutCorners;
+		public RmgBattlefieldLaneWidth LaneWidth { get; init; } = RmgBattlefieldLaneWidth.Standard;
+		public bool IsPlannedBattlefield => SchemaVersion >= 12 && LayoutFamily == RmgPlayerLayoutFamily.ArtificialBattlefield;
+		public bool UsesModernTerrain => LayoutFamily is RmgPlayerLayoutFamily.NaturalLandscape or RmgPlayerLayoutFamily.NaturalLandscapePvp || IsPlannedBattlefield;
 		public int MapSize { get; init; } = 128;
 		public RmgPlayerPreset Preset { get; init; } = RmgPlayerPreset.Balanced;
 		public string Tileset { get; init; } = "NORMAL";
@@ -116,29 +120,31 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (SchemaVersion >= 3)
 			{
 				json["layout_family"] = RmgPlayerSettingsContract.PlayerLayoutFamilyName(LayoutFamily);
-				if (LayoutFamily is RmgPlayerLayoutFamily.NaturalLandscape or RmgPlayerLayoutFamily.NaturalLandscapePvp)
+				if (UsesModernTerrain)
 					json["original_surface_relations"] = OriginalSurfaceRelations;
 			}
 
-			if (SchemaVersion >= 5 && LayoutFamily is RmgPlayerLayoutFamily.NaturalLandscape or RmgPlayerLayoutFamily.NaturalLandscapePvp)
+			if (SchemaVersion >= 5 && UsesModernTerrain)
 				json["terrain_complexity"] = RmgPlayerSettingsContract.ComplexityName(TerrainComplexity, SchemaVersion >= 7);
 
-			if (SchemaVersion >= 8 && LayoutFamily is RmgPlayerLayoutFamily.NaturalLandscape or RmgPlayerLayoutFamily.NaturalLandscapePvp)
+			if (SchemaVersion >= 8 && UsesModernTerrain)
 				json["prevent_colony_overlapping"] = PreventColonyOverlapping;
 
-			if (SchemaVersion >= 9 && LayoutFamily is RmgPlayerLayoutFamily.NaturalLandscape or RmgPlayerLayoutFamily.NaturalLandscapePvp)
+			if (SchemaVersion >= 9 && UsesModernTerrain)
 				json["neutral_colony_weights"] = NeutralColonyWeights.ToJson();
 
-			if (SchemaVersion >= 10 && LayoutFamily is RmgPlayerLayoutFamily.NaturalLandscape or RmgPlayerLayoutFamily.NaturalLandscapePvp)
+			if (SchemaVersion >= 10 && UsesModernTerrain)
 				json["starting_colony_shares"] = new JArray(StartingColonyShares.Length == 0 ? new int[PlayerCount] : StartingColonyShares);
 
 			if (SchemaVersion >= 10 && Tileset != "NORMAL") json["tileset"] = Tileset;
 
 			// Omit the default so existing V16 settings and generated package identities stay identical.
-			if (SchemaVersion >= 10 && LayoutFamily is RmgPlayerLayoutFamily.NaturalLandscape or RmgPlayerLayoutFamily.NaturalLandscapePvp && StartingColonyMode != RmgColonyOwnershipMode.ClosestToSpawn)
+			if (SchemaVersion >= 10 && UsesModernTerrain && StartingColonyMode != RmgColonyOwnershipMode.ClosestToSpawn)
 				json["starting_colony_mode"] = RmgColonyOwnership.ModeName(StartingColonyMode);
 
 			if (LayoutFamily == RmgPlayerLayoutFamily.NaturalLandscapePvp) json["mirroring_axes"] = MirroringAxes;
+
+			if (IsPlannedBattlefield) { json["block_shape"] = RmgBattlefieldParameters.Name(BlockShape); json["lane_width"] = RmgBattlefieldParameters.Name(LaneWidth); }
 
 			if (SchemaVersion >= 4)
 				json["size"] = $"{MapSize},{MapSize}";
@@ -187,31 +193,32 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			["overrides"] = new JArray(Overrides),
 			["warnings"] = new JArray()
 			};
-			if (Normalized.GeneratorVersion is 11 or 12 or 13 or 14 or 15 or 16 or 17)
+			if (Normalized.GeneratorVersion is 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18)
 			{
 				var normalized = (JObject)json["normalized"];
 				normalized.Remove("tactical_terrain");
 				normalized.Remove("symmetry");
 				normalized.Remove("archetype");
 				normalized["gravel_moss_amount"] = RmgPlayerSettingsContract.ParameterLevelName(Normalized.TacticalTerrain);
-				normalized["terrain_complexity"] = RmgPlayerSettingsContract.ComplexityName(Normalized.TerrainComplexity, Normalized.GeneratorVersion is 13 or 14 or 15 or 16 or 17);
+				normalized["terrain_complexity"] = RmgPlayerSettingsContract.ComplexityName(Normalized.TerrainComplexity, Normalized.GeneratorVersion is 13 or 14 or 15 or 16 or 17 or 18);
 			}
-			if (Normalized.GeneratorVersion is 14 or 15 or 16 or 17)
+			if (Normalized.GeneratorVersion is 14 or 15 or 16 or 17 or 18)
 				json["normalized"]["prevent_colony_overlapping"] = Normalized.PreventColonyOverlapping;
-			if (Normalized.GeneratorVersion is 15 or 16 or 17)
+			if (Normalized.GeneratorVersion is 15 or 16 or 17 or 18)
 				json["normalized"]["neutral_colony_weights"] = Normalized.NeutralColonyWeights.ToJson();
-			if (Normalized.GeneratorVersion is 16 or 17)
+			if (Normalized.GeneratorVersion is 16 or 17 or 18)
 				json["normalized"]["starting_colony_shares"] = new JArray(Normalized.StartingColonyShares);
-			if (Normalized.GeneratorVersion is 16 or 17 && Normalized.StartingColonyMode != RmgColonyOwnershipMode.ClosestToSpawn)
+			if (Normalized.GeneratorVersion is 16 or 17 or 18 && Normalized.StartingColonyMode != RmgColonyOwnershipMode.ClosestToSpawn)
 				json["normalized"]["starting_colony_mode"] = RmgColonyOwnership.ModeName(Normalized.StartingColonyMode);
-			if (Normalized.GeneratorVersion == 17) json["normalized"]["mirroring_axes"] = Normalized.MirroringAxes;
+			if (Normalized.GeneratorVersion is 17 or 18) json["normalized"]["mirroring_axes"] = Normalized.MirroringAxes;
+			if (Normalized.GeneratorVersion == 18) { json["normalized"]["block_shape"] = RmgBattlefieldParameters.Name(Normalized.BlockShape); json["normalized"]["lane_width"] = RmgBattlefieldParameters.Name(Normalized.LaneWidth); }
 			return json;
 		}
 	}
 
 	public static class RmgPlayerSettingsContract
 	{
-		public const int SchemaVersion = 11;
+		public const int SchemaVersion = 12;
 		public const int MinimumSchemaVersion = 1;
 
 		static readonly HashSet<string> AllowedFields = new(new[]
@@ -226,6 +233,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			"layout",
 			"layout_family",
 			"mirroring_axes",
+			"block_shape",
+			"lane_width",
 			"original_surface_relations",
 			"prevent_colony_overlapping",
 			"neutral_colony_weights",
@@ -282,30 +291,34 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				throw new ArgumentException($"Unknown player settings field(s): {string.Join(", ", unknown)}.");
 
 			var schemaVersion = RequiredInt(json, "schema_version");
+			var artificial = schemaVersion >= 12 && OptionalText(json, "layout_family", "preset") == "artificial-battlefield";
+			var modern = artificial || OptionalText(json, "layout_family", "preset") is "natural-landscape" or "natural-landscape-pvp";
+			if (!artificial && (json.ContainsKey("block_shape") || json.ContainsKey("lane_width")))
+				throw new ArgumentException("Block Shape and Lane Width require schema 12 and Artificial Battlefield.");
 			if (json.ContainsKey("mirroring_axes") && (schemaVersion < 11 || OptionalText(json, "layout_family", "preset") != "natural-landscape-pvp"))
 				throw new ArgumentException("mirroring_axes requires schema 11 and Natural Landscape PVP.");
 			if (schemaVersion < MinimumSchemaVersion || schemaVersion > SchemaVersion)
 				throw new ArgumentException($"Player settings schema_version must be from {MinimumSchemaVersion} through {SchemaVersion}.");
-			if (json.ContainsKey("tileset") && (schemaVersion < 10 || OptionalText(json, "layout_family", "preset") is not ("natural-landscape" or "natural-landscape-pvp")))
+			if (json.ContainsKey("tileset") && (schemaVersion < 10 || !modern))
 				throw new ArgumentException("tileset requires schema 10 and Natural Landscape.");
 			if (json.ContainsKey("starting_colony_mode") && (schemaVersion < 10 ||
-				OptionalText(json, "layout_family", "preset") is not ("natural-landscape" or "natural-landscape-pvp")))
+				!modern))
 				throw new ArgumentException("starting_colony_mode requires schema 10 and Natural Landscape.");
 			if (json.ContainsKey("starting_colony_shares") && (schemaVersion < 10 ||
-				OptionalText(json, "layout_family", "preset") is not ("natural-landscape" or "natural-landscape-pvp")))
+				!modern))
 				throw new ArgumentException("starting_colony_shares requires schema 10 and Natural Landscape.");
 			if (json.ContainsKey("neutral_colony_weights") && (schemaVersion < 9 ||
-				OptionalText(json, "layout_family", "preset") is not ("natural-landscape" or "natural-landscape-pvp")))
+				!modern))
 				throw new ArgumentException("neutral_colony_weights requires schema 9 and Natural Landscape.");
 			if (json.ContainsKey("prevent_colony_overlapping") && (schemaVersion < 8 ||
-				OptionalText(json, "layout_family", "preset") is not ("natural-landscape" or "natural-landscape-pvp")))
+				!modern))
 				throw new ArgumentException("prevent_colony_overlapping requires schema 8 and Natural Landscape.");
 			if (schemaVersion < 5 && (json.ContainsKey("gravel_moss_amount") || json.ContainsKey("terrain_complexity")))
 				throw new ArgumentException("Gravel/moss amount and terrain complexity require schema 5.");
 			if (schemaVersion >= 5 && json.ContainsKey("tactical_terrain"))
 				throw new ArgumentException("Schema 5 uses gravel_moss_amount instead of tactical_terrain.");
 			if (schemaVersion >= 5 && json.ContainsKey("terrain_complexity") &&
-				OptionalText(json, "layout_family", "preset") is not ("natural-landscape" or "natural-landscape-pvp"))
+				!modern)
 				throw new ArgumentException("Terrain Complexity requires Natural Landscape.");
 			if (schemaVersion == 2)
 			{
@@ -330,7 +343,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (!ulong.TryParse(seedText, NumberStyles.None, CultureInfo.InvariantCulture, out var seed))
 				throw new ArgumentException("Player settings seed must be an unsigned integer encoded as a JSON string or integer.");
 
-			if (schemaVersion < 8 || OptionalText(json, "layout_family", "preset") is not ("natural-landscape" or "natural-landscape-pvp"))
+			if (schemaVersion < 8 || !modern)
 				foreach (var field in new[] { "water_amount", "gravel_moss_amount", "tactical_terrain", "neutral_colony_density" })
 					if (OptionalText(json, field, "preset") is "extreme" or "ultra")
 						throw new ArgumentException("Extreme/Ultra quantities require schema 8 and Natural Landscape.");
@@ -338,12 +351,14 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var layoutFamily = schemaVersion >= 3 ?
 				ParsePlayerLayoutFamily(OptionalText(json, "layout_family", "preset")) :
 				RmgPlayerLayoutFamily.Preset;
-			if (json["original_surface_relations"] != null && layoutFamily is not (RmgPlayerLayoutFamily.NaturalLandscape or RmgPlayerLayoutFamily.NaturalLandscapePvp))
+			if (json["original_surface_relations"] != null && !modern)
 				throw new ArgumentException("Player setting 'original_surface_relations' applies only to Natural Landscape.");
 
 			return new RmgPlayerSettings
 			{
 				SchemaVersion = schemaVersion,
+				BlockShape = RmgBattlefieldParameters.ParseShape(OptionalText(json, "block_shape", "cut-corners")),
+				LaneWidth = RmgBattlefieldParameters.ParseLane(OptionalText(json, "lane_width", "standard")),
 				MirroringAxes = json.ContainsKey("mirroring_axes") ? RequiredInt(json, "mirroring_axes") : layoutFamily == RmgPlayerLayoutFamily.NaturalLandscapePvp ? 1 : 0,
 				Tileset = RmgBiome.Parse(OptionalText(json, "tileset", "NORMAL")),
 				MapSize = schemaVersion >= 4 ? ParseMapSize(OptionalText(json, "size", "128,128"), schemaVersion >= 10) : 128,
@@ -374,13 +389,15 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (requested.SchemaVersion < MinimumSchemaVersion || requested.SchemaVersion > SchemaVersion)
 				throw new ArgumentException($"Player settings schema_version must be from {MinimumSchemaVersion} through {SchemaVersion}.");
 			if (!RmgBiome.IsSupported(requested.Tileset) || (requested.Tileset != "NORMAL" &&
-				(requested.SchemaVersion < 10 || requested.LayoutFamily is not (RmgPlayerLayoutFamily.NaturalLandscape or RmgPlayerLayoutFamily.NaturalLandscapePvp))))
+				(requested.SchemaVersion < 10 || !requested.UsesModernTerrain)))
 				throw new ArgumentException("Additional tilesets require schema 10 and Natural Landscape.");
+			if (requested.IsPlannedBattlefield && requested.PlayerCount is not (2 or 4 or 8)) throw new ArgumentException("Artificial Battlefield supports 2, 4 or 8 players.");
+			RmgBattlefieldParameters.ValidateOptions(requested);
 			var pvp = requested.LayoutFamily == RmgPlayerLayoutFamily.NaturalLandscapePvp;
 			if (pvp && requested.SchemaVersion < 11) throw new ArgumentException("Natural Landscape PVP requires schema 11.");
 			if (!pvp && requested.MirroringAxes != 0) throw new ArgumentException("Mirroring axes apply only to Natural Landscape PVP.");
 			if (pvp) RmgMirroring.Validate(requested.MirroringAxes, requested.MapSize, requested.PlayerCount);
-			var expandedPlayers = requested.SchemaVersion >= 9 && requested.LayoutFamily is RmgPlayerLayoutFamily.NaturalLandscape or RmgPlayerLayoutFamily.NaturalLandscapePvp;
+			var expandedPlayers = requested.SchemaVersion >= 9 && requested.UsesModernTerrain;
 			if (expandedPlayers ? requested.PlayerCount < 1 || requested.PlayerCount > 8 : requested.PlayerCount != 2 && requested.PlayerCount != 4)
 				throw new ArgumentException(expandedPlayers ? "Player settings players must be from 1 through 8." : "Player settings players must be 2 or 4.");
 			if (requested.NeutralColonyWeights == null)
@@ -395,7 +412,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				throw new ArgumentException("Neutral colony weights require schema 9 and Natural Landscape.");
 
 			if ((requested.MapSize != 128 && requested.MapSize != 256 && !(requested.MapSize is 64 or 512 && requested.SchemaVersion >= 10)) ||
-				(requested.MapSize != 128 && (requested.SchemaVersion < 4 || requested.LayoutFamily is not (RmgPlayerLayoutFamily.NaturalLandscape or RmgPlayerLayoutFamily.NaturalLandscapePvp))))
+				(requested.MapSize != 128 && (requested.SchemaVersion < 4 || !requested.UsesModernTerrain)))
 				throw new ArgumentException("64x64 and 512x512 require schema 10 and Natural Landscape; 256x256 requires schema 4 and Natural Landscape. Historical layouts support 128x128.");
 
 			if (requested.MapSize == 64 && requested.PlayerCount > 4)
@@ -438,18 +455,19 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				RmgLayoutFamily.ArtificialBattlefield;
 			var version = layoutFamily switch
 			{
+				RmgLayoutFamily.ArtificialBattlefield when requested.IsPlannedBattlefield => 18,
 				RmgLayoutFamily.NaturalLandscapePvp => 17,
 				RmgLayoutFamily.NaturalLandscape => requested.SchemaVersion >= 10 ? 16 : requested.SchemaVersion >= 9 ? 15 : requested.SchemaVersion >= 8 ? 14 : requested.SchemaVersion >= 7 ? 13 : requested.SchemaVersion >= 6 ? 12 : requested.SchemaVersion >= 5 ? 11 : 10,
 				RmgLayoutFamily.StructuredCompetitive => 8,
 				_ => requested.SchemaVersion >= 2 ? 7 : 6
 			};
-			if (version is 11 or 12 or 13 or 14 or 15 or 16 or 17 && (requested.Layout != RmgPlayerLayout.Preset || requested.Symmetry != RmgPlayerSymmetry.Automatic))
+			if (version is 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18 && (requested.Layout != RmgPlayerLayout.Preset || requested.Symmetry != RmgPlayerSymmetry.Automatic))
 				throw new ArgumentException("Regions has no Battlefield Plan or symmetry setting; use preset layout and automatic symmetry.");
 			if (!Enum.IsDefined(requested.TerrainComplexity) ||
-				(requested.TerrainComplexity > Reassessment.TerrainComplexity.High && version is not (13 or 14 or 15 or 16 or 17)))
+				(requested.TerrainComplexity > Reassessment.TerrainComplexity.High && version is not (13 or 14 or 15 or 16 or 17 or 18)))
 				throw new ArgumentException("Extended Terrain Complexity requires schema 7 and Natural Landscape.");
 			if (!Enum.IsDefined(requested.WaterAmount) || !Enum.IsDefined(requested.TacticalTerrain) ||
-				!Enum.IsDefined(requested.NeutralColonyDensity) || (version is not (14 or 15 or 16 or 17) &&
+				!Enum.IsDefined(requested.NeutralColonyDensity) || (version is not (14 or 15 or 16 or 17 or 18) &&
 				(requested.WaterAmount > RmgPlayerParameterLevel.High || requested.TacticalTerrain > RmgPlayerParameterLevel.High ||
 				requested.NeutralColonyDensity > RmgPlayerColonyDensity.Dense || !requested.PreventColonyOverlapping)))
 				throw new ArgumentException("Extreme/Ultra quantities and relaxed colony spacing require schema 8 and Natural Landscape.");
@@ -459,13 +477,15 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				Tileset = requested.Tileset,
 				MapSize = requested.MapSize,
 				PlayerCount = requested.PlayerCount,
-				Symmetry = version is 11 or 12 or 13 or 14 or 15 or 16 or 17 ? RmgSymmetry.MirrorHorizontal : symmetry,
-				Archetype = version is 11 or 12 or 13 or 14 or 15 or 16 or 17 ? RmgArchetype.Open : archetype,
+				Symmetry = version is 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18 ? RmgSymmetry.MirrorHorizontal : symmetry,
+				Archetype = version is 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18 ? RmgArchetype.Open : archetype,
 				NeutralColonyCount = colonies,
 				GeneratorVersion = version,
-				MirroringAxes = requested.MirroringAxes,
+				MirroringAxes = requested.IsPlannedBattlefield ? RmgBattlefieldParameters.Axes(requested.PlayerCount) : requested.MirroringAxes,
+				BlockShape = requested.BlockShape, LaneWidth = requested.LaneWidth,
 				TopologyPreset = version switch
 				{
+					18 => RmgTopologyPreset.PlannedBattlefield,
 					11 or 12 or 13 or 14 or 15 or 16 or 17 => RmgTopologyPreset.NaturalRegions,
 					10 => RmgTopologyPreset.NaturalTerrainV10,
 					9 => RmgTopologyPreset.NaturalTerrain,
@@ -497,19 +517,19 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (requested.WaterAmount != RmgPlayerParameterLevel.Preset)
 				overrides.Add("water_amount");
 			if (requested.TacticalTerrain != RmgPlayerParameterLevel.Preset)
-				overrides.Add(version is 11 or 12 or 13 or 14 or 15 or 16 or 17 ? "gravel_moss_amount" : "tactical_terrain");
+				overrides.Add(version is 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18 ? "gravel_moss_amount" : "tactical_terrain");
 			if (requested.Symmetry != RmgPlayerSymmetry.Automatic)
 				overrides.Add("symmetry");
 
-			if (version is 11 or 12 or 13 or 14 or 15 or 16 or 17)
+			if (version is 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18)
 				overrides.Add("terrain_complexity");
-			if (version is 14 or 15 or 16 or 17 && !requested.PreventColonyOverlapping)
+			if (version is 14 or 15 or 16 or 17 or 18 && !requested.PreventColonyOverlapping)
 				overrides.Add("prevent_colony_overlapping");
-			if (version is 15 or 16 or 17 && requested.NeutralColonyWeights != new RmgColonyWeights())
+			if (version is 15 or 16 or 17 or 18 && requested.NeutralColonyWeights != new RmgColonyWeights())
 				overrides.Add("neutral_colony_weights");
-			if (version is 16 or 17 && normalized.StartingColonyShares.Any(value => value != 0))
+			if (version is 16 or 17 or 18 && normalized.StartingColonyShares.Any(value => value != 0))
 				overrides.Add("starting_colony_shares");
-			if (version is 16 or 17 && requested.StartingColonyMode != RmgColonyOwnershipMode.ClosestToSpawn)
+			if (version is 16 or 17 or 18 && requested.StartingColonyMode != RmgColonyOwnershipMode.ClosestToSpawn)
 				overrides.Add("starting_colony_mode");
 			var resolution = new RmgPlayerSettingsResolution(requested, normalized, overrides);
 			normalized.PlayerSettingsResolution = resolution;

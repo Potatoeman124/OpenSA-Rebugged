@@ -2,6 +2,9 @@
 param(
     [Parameter(Mandatory = $true)][UInt64]$Seed,
     [switch]$Pvp,
+    [switch]$Battlefield,
+    [ValidateSet("rectangles", "cut-corners", "diamonds")][string]$BlockShape = "cut-corners",
+    [ValidateSet("narrow", "standard", "wide")][string]$LaneWidth = "standard",
     [ValidateSet(1, 2, 4)][int]$MirroringAxes = 1,
     [ValidateSet("NORMAL", "DESERT", "SWAMP", "CANDY")][string]$Tileset = "NORMAL",
     [ValidateSet(64, 128, 256, 512)][int]$MapSize = 256,
@@ -32,13 +35,17 @@ if ($StartingColonyShares.Count -ne 0 -and $StartingColonyShares.Count -ne $Play
 if ($MapSize -eq 64 -and $Players -gt 4) {
     throw "64x64 supports 1 through 4 players."
 }
+if ($Battlefield) {
+    if ($Pvp -or $PSBoundParameters.ContainsKey("MirroringAxes")) { throw "Battlefield cannot be combined with Pvp or MirroringAxes." }
+    if ($Players -notin @(2, 4, 8)) { throw "Artificial Battlefield supports 2, 4 or 8 players." }
+} elseif ($PSBoundParameters.ContainsKey("BlockShape") -or $PSBoundParameters.ContainsKey("LaneWidth")) { throw "BlockShape and LaneWidth require -Battlefield." }
 if ($Pvp) {
     $groupSize = if ($MirroringAxes -eq 4) { 8 } else { 2 * $MirroringAxes }
     if ($Players -lt $groupSize -or $Players % $groupSize -ne 0) { throw "This axis choice requires complete groups of $groupSize players." }
 } elseif ($PSBoundParameters.ContainsKey('MirroringAxes')) { throw "MirroringAxes requires -Pvp." }
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
-    $OutputDirectory = Join-Path $root "artifacts\rmg\$(if ($Pvp) { "regions-v17-pvp" } else { "regions-v16" })\$Seed-$MapSize-$Players-$TerrainComplexity-W$WaterAmount-G$GravelMossAmount-N$NeutralColonyDensity-R$OriginalSurfaceRelations-O$PreventColonyOverlapping-C$AntsWeight-$BeetlesWeight-$ScorpionsWeight-$SpidersWeight-$WaspsWeight-S$($StartingColonyShares -join '-')$(if ($StartingColonyMode -eq 'random') { '-random' })$(if ($Tileset -ne 'NORMAL') { '-' + $Tileset })$(if ($Pvp) { '-axes' + $MirroringAxes })"
+    $OutputDirectory = Join-Path $root "artifacts\rmg\$(if ($Battlefield) { "battlefield-v18" } elseif ($Pvp) { "regions-v17-pvp" } else { "regions-v16" })\$Seed-$MapSize-$Players-$TerrainComplexity-W$WaterAmount-G$GravelMossAmount-N$NeutralColonyDensity-R$OriginalSurfaceRelations-O$PreventColonyOverlapping-C$AntsWeight-$BeetlesWeight-$ScorpionsWeight-$SpidersWeight-$WaspsWeight-S$($StartingColonyShares -join '-')$(if ($StartingColonyMode -eq 'random') { '-random' })$(if ($Tileset -ne 'NORMAL') { '-' + $Tileset })$(if ($Pvp) { '-axes' + $MirroringAxes })$(if ($Battlefield) { '-' + $BlockShape + '-' + $LaneWidth })"
 }
 [IO.Directory]::CreateDirectory($OutputDirectory) | Out-Null
 $settingsPath = Join-Path $OutputDirectory "settings.json"
@@ -47,12 +54,12 @@ if ((Test-Path -LiteralPath $settingsPath) -and !$Overwrite) {
 }
 $settings = [ordered]@{
     starting_colony_shares = @(if ($StartingColonyShares.Count -eq 0) { @(0) * $Players } else { $StartingColonyShares })
-    schema_version = $(if ($Pvp) { 11 } else { 10 })
+    schema_version = $(if ($Battlefield) { 12 } elseif ($Pvp) { 11 } else { 10 })
     preset = "balanced"
     seed = $Seed.ToString([Globalization.CultureInfo]::InvariantCulture)
     size = "$MapSize,$MapSize"
     players = $Players
-    layout_family = $(if ($Pvp) { "natural-landscape-pvp" } else { "natural-landscape" })
+    layout_family = $(if ($Battlefield) { "artificial-battlefield" } elseif ($Pvp) { "natural-landscape-pvp" } else { "natural-landscape" })
     neutral_colony_density = $NeutralColonyDensity
     water_amount = $WaterAmount
     gravel_moss_amount = $GravelMossAmount
@@ -62,6 +69,7 @@ $settings = [ordered]@{
     neutral_colony_weights = [ordered]@{ ants = $AntsWeight; beetles = $BeetlesWeight; scorpions = $ScorpionsWeight; spiders = $SpidersWeight; wasps = $WaspsWeight }
 }
 if ($Pvp) { $settings.mirroring_axes = $MirroringAxes }
+if ($Battlefield) { $settings.block_shape = $BlockShape; $settings.lane_width = $LaneWidth }
 if ($Tileset -ne "NORMAL") { $settings.tileset = $Tileset }
 if ($StartingColonyMode -ne "closest-to-spawn") { $settings.starting_colony_mode = $StartingColonyMode }
 $settings | ConvertTo-Json | Set-Content -LiteralPath $settingsPath -Encoding utf8

@@ -14,7 +14,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 	public static partial class RmgGenerator
 	{
 		static RmgGenerationResult CompleteMirroredRegions(RmgProfile profile, RmgGenerationSettings settings,
-			TerrainComparisonResult terrain, RmgLogicalMap reference)
+			TerrainComparisonResult terrain, RmgLogicalMap reference, BattlefieldPlan planned = null)
 		{
 			var map = terrain.Map;
 			var frozen = TerrainComparison.Hash(TerrainComparison.NativeBytes(map));
@@ -32,8 +32,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				(candidates[i], candidates[j]) = (candidates[j], candidates[i]);
 			}
 
-			var preferred = SelectMirroredStarts(profile, settings, reference, candidates, null, false);
-			var starts = SelectMirroredStarts(profile, settings, map, candidates, preferred, true);
+			var preferred = planned?.Starts ?? SelectMirroredStarts(profile, settings, reference, candidates, null, false);
+			var starts = planned?.Starts ?? SelectMirroredStarts(profile, settings, map, candidates, preferred, true);
 			foreach (var point in starts)
 			{
 				map.Starts.Add(new RmgPoint(point.X / 2, point.Y / 2));
@@ -41,9 +41,20 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			}
 
 			sites.ReserveNativeOrbit(null, starts);
-			var colonyCount = PlaceMirroredColonies(map, profile, settings, sites, candidates, starts,
-				out var strictCount, out var evaluations, out var drawnTypes);
-			var placementMs = timer.Elapsed.TotalMilliseconds;
+			int colonyCount, strictCount;
+			long evaluations;
+			string[] drawnTypes;
+			if (planned == null)
+				colonyCount = PlaceMirroredColonies(map, profile, settings, sites, candidates, starts, out strictCount, out evaluations, out drawnTypes);
+			else
+			{
+				map.Actors.AddRange(planned.Colonies);
+				foreach (var colony in planned.Colonies) sites.ReserveNativeOrbit(colony.Type, new[] { RmgMirroring.Native(colony) });
+				colonyCount = planned.Colonies.Length; strictCount = planned.StrictCount;
+				evaluations = planned.Evaluations; drawnTypes = planned.DrawnTypes;
+			}
+
+			var placementMs = timer.Elapsed.TotalMilliseconds + (planned == null ? 0 : (double)planned.Report["actor_planning_ms"]);
 			timer.Restart();
 			var target = (settings.MapSize * settings.MapSize * profile.LandDecorationPerThousand + 500) / 1000;
 			var decorations = new List<RmgPoint>();
@@ -73,7 +84,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				validation.Warnings.Add(new RmgValidationIssue("NEUTRAL_CAPACITY", $"Placed {colonyCount}/{settings.EffectiveNeutralColonyCount} colonies in complete mirrored groups of {groupSize}."));
 			map.RegionsReport = terrain.Report;
 			var report = map.RegionsReport;
-			report["status"] = "PLAYABLE_REGIONS_V17";
+			report["status"] = planned == null ? "PLAYABLE_REGIONS_V17" : "PLAYABLE_ARTIFICIAL_BATTLEFIELD_V18";
 			report["placement_status"] = "MIRRORED_LOCAL_SITES_VALID";
 			report["terrain_repainted_for_placement"] = false;
 			report["placement_ms"] = placementMs;
@@ -81,7 +92,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			report["mirroring_axes"] = settings.MirroringAxes;
 			report["mirror_orientation"] = settings.MirroringAxes != 1 ? "horizontal-vertical" + (settings.MirroringAxes == 4 ? "-diagonals" : "") : (settings.Seed & 1) == 0 ? "vertical" : "horizontal";
 			report["symmetry_requirement"] = "NATIVE_TERRAIN_STARTS_AND_TYPED_COLONIES";
-			report["strategic_routes_requirement"] = "NOT_REQUIRED";
+			report["strategic_routes_requirement"] = planned == null ? "NOT_REQUIRED" : "CONNECTED_CLEAR_LANE_NETWORK";
 			report["neutral_colonies_requested"] = settings.EffectiveNeutralColonyCount;
 			report["neutral_colonies_density_target"] = settings.NeutralColonyCount;
 			report["neutral_colonies_group_target"] = settings.EffectiveNeutralColonyCount / groupSize * groupSize;
@@ -105,8 +116,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			report["doodads_requested"] = target;
 			report["doodads_placed"] = decorations.Count;
 			report["placement_candidates"] = candidates.Length;
-			report["geography_contract"] = "mirrored-fixed-regions-extended-detail-v17";
-			report["preferred_start_reference"] = "same-axes-v12-low-complexity";
+			report["geography_contract"] = planned == null ? "mirrored-fixed-regions-extended-detail-v17" : "planned-geometric-battlefield-v18";
+			report["preferred_start_reference"] = planned == null ? "same-axes-v12-low-complexity" : "fixed-planned-player-plazas";
+			if (planned != null) report["battlefield_plan"] = planned.Report;
 			report["start_displacement_native"] = new JArray(starts.Select((p, i) => i < preferred.Count ? Math.Sqrt(RegionDistanceSquared(p, preferred[i])) : (double?)null));
 			return new RmgGenerationResult
 			{

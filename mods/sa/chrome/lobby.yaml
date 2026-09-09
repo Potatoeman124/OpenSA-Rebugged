@@ -92,7 +92,7 @@ Background@SERVER_LOBBY:
 					Width: 220
 					Height: 28
 					TooltipContainer: TOOLTIP_CONTAINER
-					TooltipText: Natural layouts support 64, 128, 256 and 512 square maps. 64 supports up to four players; larger sizes support up to eight. PVP requires complete mirrored player groups.
+					TooltipText: All layouts support 64, 128, 256 and 512 square maps. 64 supports up to four players; larger sizes support up to eight. Natural PVP requires mirrored player groups; Artificial Battlefield supports 2, 4 or 8 players.
 				Label@RMG_PLAYERS_LABEL:
 					X: 20
 					Y: 155
@@ -296,6 +296,36 @@ Background@SERVER_LOBBY:
 					Visible: False
 					TooltipContainer: TOOLTIP_CONTAINER
 					TooltipText: Mirror terrain, starting positions and colony types across 1, 2 or 4 axes. Players form groups of 2, 4 or 8. One-axis orientation follows the seed.
+				Label@RMG_BLOCK_SHAPE_LABEL:
+					X: 20
+					Y: 310
+					Width: 150
+					Height: 28
+					Text: Block Shape
+					Visible: False
+				DropDownButton@RMG_BLOCK_SHAPE:
+					X: 175
+					Y: 310
+					Width: 220
+					Height: 28
+					Visible: False
+					TooltipContainer: TOOLTIP_CONTAINER
+					TooltipText: Shape the planned water and surface blocks as rectangles, cut corners or diamonds. Colony sites stay fixed.
+				Label@RMG_LANE_WIDTH_LABEL:
+					X: 430
+					Y: 310
+					Width: 150
+					Height: 28
+					Text: Lane Width
+					Visible: False
+				DropDownButton@RMG_LANE_WIDTH:
+					X: 590
+					Y: 310
+					Width: 220
+					Height: 28
+					Visible: False
+					TooltipContainer: TOOLTIP_CONTAINER
+					TooltipText: Set clear combat lanes to Narrow, Standard or Wide. Wider lanes leave less room for water and surface modifiers.
 				LabelWithTooltip@RMG_STATUS:
 					X: 20
 					Y: 308

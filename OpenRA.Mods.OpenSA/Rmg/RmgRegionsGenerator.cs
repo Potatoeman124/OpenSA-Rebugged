@@ -324,6 +324,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		readonly Dictionary<string, RmgPoint[]> colonies;
 		readonly RmgPoint[] starts;
 		readonly HashSet<RmgPoint> reserved = new();
+		public IEnumerable<RmgPoint> ReservedCells => reserved;
 
 		public RegionsSites(ModData modData, RmgLogicalMap map, bool dirtOnly)
 		{

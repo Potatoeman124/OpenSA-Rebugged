@@ -41,6 +41,8 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 		};
 	}
 
+	public sealed record TerrainComparisonFields(double[] Water, double[] Geology, double[] Moisture, bool[] WaterAllowed, bool[] LandAllowed);
+
 	public sealed class TerrainComparisonResult
 	{
 		public TerrainComparisonSettings Settings { get; init; }
@@ -53,7 +55,7 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 
 	public static partial class TerrainComparison
 	{
-		public static TerrainComparisonResult Generate(ModData modData, TerrainComparisonSettings settings, RmgLogicalMap reference = null)
+		public static TerrainComparisonResult Generate(ModData modData, TerrainComparisonSettings settings, RmgLogicalMap reference = null, TerrainComparisonFields fields = null)
 		{
 			if (settings.Size is not (64 or 128 or 256) && !(settings.Size == 512 && settings.Continuity && settings.Method == TerrainConstruction.Regions))
 				throw new ArgumentException("Terrain comparison supports 64, 128 or 256 native cells; continuous Regions also supports 512.");
@@ -63,7 +65,7 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 				throw new ArgumentException("This construction does not support the requested complexity.");
 			if (settings.Continuity && settings.Method != TerrainConstruction.Regions)
 				throw new ArgumentException("Continuity is supported only by Regions.");
-			if (settings.Continuity && (settings.ExtendedComplexity || settings.Complexity != TerrainComplexity.Low) && reference == null)
+			if (fields == null && settings.Continuity && (settings.ExtendedComplexity || settings.Complexity != TerrainComplexity.Low) && reference == null)
 				reference = Generate(modData, settings.ContinuityReference).Map;
 			var timer = Stopwatch.StartNew();
 			var width = settings.Size / 2;
@@ -71,11 +73,11 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 			var waterFraction = settings.WaterPercent / 100D;
 			var geologyFraction = (settings.GravelPercent + settings.MossPercent) / 100D;
 			var mossFraction = settings.MossPercent / 100D;
-			var water = BuildPriorities(settings, width, width, 2, 11, waterFraction);
-			var geology = BuildPriorities(settings, width + 1, width + 1, 2, 29, geologyFraction);
+			var water = fields?.Water ?? BuildPriorities(settings, width, width, 2, 11, waterFraction);
+			var geology = fields?.Geology ?? BuildPriorities(settings, width + 1, width + 1, 2, 29, geologyFraction);
 			var moistureSettings = settings.Continuity ? settings.ContinuityReference : settings;
-			var moisture = BuildPriorities(moistureSettings, width + 1, width + 1, 2, 53, mossFraction);
-			var waterAllowed = Enumerable.Repeat(true, water.Length).ToArray();
+			var moisture = fields?.Moisture ?? BuildPriorities(moistureSettings, width + 1, width + 1, 2, 53, mossFraction);
+			var waterAllowed = fields?.WaterAllowed ?? Enumerable.Repeat(true, water.Length).ToArray();
 			var waterTarget = (int)Math.Round(water.Length * waterFraction);
 			var waterMask = settings.MirroringAxes == 0 ? Top(water, waterAllowed, waterTarget) :
 				RmgMirroring.Select(water, waterAllowed, width, waterTarget, false, settings.MirroringAxes, settings.Seed);
@@ -102,7 +104,7 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 			for (var y = 0; y < lattice; y++)
 				for (var x = 0; x < lattice; x++)
 				{
-					var valid = true;
+					var valid = fields?.LandAllowed[y * lattice + x] ?? true;
 					for (var sy = Math.Max(0, y - 1); sy <= Math.Min(width - 1, y); sy++)
 						for (var sx = Math.Max(0, x - 1); sx <= Math.Min(width - 1, x); sx++)
 							for (var frame = 0; frame < 4; frame++)
@@ -143,7 +145,7 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 			// grown to compensate for a moss shortfall.
 			// V12 keeps moisture centers tied to the seed's broad geology. Using the
 			// perturbed envelope priority here can relocate whole moss regions.
-			var mossGeology = settings.Continuity && (settings.ExtendedComplexity || settings.Complexity != TerrainComplexity.Low) ?
+			var mossGeology = fields == null && settings.Continuity && (settings.ExtendedComplexity || settings.Complexity != TerrainComplexity.Low) ?
 				BuildPriorities(moistureSettings, width + 1, width + 1, 2, 29, geologyFraction) : geology;
 			var mossPriority = mossGeology.Select((value, i) => value + .35 * moisture[i]).ToArray();
 			if (settings.Continuity && reference != null)

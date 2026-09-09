@@ -71,7 +71,12 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		int mirroringAxes = 1;
 		bool IsPvp => layoutFamily == RmgPlayerLayoutFamily.NaturalLandscapePvp;
 		bool FixedPlayerCount => IsPvp && RmgMirroring.GroupSize(mirroringAxes) == MaximumPlayers;
-		bool UsesRegions => layoutFamily is RmgPlayerLayoutFamily.NaturalLandscape or RmgPlayerLayoutFamily.NaturalLandscapePvp;
+		bool IsBattlefield => layoutFamily == RmgPlayerLayoutFamily.ArtificialBattlefield;
+		bool HasLayoutOptions => IsPvp || IsBattlefield;
+		bool UsesModernTerrain => layoutFamily is RmgPlayerLayoutFamily.NaturalLandscape or RmgPlayerLayoutFamily.NaturalLandscapePvp or RmgPlayerLayoutFamily.ArtificialBattlefield;
+		static readonly int[] BattlefieldPlayerCounts = { 2, 4, 8 };
+		RmgBattlefieldBlockShape blockShape = RmgBattlefieldBlockShape.CutCorners;
+		RmgBattlefieldLaneWidth laneWidth = RmgBattlefieldLaneWidth.Standard;
 		TerrainComplexity complexity = TerrainComplexity.Standard;
 		RmgPlayerColonyDensity colonyDensity = RmgPlayerColonyDensity.Standard;
 		RmgPlayerParameterLevel waterAmount = RmgPlayerParameterLevel.Standard;
@@ -169,14 +174,14 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 
 		void ApplyRmgLayout()
 		{
-			SetLobbyBounds(RmgLobbyWidth, RmgLobbyHeight + (IsPvp ? 40 : 0));
+			SetLobbyBounds(RmgLobbyWidth, RmgLobbyHeight + (HasLayoutOptions ? 40 : 0));
 			SetBounds("SERVER_NAME", 0, 8, 1182, 25);
 			SetBounds("RMG_TOGGLE_BUTTON", 20, 8, 200, 25);
-			SetBounds("RMG_PANEL", 20, 42, 1142, 350 + (IsPvp ? 40 : 0));
-			lobby.Get("RMG_SETTINGS_BACKGROUND").Bounds = new Rectangle(0, 0, 820, 350 + (IsPvp ? 40 : 0));
-			lobby.Get("RMG_PREVIEW_BACKGROUND").Bounds = new Rectangle(835, 0, 307, 350 + (IsPvp ? 40 : 0));
-			lobby.Get("RMG_STATUS").Bounds = new Rectangle(20, IsPvp ? 348 : 308, 770, 38);
-			lobby.Get("RMG_PREVIEW_CAPTION").Bounds = new Rectangle(845, IsPvp ? 358 : 318, 287, 25);
+			SetBounds("RMG_PANEL", 20, 42, 1142, 350 + (HasLayoutOptions ? 40 : 0));
+			lobby.Get("RMG_SETTINGS_BACKGROUND").Bounds = new Rectangle(0, 0, 820, 350 + (HasLayoutOptions ? 40 : 0));
+			lobby.Get("RMG_PREVIEW_BACKGROUND").Bounds = new Rectangle(835, 0, 307, 350 + (HasLayoutOptions ? 40 : 0));
+			lobby.Get("RMG_STATUS").Bounds = new Rectangle(20, HasLayoutOptions ? 348 : 308, 770, 38);
+			lobby.Get("RMG_PREVIEW_CAPTION").Bounds = new Rectangle(845, HasLayoutOptions ? 358 : 318, 287, 25);
 			SetBounds("MAP_PREVIEW_ROOT", 875, 55, 270, 250);
 		}
 
@@ -247,18 +252,18 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					new Choice<TerrainChoice>(TerrainChoice.Swamp, "Swamp"),
 					new Choice<TerrainChoice>(TerrainChoice.Candy, "Candy")
 				}, () => terrain, value => { terrain = value; MarkStale(); },
-				value => value == TerrainChoice.Normal || UsesRegions);
+				value => value == TerrainChoice.Normal || UsesModernTerrain);
 
 			sizeButton.GetText = () => SizeDisplayName(size);
 			BindDropDown(sizeButton,
 				new[]
 				{
-					new Choice<SizeChoice>(SizeChoice.Small, "64 x 64 (Natural Landscape)"),
+					new Choice<SizeChoice>(SizeChoice.Small, "64 x 64"),
 					new Choice<SizeChoice>(SizeChoice.Standard, "128 x 128"),
-					new Choice<SizeChoice>(SizeChoice.Large, "256 x 256 (Natural Landscape)"),
-					new Choice<SizeChoice>(SizeChoice.Huge, "512 x 512 (Natural Landscape)")
+					new Choice<SizeChoice>(SizeChoice.Large, "256 x 256"),
+					new Choice<SizeChoice>(SizeChoice.Huge, "512 x 512")
 				}, () => size, value => { size = value; MarkStale(); },
-				value => value == SizeChoice.Standard || UsesRegions);
+				value => value == SizeChoice.Standard || UsesModernTerrain);
 
 			layoutFamilyButton.GetText = () => LayoutFamilyDisplayName(layoutFamily);
 			BindDropDown(layoutFamilyButton,
@@ -270,18 +275,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 				}, () => layoutFamily, value =>
 				{
 					layoutFamily = value;
-					if (value is not (RmgPlayerLayoutFamily.NaturalLandscape or RmgPlayerLayoutFamily.NaturalLandscapePvp))
-					{
-						terrain = TerrainChoice.Normal;
-						size = SizeChoice.Standard;
-						playerCount = playerCount <= 2 ? 2 : 4;
-						if (waterAmount > RmgPlayerParameterLevel.High)
-							waterAmount = RmgPlayerParameterLevel.High;
-						if (tacticalTerrain > RmgPlayerParameterLevel.High)
-							tacticalTerrain = RmgPlayerParameterLevel.High;
-						if (colonyDensity > RmgPlayerColonyDensity.Dense)
-							colonyDensity = RmgPlayerColonyDensity.Dense;
-					}
+
 					presetCustomized = true;
 					MarkStale();
 				});
@@ -292,6 +286,27 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			axesButton.GetText = () => mirroringAxes == 1 ? "1 axis (2 halves)" : mirroringAxes == 2 ? "2 axes (4 quarters)" : "4 axes (8 sectors)";
 			BindDropDown(axesButton, new[] { new Choice<int>(1, "1 axis (2 halves)"), new Choice<int>(2, "2 axes (4 quarters)"), new Choice<int>(4, "4 axes (8 sectors)") },
 				() => mirroringAxes, value => { mirroringAxes = value; MarkStale(); }, value => value != 4 || size != SizeChoice.Small);
+
+			var shapeButton = lobby.Get<DropDownButtonWidget>("RMG_BLOCK_SHAPE");
+			shapeButton.GetText = () => blockShape switch { RmgBattlefieldBlockShape.Rectangles => "Rectangles", RmgBattlefieldBlockShape.Diamonds => "Diamonds", _ => "Cut Corners" };
+			BindDropDown(shapeButton, new[]
+			{
+				new Choice<RmgBattlefieldBlockShape>(RmgBattlefieldBlockShape.Rectangles, "Rectangles"),
+				new Choice<RmgBattlefieldBlockShape>(RmgBattlefieldBlockShape.CutCorners, "Cut Corners"),
+				new Choice<RmgBattlefieldBlockShape>(RmgBattlefieldBlockShape.Diamonds, "Diamonds")
+			},
+				() => blockShape, value => { blockShape = value; MarkStale(); });
+			var laneButton = lobby.Get<DropDownButtonWidget>("RMG_LANE_WIDTH");
+			laneButton.GetText = () => laneWidth.ToString();
+			BindDropDown(laneButton, new[]
+			{
+				new Choice<RmgBattlefieldLaneWidth>(RmgBattlefieldLaneWidth.Narrow, "Narrow"),
+				new Choice<RmgBattlefieldLaneWidth>(RmgBattlefieldLaneWidth.Standard, "Standard"),
+				new Choice<RmgBattlefieldLaneWidth>(RmgBattlefieldLaneWidth.Wide, "Wide")
+			},
+				() => laneWidth, value => { laneWidth = value; MarkStale(); });
+			foreach (var id in new[] { "RMG_BLOCK_SHAPE", "RMG_BLOCK_SHAPE_LABEL", "RMG_LANE_WIDTH", "RMG_LANE_WIDTH_LABEL" })
+				lobby.Get(id).IsVisible = () => IsBattlefield;
 
 			layoutButton.GetText = () => LayoutDisplayName(layout);
 			BindDropDown(layoutButton,
@@ -320,7 +335,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					colonyDensity = value;
 					presetCustomized = true;
 					MarkStale();
-				}, value => value <= RmgPlayerColonyDensity.Dense || UsesRegions);
+				}, value => value <= RmgPlayerColonyDensity.Dense || UsesModernTerrain);
 
 			waterButton.GetText = () => ParameterLevelDisplayName(waterAmount);
 			BindDropDown(waterButton,
@@ -336,7 +351,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					waterAmount = value;
 					presetCustomized = true;
 					MarkStale();
-				}, value => value <= RmgPlayerParameterLevel.High || UsesRegions);
+				}, value => value <= RmgPlayerParameterLevel.High || UsesModernTerrain);
 
 			tacticalTerrainButton.GetText = () => ParameterLevelDisplayName(tacticalTerrain);
 			BindDropDown(tacticalTerrainButton,
@@ -352,7 +367,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					tacticalTerrain = value;
 					presetCustomized = true;
 					MarkStale();
-				}, value => value <= RmgPlayerParameterLevel.High || UsesRegions);
+				}, value => value <= RmgPlayerParameterLevel.High || UsesModernTerrain);
 
 			complexityButton.GetText = () => RmgPlayerSettingsContract.ComplexityDisplayName(complexity, true);
 			BindDropDown(complexityButton, new[]
@@ -364,13 +379,13 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 				new Choice<TerrainComplexity>(TerrainComplexity.Ultra, "Ultra")
 			}, () => complexity, value => { complexity = value; presetCustomized = true; MarkStale(); });
 			foreach (var id in new[] { "RMG_LAYOUT", "RMG_LAYOUT_LABEL" })
-				lobby.Get(id).IsVisible = () => !UsesRegions;
+				lobby.Get(id).IsVisible = () => !UsesModernTerrain;
 			foreach (var id in new[] { "RMG_TERRAIN_COMPLEXITY", "RMG_TERRAIN_COMPLEXITY_LABEL", "RMG_PREVENT_COLONY_OVERLAPPING" })
-				lobby.Get(id).IsVisible = () => UsesRegions;
+				lobby.Get(id).IsVisible = () => UsesModernTerrain;
 
 			originalSurfaceRelationsCheckbox.IsChecked = () => originalSurfaceRelations;
 			originalSurfaceRelationsCheckbox.IsDisabled = () =>
-				!CanConfigure() || !UsesRegions;
+				!CanConfigure() || !UsesModernTerrain;
 			originalSurfaceRelationsCheckbox.OnClick = () =>
 			{
 				if (originalSurfaceRelationsCheckbox.IsDisabled())
@@ -383,7 +398,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 
 			preventColonyOverlappingCheckbox.IsChecked = () => preventColonyOverlapping;
 			preventColonyOverlappingCheckbox.IsDisabled = () =>
-				!CanConfigure() || !UsesRegions;
+				!CanConfigure() || !UsesModernTerrain;
 			preventColonyOverlappingCheckbox.OnClick = () =>
 			{
 				if (preventColonyOverlappingCheckbox.IsDisabled())
@@ -394,10 +409,10 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			};
 
 			UpdatePlayerRange();
-			lobby.Get<LabelWidget>("RMG_PLAYERS_MIN").GetText = () => IsPvp ? RmgMirroring.GroupSize(mirroringAxes).ToString(CultureInfo.InvariantCulture) : UsesRegions ? "1" : "2";
+			lobby.Get<LabelWidget>("RMG_PLAYERS_MIN").GetText = () => IsBattlefield ? "2" : IsPvp ? RmgMirroring.GroupSize(mirroringAxes).ToString(CultureInfo.InvariantCulture) : UsesModernTerrain ? "1" : "2";
 			lobby.Get<LabelWidget>("RMG_PLAYERS_MAX").GetText = () => MaximumPlayers.ToString(CultureInfo.InvariantCulture);
 			var weightsButton = lobby.Get<ButtonWidget>("RMG_COLONY_WEIGHTS");
-			weightsButton.IsDisabled = () => !CanConfigure() || !UsesRegions;
+			weightsButton.IsDisabled = () => !CanConfigure() || !UsesModernTerrain;
 			weightsButton.OnClick = () => Ui.OpenWindow("RMG_COLONY_WEIGHTS_PANEL", new WidgetArgs
 			{
 				{ "initialWeights", colonyWeights },
@@ -427,16 +442,16 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 				}) }
 			});
 			playersSlider.Value = playerCount;
-			playersSlider.GetValue = () => playerCount;
+			playersSlider.GetValue = () => IsBattlefield ? Array.IndexOf(BattlefieldPlayerCounts, playerCount) : playerCount;
 			playersSlider.OnChange += value =>
 			{
 				if (!CanConfigure()) return;
-				var selected = IsPvp ? Math.Clamp((int)Math.Round(value / RmgMirroring.GroupSize(mirroringAxes), MidpointRounding.AwayFromZero) * RmgMirroring.GroupSize(mirroringAxes), RmgMirroring.GroupSize(mirroringAxes), MaximumPlayers) : UsesRegions ? Math.Clamp((int)Math.Round(value), 1, MaximumPlayers) : value < 3 ? 2 : 4;
+				var selected = IsBattlefield ? BattlefieldPlayerCounts[Math.Clamp((int)Math.Round(value), 0, MaximumPlayers == 4 ? 1 : 2)] : IsPvp ? Math.Clamp((int)Math.Round(value / RmgMirroring.GroupSize(mirroringAxes), MidpointRounding.AwayFromZero) * RmgMirroring.GroupSize(mirroringAxes), RmgMirroring.GroupSize(mirroringAxes), MaximumPlayers) : UsesModernTerrain ? Math.Clamp((int)Math.Round(value), 1, MaximumPlayers) : value < 3 ? 2 : 4;
 				if (selected == playerCount)
 					return;
 
 				playerCount = selected;
-				playersSlider.Value = selected;
+				playersSlider.Value = IsBattlefield ? Array.IndexOf(BattlefieldPlayerCounts, selected) : selected;
 				presetCustomized = true;
 				MarkStale();
 			};
@@ -501,7 +516,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		{
 			preset = selected;
 			presetCustomized = false;
-			if (!IsPvp) layoutFamily = RmgPlayerLayoutFamily.NaturalLandscape;
+			if (!IsPvp && !IsBattlefield) layoutFamily = RmgPlayerLayoutFamily.NaturalLandscape;
 			layout = LayoutChoice.OpenFields;
 			originalSurfaceRelations = true;
 			preventColonyOverlapping = true;
@@ -552,23 +567,33 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 
 		string UnsupportedReason()
 		{
-			if (terrain != TerrainChoice.Normal && !UsesRegions)
+			if (terrain != TerrainChoice.Normal && !UsesModernTerrain)
 				return "Desert, Swamp and Candy require Natural Landscape.";
-			if (size != SizeChoice.Standard && !UsesRegions)
+			if (size != SizeChoice.Standard && !UsesModernTerrain)
 				return "64 x 64, 256 x 256 and 512 x 512 require Natural Landscape.";
-			if (UsesRegions ? playerCount < 1 || playerCount > MaximumPlayers : playerCount != 2 && playerCount != 4)
+			if (UsesModernTerrain ? playerCount < 1 || playerCount > MaximumPlayers : playerCount != 2 && playerCount != 4)
 				return "64 x 64 supports 1 through 4 players; larger Natural Landscape maps support 1 through 8. Historical layouts support 2 or 4.";
 			if (layout is LayoutChoice.MixedFronts or LayoutChoice.NarrowPassages or LayoutChoice.Chaos)
 				return $"{LayoutDisplayName(layout)} is a planned layout placeholder.";
 			return null;
 		}
 
-		int MaximumPlayers => UsesRegions && size != SizeChoice.Small ? 8 : 4;
+		int MaximumPlayers => UsesModernTerrain && size != SizeChoice.Small ? 8 : 4;
 
 		void UpdatePlayerRange()
 		{
+			if (IsBattlefield)
+			{
+				playerCount = Math.Min(MaximumPlayers, playerCount <= 2 ? 2 : playerCount <= 4 ? 4 : 8);
+				playersSlider.MinimumValue = 0;
+				playersSlider.MaximumValue = MaximumPlayers == 4 ? 1 : 2;
+				playersSlider.Ticks = MaximumPlayers == 4 ? 2 : 3;
+				playersSlider.Value = Array.IndexOf(BattlefieldPlayerCounts, playerCount);
+				return;
+			}
+
 			if (IsPvp && size == SizeChoice.Small && mirroringAxes == 4) mirroringAxes = 2;
-			var natural = UsesRegions;
+			var natural = UsesModernTerrain;
 			var minimum = IsPvp ? RmgMirroring.GroupSize(mirroringAxes) : natural ? 1 : 2;
 			playersSlider.MinimumValue = minimum;
 			playersSlider.MaximumValue = MaximumPlayers;
@@ -622,26 +647,28 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 
 		RmgPlayerSettings CreatePlayerSettings(ulong seed) => new RmgPlayerSettings
 		{
-			SchemaVersion = IsPvp ? 11 : UsesRegions ? 10 : 3,
+			SchemaVersion = IsBattlefield ? 12 : IsPvp ? 11 : UsesModernTerrain ? 10 : 3,
 			MirroringAxes = IsPvp ? mirroringAxes : 0,
+			BlockShape = IsBattlefield ? blockShape : RmgBattlefieldBlockShape.CutCorners,
+			LaneWidth = IsBattlefield ? laneWidth : RmgBattlefieldLaneWidth.Standard,
 			MapSize = size switch { SizeChoice.Small => 64, SizeChoice.Standard => 128, SizeChoice.Large => 256, _ => 512 },
 			Preset = preset,
 			Seed = seed,
 			Tileset = terrain.ToString().ToUpperInvariant(),
 			PlayerCount = playerCount,
 			Symmetry = RmgPlayerSymmetry.Automatic,
-			Layout = UsesRegions ? RmgPlayerLayout.Preset :
+			Layout = UsesModernTerrain ? RmgPlayerLayout.Preset :
 				layout == LayoutChoice.OpenFields ? RmgPlayerLayout.OpenFields : RmgPlayerLayout.ContestedCenter,
 			LayoutFamily = layoutFamily,
 			NeutralColonyDensity = colonyDensity,
 			WaterAmount = waterAmount,
 			TacticalTerrain = tacticalTerrain,
-			TerrainComplexity = UsesRegions ? complexity : TerrainComplexity.Standard,
+			TerrainComplexity = UsesModernTerrain ? complexity : TerrainComplexity.Standard,
 			OriginalSurfaceRelations = originalSurfaceRelations,
-			PreventColonyOverlapping = !UsesRegions || preventColonyOverlapping,
-			NeutralColonyWeights = UsesRegions ? colonyWeights : new(),
-			StartingColonyMode = UsesRegions ? ownershipMode : RmgColonyOwnershipMode.ClosestToSpawn,
-			StartingColonyShares = UsesRegions ? ownershipShares.Take(playerCount).ToArray() : Array.Empty<int>()
+			PreventColonyOverlapping = !UsesModernTerrain || preventColonyOverlapping,
+			NeutralColonyWeights = UsesModernTerrain ? colonyWeights : new(),
+			StartingColonyMode = UsesModernTerrain ? ownershipMode : RmgColonyOwnershipMode.ClosestToSpawn,
+			StartingColonyShares = UsesModernTerrain ? ownershipShares.Take(playerCount).ToArray() : Array.Empty<int>()
 		};
 
 		void GeneratePreview()
@@ -684,7 +711,9 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					var moss = cells.Count(cell => cell == RmgNativeTerrainIntent.Vegetation);
 					var closerColonies = (int?)result.Generation.Map.RegionsReport["neutral_colonies_fallback"] ?? 0;
 					var spacingSummary = closerColonies > 0 ? $" {closerColonies} placed with closer spacing." : string.Empty;
-					SetStatus($"Ready: Regions / {RmgPlayerSettingsContract.ComplexityDisplayName(complexity, true)} ({result.Performance.TotalMilliseconds / 1000d:0.0}s). " +
+					if (IsBattlefield && result.Generation.Validation.Warnings.Any(w => w.Code == "BATTLEFIELD_TERRAIN_CAPACITY"))
+						spacingSummary += " Lanes/plazas limit terrain coverage.";
+					SetStatus($"Ready: {(IsBattlefield ? "Battlefield" : "Regions")} / {RmgPlayerSettingsContract.ComplexityDisplayName(complexity, true)} ({result.Performance.TotalMilliseconds / 1000d:0.0}s). " +
 						$"Water {100D * water / cells.Length:0.0}%; {(terrain == TerrainChoice.Normal ? "gravel/moss" : "surface modifiers")} {100D * gravel / land:0.0}/{100D * moss / land:0.0}% of land; " +
 						$"colonies {placedColonies}/{settingsResolution.Normalized.EffectiveNeutralColonyCount}.{spacingSummary}",
 						result.Generation.Validation.Warnings.Count > 0 ? StatusKind.Warning : StatusKind.Success);
