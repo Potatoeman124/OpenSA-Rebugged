@@ -96,6 +96,32 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				Run("crossroads-desert", 128, new[] { 0, 10, 20, 30 }, new int[4], bots: true, crowded: true, tileset: "DESERT", hostiles: true);
 				Run("crossroads-swamp", 256, new[] { 40, 80 }, new int[2], seed: 1, bots: true, mode: RmgColonyOwnershipMode.Random, tileset: "SWAMP");
 				Run("crossroads-candy-eight", 512, Enumerable.Repeat(100, 8).ToArray(), new int[8], bots: true, mode: RmgColonyOwnershipMode.Random, tileset: "CANDY");
+				foreach (var connections in Enum.GetValues<RmgCrossroadsConnections>())
+					Run("crossroads-review-" + connections, 256, new int[4], new int[4], bots: true, options: new RmgPlayerSettings
+					{
+						SchemaVersion = 13, LayoutFamily = RmgPlayerLayoutFamily.Crossroads, Seed = 866069301331643517,
+						MapSize = 256, PlayerCount = 4, StartingColonyShares = new int[4], LaneWidth = RmgBattlefieldLaneWidth.Narrow,
+						SideConnections = connections, TerrainComplexity = Rmg.Reassessment.TerrainComplexity.Ultra,
+						WaterAmount = RmgPlayerParameterLevel.Ultra, TacticalTerrain = RmgPlayerParameterLevel.Ultra,
+						NeutralColonyDensity = RmgPlayerColonyDensity.Ultra, PreventColonyOverlapping = false, OriginalSurfaceRelations = false
+					});
+				Run("crossroads-512-ultra", 512, new int[8], new int[8], bots: true, options: new RmgPlayerSettings
+				{
+					SchemaVersion = 13, LayoutFamily = RmgPlayerLayoutFamily.Crossroads, Seed = 397716241463670640,
+					MapSize = 512, PlayerCount = 8, StartingColonyShares = new int[8], SideConnections = RmgCrossroadsConnections.Many,
+					TerrainComplexity = Rmg.Reassessment.TerrainComplexity.Ultra, WaterAmount = RmgPlayerParameterLevel.Ultra,
+					TacticalTerrain = RmgPlayerParameterLevel.Ultra, NeutralColonyDensity = RmgPlayerColonyDensity.Ultra,
+					PreventColonyOverlapping = false, OriginalSurfaceRelations = false
+				});
+				foreach (var compact in new[] { (64, 4), (128, 8) })
+					Run("crossroads-compact-" + compact.Item1, compact.Item1, new int[compact.Item2], new int[compact.Item2], bots: true, options: new RmgPlayerSettings
+					{
+						SchemaVersion = 13, LayoutFamily = RmgPlayerLayoutFamily.Crossroads, Seed = 1,
+						MapSize = compact.Item1, PlayerCount = compact.Item2, StartingColonyShares = new int[compact.Item2],
+						LaneWidth = RmgBattlefieldLaneWidth.Wide, SideConnections = RmgCrossroadsConnections.Many,
+						TerrainComplexity = Rmg.Reassessment.TerrainComplexity.Ultra, WaterAmount = RmgPlayerParameterLevel.Low,
+						NeutralColonyDensity = RmgPlayerColonyDensity.Ultra, PreventColonyOverlapping = false
+					});
 			}
 			else if (battlefield)
 			{

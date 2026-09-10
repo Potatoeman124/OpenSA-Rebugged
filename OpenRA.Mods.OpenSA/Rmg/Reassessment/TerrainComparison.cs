@@ -41,7 +41,10 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 		};
 	}
 
-	public sealed record TerrainComparisonFields(double[] Water, double[] Geology, double[] Moisture, bool[] WaterAllowed, bool[] LandAllowed);
+	public sealed record TerrainComparisonFields(double[] Water, double[] Geology, double[] Moisture, bool[] WaterAllowed, bool[] LandAllowed)
+	{
+		public bool[] RequiredWater { get; init; }
+	}
 
 	public sealed class TerrainComparisonResult
 	{
@@ -81,6 +84,8 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 			var waterTarget = (int)Math.Round(water.Length * waterFraction);
 			var waterMask = settings.MirroringAxes == 0 ? Top(water, waterAllowed, waterTarget) :
 				RmgMirroring.Select(water, waterAllowed, width, waterTarget, false, settings.MirroringAxes, settings.Seed);
+			if (fields?.RequiredWater != null)
+				for (var i = 0; i < waterMask.Length; i++) waterMask[i] |= fields.RequiredWater[i];
 			Array.Copy(waterMask, map.Obstacles, waterMask.Length);
 			var rawWater = (bool[])waterMask.Clone();
 			var constructionMs = timer.Elapsed.TotalMilliseconds;

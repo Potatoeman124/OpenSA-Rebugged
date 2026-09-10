@@ -1,5 +1,6 @@
 """Crossroads native geometry, control response, gameplay and accepted-layout replay checks."""
-import argparse,copy,json,sys
+import argparse,copy,hashlib,json,math,sys
+from concurrent.futures import ThreadPoolExecutor,as_completed
 from pathlib import Path
 from importlib.util import module_from_spec,spec_from_file_location
 sys.dont_write_bytecode=True
@@ -44,6 +45,70 @@ def schedule():
         cases.append(dict(id='replay-battlefield-'+name,settings=json.loads((old/name/'settings.json').read_text()),baseline=str(old/name/'map.oramap')))
     return cases
 
+def wide_schedule():
+    cases=schedule();base=copy.deepcopy(cases[0]['settings'])
+    def add(name,**changes):
+        s=copy.deepcopy(base);s.update(changes)
+        s['starting_colony_shares']=[0]*s['players'];cases.append(dict(id=name,settings=s))
+    # Reproduce the user's seed and fully cross complexity, side connections, density and overlap.
+    for level in LEVELS:
+        for side in ('none','standard','many'):
+            for density in ('sparse','standard','dense','extreme','ultra'):
+                for strict in (True,False):
+                    add(f'review-{level}-{side}-{density}-{strict}',seed='866069301331643517',terrain_complexity=level,
+                        side_connections=side,neutral_colony_density=density,prevent_colony_overlapping=strict,approach_width='narrow')
+    # Every water/modifier combination under maximum colony pressure, with all crossing counts.
+    for water in ('low','standard','high','extreme','ultra'):
+        for surface in ('low','standard','high','extreme','ultra'):
+            for side in ('none','standard','many'):
+                add(f'quantities-{water}-{surface}-{side}',terrain_complexity='ultra',water_amount=water,
+                    gravel_moss_amount=surface,side_connections=side,neutral_colony_density='ultra',prevent_colony_overlapping=False,
+                    original_surface_relations=False,approach_width='wide')
+    # Full size/player/complexity/width/connection product at low water and high placement pressure.
+    seeds=('0','1','18446744073709551615')
+    for size in (64,128,256,512):
+        for players in ((2,4) if size==64 else (2,4,8)):
+            for ci,level in enumerate(LEVELS):
+                for wi,width in enumerate(('narrow','standard','wide')):
+                    for si,side in enumerate(('none','standard','many')):
+                        add(f'geometry-{size}-{players}-{level}-{width}-{side}',size=f'{size},{size}',players=players,
+                            seed=seeds[(ci+wi+si)%3],terrain_complexity=level,approach_width=width,side_connections=side,
+                            water_amount='low',gravel_moss_amount='ultra',neutral_colony_density='ultra',prevent_colony_overlapping=False)
+    # With free surface relations, density must leave ALL terrain untouched, not only water.
+    for side in ('none','standard','many'):
+        for density in ('sparse','standard','dense','extreme','ultra'):
+            add(f'free-density-{side}-{density}',seed='866069301331643517',terrain_complexity='ultra',approach_width='narrow',
+                side_connections=side,neutral_colony_density=density,water_amount='ultra',gravel_moss_amount='ultra',
+                prevent_colony_overlapping=False,original_surface_relations=False)
+    # The exact fourth screenshot and a high-water eight-player stress case.
+    add('review-fourth-screenshot',seed='866069301331643517',terrain_complexity='ultra',approach_width='narrow',side_connections='none',
+        neutral_colony_density='extreme',water_amount='ultra',gravel_moss_amount='ultra',prevent_colony_overlapping=False,original_surface_relations=False)
+    return cases
+
+
+def seam_crossings(native,n,angles):
+    counts=[];center=(n-1)/2
+    for angle in angles:
+        dx,dy=math.cos(angle),math.sin(angle);limit=int(center/max(abs(dx),abs(dy)))
+        land=[native[round(center+step*dy)*n+round(center+step*dx)]!=1 for step in range(limit+1)]
+        # A solitary dry corner can be isolated by water; the generator's flood test checks edge bypasses.
+        counts.append(sum(land[k] and not land[k-1] for k in range(1,limit-1)))
+        assert not all(land),'Divider erased entirely'
+    return counts
+
+
+def generate(folder,cases,workers):
+    failures=[]
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        tasks={pool.submit(BF.generate,folder,[case]):case['id'] for case in cases}
+        for future in as_completed(tasks):
+            try:future.result()
+            except Exception as error:
+                failures.append(dict(id=tasks[future],error=str(error)));print('FAIL',tasks[future],str(error)[-300:],flush=True)
+    (folder/'generation-failures.json').write_text(json.dumps(failures,indent=2))
+    assert not failures,f'{len(failures)} generation failures; see generation-failures.json'
+
+
 def verify(folder,cases):
     records=[];maps={};objectives={}
     for case in cases:
@@ -56,8 +121,15 @@ def verify(folder,cases):
         assert v['battlefield_ground_access'] and v['battlefield_weighted_pool_parity'],case['id']
         assert all(v[k]==0 for k in ('footprint_overlap_cells','production_exit_failures','invalid_start_cells','invalid_colony_cells')),case['id']
         native=(out/'actual/semantic.u8').read_bytes();actors=COMMON.actors(out/'map.oramap')
-        for y in range(n):
-            for x in range(n):assert all(native[y*n+x]==native[b*n+a] for a,b in COMMON.orbit(x,y,n,axes,seed)),(case['id'],x,y)
+        assert hashlib.sha256(native).hexdigest()==g['semantic_sha256'],case['id']
+        rows=[native[y*n:(y+1)*n] for y in range(n)]
+        if axes>=2 or seed%2==0:assert rows==[r[::-1] for r in rows],case['id']
+        if axes>=2 or seed%2:assert rows==rows[::-1],case['id']
+        if axes==4:assert native==bytes(native[x*n+y] for y in range(n) for x in range(n)),case['id']
+        expected={'none':0,'standard':1,'many':2}[s['side_connections']]
+        assert seam_crossings(native,n,plan['divider_angles'])==[expected]*len(plan['divider_angles']),case['id']
+        topology=plan['topology']
+        assert topology['isolated_start_sectors']==s['players'] and topology['unplanned_bypasses']==0,case['id']
         for kind in {t for t,x,y in actors}:
             points={(x,y) for t,x,y in actors if t==kind}
             assert all(COMMON.orbit(x,y,n,axes,seed)<=points for x,y in points),(case['id'],kind)
@@ -66,13 +138,13 @@ def verify(folder,cases):
         assert len(targets)-len(colonies)==s['players'] and len(colonies)%s['players']==0,case['id']
         assert all(s['neutral_colony_weights'][t.removesuffix('_colony')]>0 for t,x,y in colonies),case['id']
         # The actual central junction and the centerline of every approach stay clear.
-        center=n/2-1;radius=plan['junction_radius_native']
+        center=(n-1)/2;radius=plan['junction_radius_native']
         for y in range(n):
             for x in range(n):
                 if (x-center)**2+(y-center)**2<=radius**2:assert native[y*n+x]==0,(case['id'],'junction',x,y)
         for t,x,y in targets:
             if t!='mpspawn':continue
-            steps=max(abs(x-center),abs(y-center))
+            center=n/2-1;steps=max(abs(x-center),abs(y-center))
             for k in range(int(steps)+1):
                 px=round(center+(x-center)*k/max(1,steps));py=round(center+(y-center)*k/max(1,steps))
                 assert native[py*n+px]==0,(case['id'],'approach',px,py)
@@ -91,20 +163,41 @@ def verify(folder,cases):
         assert len({maps[f'p{players}-{level}'] for level in LEVELS})==5
         response[f'p{players}_small_to_ultra']=delta(f'p{players}-small',f'p{players}-ultra')
         assert response[f'p{players}_small_to_ultra']>=.10,response
-        assert byid[f'p{players}-medium']['central_colonies']>=players,'Missing central objective group'
+        assert byid[f'p{players}-medium']['placed']>=players,'Missing colony opportunities'
     response['approach_narrow_to_wide']=delta('routes-narrow-standard','routes-wide-standard')
     response['side_none_to_standard']=delta('routes-standard-none','routes-standard-standard')
     response['side_standard_to_many']=delta('routes-standard-standard','routes-standard-many')
     assert all(response[k]>=.03 for k in ('approach_narrow_to_wide','side_none_to_standard','side_standard_to_many')),response
     for field,key,levels in (('water_amount','water',('low','high','extreme','ultra')),('gravel_moss_amount','surfaces',('low','high','extreme','ultra')),('neutral_colony_density','placed',('sparse','dense','extreme','ultra'))):
         values=[byid[field+'-'+level][key] for level in levels];assert values==sorted(values),(field,values)
+    # Density must never change water cells, including the relaxed-placement fallback.
+    density_groups={}
+    for case in cases:
+        if 'baseline' in case:continue
+        options=copy.deepcopy(case['settings'])
+        for key in ('neutral_colony_density','prevent_colony_overlapping','neutral_colony_weights','starting_colony_shares','starting_colony_mode'):
+            options.pop(key,None)
+        density_groups.setdefault(json.dumps(options,sort_keys=True),[]).append(case['id'])
+    comparisons=0
+    for settings_key,group in density_groups.items():
+        if len(group)<2:continue
+        reference=bytes(v==1 for v in maps[group[0]])
+        for name in group[1:]:
+            assert bytes(v==1 for v in maps[name])==reference,('Density or colony configuration changed water',group[0],name)
+            if not json.loads(settings_key)['original_surface_relations']:assert maps[name]==maps[group[0]],('Free-surface density changed terrain',group[0],name)
+            comparisons+=1
+    # The previously delivered Ultra preview must fail the new crossing-count criterion.
+    previous=ROOT/'artifacts/rmg/crossroads/native-02/p4-ultra'
+    old=(previous/'actual/semantic.u8').read_bytes()
+    assert seam_crossings(old,256,[0,math.pi/2,math.pi,3*math.pi/2])!=[1]*4,'Negative control did not detect the rejected preview'
+    response['density_water_identity_comparisons']=comparisons
     result=dict(status='PASS',accepted_crossroads=len(records),exact_older_replays=sum('baseline' in c for c in cases),control_response=response,cases=records)
     (folder/'verification.json').write_text(json.dumps(result,indent=2));print(json.dumps(result,indent=2))
 
 if __name__=='__main__':
-    parser=argparse.ArgumentParser();parser.add_argument('output',type=Path);parser.add_argument('--verify-only',action='store_true');args=parser.parse_args();folder=args.output.resolve();cases=schedule()
+    parser=argparse.ArgumentParser();parser.add_argument('output',type=Path);parser.add_argument('--verify-only',action='store_true');parser.add_argument('--wide',action='store_true');parser.add_argument('--workers',type=int,default=4);args=parser.parse_args();folder=args.output.resolve();cases=wide_schedule() if args.wide else schedule()
     if not args.verify_only:
         folder.mkdir(parents=True,exist_ok=True)
         if any(folder.iterdir()):raise ValueError('Choose an empty output directory.')
-        (folder/'manifest.json').write_text(json.dumps(cases,indent=2));BF.generate(folder,cases)
+        (folder/'manifest.json').write_text(json.dumps(cases,indent=2));generate(folder,cases,args.workers)
     verify(folder,cases)

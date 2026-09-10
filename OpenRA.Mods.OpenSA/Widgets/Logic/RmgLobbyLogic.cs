@@ -738,6 +738,8 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					var spacingSummary = closerColonies > 0 ? $" {closerColonies} placed with closer spacing." : string.Empty;
 					if (HasFixedPlayerCounts && result.Generation.Validation.Warnings.Any(w => w.Code is "BATTLEFIELD_TERRAIN_CAPACITY" or "CROSSROADS_TERRAIN_CAPACITY"))
 						spacingSummary += " Routes/plazas/transitions limit coverage.";
+					if (IsCrossroads && result.Generation.Validation.Warnings.Any(w => w.Code == "CROSSROADS_WATER_FLOOR"))
+						spacingSummary += " Dividers set minimum water coverage.";
 					SetStatus($"Ready: {(IsCrossroads ? "Crossroads" : IsBattlefield ? "Battlefield" : "Regions")} / {RmgPlayerSettingsContract.ComplexityDisplayName(complexity, true)} ({result.Performance.TotalMilliseconds / 1000d:0.0}s). " +
 						$"Water {100D * water / cells.Length:0.0}%; {(terrain == TerrainChoice.Normal ? "gravel/moss" : "surface modifiers")} {100D * gravel / land:0.0}/{100D * moss / land:0.0}% of land; " +
 						$"colonies {placedColonies}/{settingsResolution.Normalized.EffectiveNeutralColonyCount}.{spacingSummary}",

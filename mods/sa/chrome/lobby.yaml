@@ -355,7 +355,7 @@ Background@SERVER_LOBBY:
 					Height: 28
 					Visible: False
 					TooltipContainer: TOOLTIP_CONTAINER
-					TooltipText: Add one or two tiers of ground connections between approaches, bypassing the central junction. None disables planned side connections; other terrain may still be passable.
+					TooltipText: Set exactly zero, one or two tiers of ground crossings between approaches. None requires travel through the central junction.
 				LabelWithTooltip@RMG_STATUS:
 					X: 20
 					Y: 308

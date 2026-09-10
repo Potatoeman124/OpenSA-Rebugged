@@ -13,7 +13,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 {
 	public static partial class RmgGenerator
 	{
-		sealed record CrossroadsSegment(RmgPoint A, RmgPoint B, bool Primary);
+		sealed record CrossroadsSegment(RmgPoint A, RmgPoint B);
 
 		static RmgGenerationResult GenerateCrossroads(RmgProfile profile, RmgGenerationSettings settings)
 		{
@@ -32,11 +32,12 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					throw new InvalidOperationException("Crossroads terrain changed a protected approach, junction or colony site.");
 			}
 
+			plan.Report["topology"] = CrossroadsTopology.Validate(terrain.Map, settings, plan.Starts, plan.Report);
 			var result = CompleteMirroredRegions(profile, settings, terrain, null, plan);
 			var report = result.Map.RegionsReport;
 			report["experiment_id"] = "crossroads-v19"; report["identity"] = settings.Canonical(profile);
 			report["accessibility_requirement"] = "STARTS_AND_COLONIES_CONNECTED";
-			report["characteristic_scale_native"] = settings.MapSize * .36 / Math.Pow(2, BattlefieldDepth(settings.TerrainComplexity) / 2D);
+			report["characteristic_scale_native"] = settings.MapSize / (1D + BattlefieldDepth(settings.TerrainComplexity));
 			var metrics = terrain.Report["metrics"];
 			var shortfalls = new JObject
 			{
@@ -45,6 +46,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				["moss_percentage_points_land"] = Math.Max(0, terrainSettings.MossPercent - (double)metrics["moss_percent_land"])
 			};
 			plan.Report["terrain_shortfalls"] = shortfalls;
+			if ((double)metrics["water_percent_map"] > terrainSettings.WaterPercent + 2)
+				result.Validation.Warnings.Add(new RmgValidationIssue("CROSSROADS_WATER_FLOOR", "Continuous dividers require more water than the selected target at this map size."));
 			if (shortfalls.Properties().Any(p => (double)p.Value > 2))
 				result.Validation.Warnings.Add(new RmgValidationIssue("CROSSROADS_TERRAIN_CAPACITY", "Approaches, colony plazas and surface transitions limit the requested terrain coverage."));
 			return result;
@@ -55,6 +58,16 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var dx = segment.B.X - segment.A.X; var dy = segment.B.Y - segment.A.Y;
 			var t = Math.Clamp(((p.X - segment.A.X) * dx + (p.Y - segment.A.Y) * dy) / (double)Math.Max(1, dx * dx + dy * dy), 0, 1);
 			return new RmgPoint((int)Math.Round(segment.A.X + t * dx), (int)Math.Round(segment.A.Y + t * dy));
+		}
+
+		static int CrossroadsWidth(RmgGenerationSettings settings) => settings.MapSize == 64 ?
+			4 + 2 * (int)settings.LaneWidth : settings.MapSize == 128 && settings.PlayerCount == 8 ?
+			6 + 3 * (int)settings.LaneWidth : RmgBattlefieldParameters.Width(settings.LaneWidth);
+
+		static double[] CrossroadsDividers(List<RmgPoint> starts, double center)
+		{
+			var angles = starts.Select(p => Math.Atan2(p.Y - center, p.X - center)).OrderBy(a => a).ToArray();
+			return angles.Select((a, i) => (a + (i + 1 == angles.Length ? angles[0] + 2 * Math.PI : angles[i + 1])) / 2).ToArray();
 		}
 
 		static BattlefieldPlan PlanCrossroads(RmgProfile profile, RmgGenerationSettings settings)
@@ -70,17 +83,48 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				_ => new RmgPoint(margin, (int)Math.Round(center - (center - margin) * (Math.Sqrt(2) - 1)))
 			};
 			var starts = RmgMirroring.Points(anchor, size, settings.MirroringAxes, settings.Seed).ToList();
+			var approaches = starts.Select(p => new CrossroadsSegment(p, hub)).ToArray();
+			var dividers = CrossroadsDividers(starts, center);
+			double Radial(RmgPoint p) => Math.Sqrt((p.X - center) * (p.X - center) + (p.Y - center) * (p.Y - center));
+			double ApproachDistance(RmgPoint p) => approaches.Min(s => Math.Sqrt(RegionDistanceSquared(p, ClosestCrossroadsPoint(p, s))));
+			double DividerDistance(RmgPoint p) => dividers.Min(a => (p.X - center) * Math.Cos(a) + (p.Y - center) * Math.Sin(a) < 0 ?
+				Radial(p) : Math.Abs(-(p.X - center) * Math.Sin(a) + (p.Y - center) * Math.Cos(a)));
+			var width = CrossroadsWidth(settings);
+			var junction = Math.Clamp((int)Math.Round(size * .06), 6, 30);
+			var tiers = (int)settings.SideConnections;
+			var tierRadii = (size == 128 && settings.PlayerCount == 8 ? new[] { size * .28, size * .425 } :
+				new[] { size * .25, size * .40 }).Take(tiers).ToArray();
+			var bridgeHalf = size == 64 ? 1.5 : 3D;
+			var clear = new bool[size * size]; var land = new bool[clear.Length];
+			var placement = new bool[clear.Length];
+			var siteBand = Math.Clamp(size * .10, 10, 46);
+			for (var i = 0; i < clear.Length; i++)
+			{
+				var p = new RmgPoint(i % size, i / size);
+				var distance = ApproachDistance(p);
+				var squareRadius = Math.Max(Math.Abs(p.X - center), Math.Abs(p.Y - center));
+				clear[i] = distance <= width / 2D || Radial(p) <= junction || starts.Any(q => RegionDistanceSquared(p, q) <= 81);
+
+				// These fixed land strips exist at every density. Colonies cannot reserve cells in a divider.
+				placement[i] = distance <= siteBand && DividerDistance(p) >= (size == 128 && settings.PlayerCount == 8 ? 4 : size <= 128 ? 6 : 9);
+				land[i] = clear[i] || placement[i] || tierRadii.Any(r => Math.Abs(squareRadius - r) <= bridgeHalf);
+			}
+
+			// The planning terrain contains only the designated colony strips. Test real actor footprints/exits.
 			var blank = new RmgLogicalMap(size / 2, size / 2);
 			Array.Fill(blank.NativeTerrainIntents, RmgNativeTerrainIntent.Clear);
 			var sites = new RegionsSites(Game.ModData, blank, true);
 			if (!sites.NativeOrbitFits(null, starts) || starts.SelectMany((p, i) => starts.Skip(i + 1).Select(q => profile.ColonyCombatRules.StartMarginAtNative(p, q))).Any(m => m < 0))
 				throw new RmgGenerationRejectedException("CROSSROADS_STARTS", "This size cannot safely fit the Crossroads starting plazas.");
 			sites.ReserveNativeOrbit(null, starts);
-			var approaches = starts.Select(p => new CrossroadsSegment(p, hub, true)).ToArray();
+			var startingCells = sites.ReservedCells.ToArray();
+			for (var y = 0; y < size; y++)
+				for (var x = 0; x < size; x++)
+					blank.NativeTerrainIntents[4 * (y / 2 * (size / 2) + x / 2) + 2 * (y % 2) + x % 2] =
+						placement[y * size + x] && (size < 256 || ApproachDistance(new RmgPoint(x, y)) > 3) ?
+						RmgNativeTerrainIntent.Clear : RmgNativeTerrainIntent.Water;
 			var radius = Math.Sqrt(RegionDistanceSquared(anchor, hub));
 			var contestRadius = Math.Max(12, radius * .28);
-			double Radial(RmgPoint p) => Math.Sqrt((p.X - center) * (p.X - center) + (p.Y - center) * (p.Y - center));
-			double ApproachDistance(RmgPoint p) => approaches.Min(s => Math.Sqrt(RegionDistanceSquared(p, ClosestCrossroadsPoint(p, s))));
 			var candidates = Enumerable.Range(0, size * size)
 				.Where(i => RmgMirroring.Canonical(i, size, settings.MirroringAxes, settings.Seed) == i)
 				.Select(i => new RmgPoint(i % size, i / size))
@@ -88,70 +132,13 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					(size / 2 - 1 - Math.Min(p.X, size - 1 - p.X)) % 4 == 0 && (size / 2 - 1 - Math.Min(p.Y, size - 1 - p.Y)) % 4 == 0)
 				.Select(p => RmgMirroring.Points(p, size, settings.MirroringAxes, settings.Seed)).Where(o => o.Length == settings.PlayerCount)
 				.OrderBy(o => Math.Abs(Radial(o[0]) - contestRadius) < 8 ? 0 : Math.Abs(Radial(o[0]) - radius * .76) < 12 ? 1 : 2)
-				.ThenBy(o => Math.Abs(ApproachDistance(o[0]) - 14))
+				.ThenBy(o => Math.Abs(ApproachDistance(o[0]) - 16))
 				.ThenBy(o => TerrainComparison.Mix(settings.Seed, (ulong)(1901 + o[0].Y * size + o[0].X))).ToArray();
 			PlaceMirroredColonies(blank, profile, settings, sites, candidates, starts, out var strict, out var evaluations, out var types);
 			var colonies = blank.Actors.ToArray();
-			var planningMs = timer.Elapsed.TotalMilliseconds;
-			var lanes = approaches.ToList();
-			var tiers = (int)settings.SideConnections;
-			for (var tier = 0; tier < tiers; tier++)
-			{
-				var fraction = tier == 0 ? .48 : .74;
-				var points = starts.Select(p => new RmgPoint((int)Math.Round(center + (p.X - center) * fraction),
-					(int)Math.Round(center + (p.Y - center) * fraction))).ToList();
-				if (points.Count == 2)
-				{
-					var r = radius * fraction;
-					points = new[]
-					{
-						new RmgPoint((int)Math.Round(center - r), hub.Y), new RmgPoint(hub.X, (int)Math.Round(center - r)),
-						new RmgPoint((int)Math.Round(center + r), hub.Y), new RmgPoint(hub.X, (int)Math.Round(center + r))
-					}.ToList();
-				}
 
-				points = points.OrderBy(p => Math.Atan2(p.Y - center, p.X - center)).ToList();
-				for (var i = 0; i < points.Count; i++) lanes.Add(new CrossroadsSegment(points[i], points[(i + 1) % points.Count], false));
-			}
-
-			foreach (var colony in colonies)
-			{
-				var point = RmgMirroring.Native(colony);
-				var closest = approaches.Select(s => ClosestCrossroadsPoint(point, s)).OrderBy(p => RegionDistanceSquared(point, p)).First();
-				lanes.Add(new CrossroadsSegment(point, closest, false));
-			}
-
-			var clear = new bool[size * size]; var land = new bool[clear.Length];
-			var width = RmgBattlefieldParameters.Width(settings.LaneWidth);
-			var junction = Math.Clamp((int)Math.Round(size * .06), 6, 30);
-			void Circle(bool[] mask, RmgPoint point, int r)
-			{
-				for (var y = Math.Max(0, point.Y - r); y <= Math.Min(size - 1, point.Y + r); y++)
-					for (var x = Math.Max(0, point.X - r); x <= Math.Min(size - 1, point.X + r); x++)
-						if ((x - point.X) * (x - point.X) + (y - point.Y) * (y - point.Y) <= r * r) mask[y * size + x] = true;
-			}
-
-			foreach (var segment in lanes)
-			{
-				var half = segment.Primary ? width / 2 : Math.Max(3, width / 3);
-				for (var y = Math.Max(0, Math.Min(segment.A.Y, segment.B.Y) - half); y <= Math.Min(size - 1, Math.Max(segment.A.Y, segment.B.Y) + half); y++)
-					for (var x = Math.Max(0, Math.Min(segment.A.X, segment.B.X) - half); x <= Math.Min(size - 1, Math.Max(segment.A.X, segment.B.X) + half); x++)
-					{
-						var p = new RmgPoint(x, y);
-						if (RegionDistanceSquared(p, ClosestCrossroadsPoint(p, segment)) > half * half) continue;
-						land[y * size + x] = true;
-						if (segment.Primary) clear[y * size + x] = true;
-					}
-			}
-
-			Circle(clear, hub, junction);
-			foreach (var point in starts) Circle(clear, point, 9);
-			foreach (var actor in colonies) Circle(clear, RmgMirroring.Native(actor), 5);
-			foreach (var p in sites.ReservedCells)
-				for (var dy = -2; dy <= 2; dy++)
-					for (var dx = -2; dx <= 2; dx++)
-						if (p.X + dx >= 0 && p.Y + dy >= 0 && p.X + dx < size && p.Y + dy < size) clear[(p.Y + dy) * size + p.X + dx] = true;
-			for (var i = 0; i < land.Length; i++) land[i] |= clear[i];
+			// Only small local clear pads depend on colony density; water reservations never do.
+			foreach (var p in settings.OriginalSurfaceRelations ? sites.ReservedCells : startingCells) clear[p.Y * size + p.X] = true;
 			foreach (var mask in new[] { clear, land })
 			{
 				var original = (bool[])mask.Clone();
@@ -159,60 +146,42 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					if (original[i]) foreach (var member in RmgMirroring.Orbit(i, size, settings.MirroringAxes, settings.Seed)) mask[member] = true;
 			}
 
-			var fields = CrossroadsFields(settings, starts, clear, land);
+			var fields = CrossroadsFields(settings, dividers, clear, land);
 			var report = new JObject
 			{
-				["actor_planning_ms"] = planningMs, ["main_approaches"] = starts.Count, ["junction_radius_native"] = junction,
+				["actor_planning_ms"] = timer.Elapsed.TotalMilliseconds, ["main_approaches"] = starts.Count, ["junction_radius_native"] = junction,
 				["approach_width_native"] = width, ["side_connections"] = RmgCrossroadsParameters.Name(settings.SideConnections),
-				["side_connection_tiers"] = tiers, ["subdivision_depth"] = BattlefieldDepth(settings.TerrainComplexity),
+				["side_connection_tiers"] = tiers, ["side_connection_radii_native"] = new JArray(tierRadii), ["bridge_half_width_native"] = bridgeHalf,
+				["divider_detail_level"] = BattlefieldDepth(settings.TerrainComplexity), ["divider_angles"] = new JArray(dividers),
 				["planned_starts"] = new JArray(starts.Select(p => p.ToString())), ["planned_colony_sites"] = colonies.Length,
-				["central_colonies"] = colonies.Count(c => Radial(RmgMirroring.Native(c)) <= contestRadius + 10),
-				["central_colony_radius_native"] = contestRadius + 10,
+				["central_colonies"] = colonies.Count(c => Radial(RmgMirroring.Native(c)) <= radius * .55),
+				["central_colony_radius_native"] = radius * .55,
 				["protected_clear_cells"] = clear.Count(c => c), ["protected_land_cells"] = land.Count(c => c),
-				["placement_order"] = "CENTRAL_CONTEST_START_EXPANSIONS_APPROACH_SHOULDERS",
+				["placement_order"] = "FIXED_APPROACH_SHOULDERS", ["density_changes_water"] = false,
 				["fairness_scope"] = "EQUAL_TERRAIN_TRAVEL_COSTS_TO_TYPED_COLONY_POOLS_BEFORE_OWNERSHIP"
 			};
 			return new BattlefieldPlan(starts, colonies, strict, evaluations, types, clear, land, fields, report);
 		}
 
-		static TerrainComparisonFields CrossroadsFields(RmgGenerationSettings settings, List<RmgPoint> starts, bool[] clear, bool[] land)
+		static TerrainComparisonFields CrossroadsFields(RmgGenerationSettings settings, double[] dividers, bool[] clear, bool[] land)
 		{
 			var size = settings.MapSize; var center = (size - 1) / 2D;
-			var angles = starts.Select(p => Math.Atan2(p.Y - center, p.X - center)).OrderBy(a => a).ToArray();
-			var basins = angles.Select((a, i) => (a + (i + 1 == angles.Length ? angles[0] + 2 * Math.PI : angles[i + 1])) / 2).ToArray();
 			var depth = BattlefieldDepth(settings.TerrainComplexity);
 			double Priority(double x, double y, bool geology)
 			{
 				var best = double.NegativeInfinity;
-				for (var i = 0; i < basins.Length; i++)
+				for (var i = 0; i < dividers.Length; i++)
 				{
-					var angle = basins[i]; var cos = Math.Cos(angle); var sin = Math.Sin(angle);
-					var radial = size * (geology ? .26 : .29);
-					var u = (x - center) * cos + (y - center) * sin - radial;
-					var v = -(x - center) * sin + (y - center) * cos;
+					var angle = dividers[i]; var cos = Math.Cos(angle); var sin = Math.Sin(angle);
+					var u = (x - center) * cos + (y - center) * sin;
+					if (u < 0) continue;
+					var v = Math.Abs(-(x - center) * sin + (y - center) * cos);
 					var salt = TerrainComparison.Mix(settings.Seed, (ulong)(1910 + i));
-					var halfU = size * .32; var halfV = size * Math.Min(.16, .44 / starts.Count);
-					var left = -halfU; var top = -halfV; var w = 2 * halfU; var h = 2 * halfV;
-					var leaf = salt;
-					for (var d = 0; d < depth; d++)
-					{
-						var fraction = .46 + (salt >> (d * 2) & 3) * .025;
-						if (w >= h)
-						{
-							var cut = w * fraction;
-							if (u < left + cut) { w = cut; leaf = TerrainComparison.Mix(leaf, 1); }
-							else { left += cut; w -= cut; leaf = TerrainComparison.Mix(leaf, 2); }
-						}
-						else
-						{
-							var cut = h * fraction;
-							if (v < top + cut) { h = cut; leaf = TerrainComparison.Mix(leaf, 3); }
-							else { top += cut; h -= cut; leaf = TerrainComparison.Mix(leaf, 4); }
-						}
-					}
+					var phase = salt % 1024 / 1024D * Math.PI;
 
-					var dx = (u - left - w / 2) / Math.Max(3, w / 2 - 2); var dy = (v - top - h / 2) / Math.Max(3, h / 2 - 2);
-					best = Math.Max(best, -Math.Sqrt(dx * dx + dy * dy) + salt % 7 * .025 + (depth == 0 ? 0 : .9 * (leaf % 1024) / 1023D));
+					// Vary the width of a continuous divider; complexity must never open a crossing.
+					var variation = 1 + (.08 + depth * .16) * Math.Cos(u / size * Math.PI * (2 + depth * 2) + phase);
+					best = Math.Max(best, -v / variation + (geology ? Math.Sin(u / size * 12 + phase) * 3 : 0));
 				}
 
 				return best;
@@ -227,13 +196,20 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 			var width = size / 2; var lattice = width + 1;
 			var water = new double[width * width]; var geology = new double[lattice * lattice]; var moisture = new double[geology.Length];
-			var waterAllowed = new bool[water.Length]; var landAllowed = new bool[geology.Length];
+			var waterAllowed = new bool[water.Length]; var required = new bool[water.Length]; var landAllowed = new bool[geology.Length];
 			for (var i = 0; i < water.Length; i++)
 			{
 				var canonical = RmgMirroring.Canonical(i, width, settings.MirroringAxes, settings.Seed);
-				water[i] = Priority(2 * (canonical % width) + .5, 2 * (canonical / width) + .5, false);
-				waterAllowed[i] = !Protected(land, 2 * (i % width), 2 * (i / width));
+				var x = 2 * (canonical % width) + .5; var y = 2 * (canonical / width) + .5;
+				water[i] = Priority(x, y, false);
+				waterAllowed[i] = !Enumerable.Range(0, 4).Any(f => land[(2 * (i / width) + f / 2) * size + 2 * (i % width) + f % 2]);
+				required[i] = waterAllowed[i] && dividers.Any(a => (x - center) * Math.Cos(a) + (y - center) * Math.Sin(a) >= 0 &&
+					Math.Abs(-(x - center) * Math.Sin(a) + (y - center) * Math.Cos(a)) <= (size == 64 || (size == 128 && settings.PlayerCount == 8) ? 3 : 5));
+				if (required[i]) water[i] += 10000;
 			}
+
+			for (var i = 0; i < required.Length; i++)
+				if (!RmgMirroring.Orbit(i, width, settings.MirroringAxes, settings.Seed).All(m => waterAllowed[m])) required[i] = false;
 
 			for (var i = 0; i < geology.Length; i++)
 			{
@@ -243,7 +219,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				landAllowed[i] = !Protected(clear, 2 * (i % lattice), 2 * (i / lattice));
 			}
 
-			return new TerrainComparisonFields(water, geology, moisture, waterAllowed, landAllowed);
+			return new TerrainComparisonFields(water, geology, moisture, waterAllowed, landAllowed) { RequiredWater = required };
 		}
 	}
 }

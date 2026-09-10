@@ -10,11 +10,14 @@ The RMG must preserve that boundary: it may refer to terrain and actor identifie
 
 ## Current development
 
-[Crossroads V19](CROSSROADS_V19.md) is implemented and awaiting in-game review on `codex/rmg-crossroads`, based on the accepted
+[Crossroads V19](CROSSROADS_V19.md) has received a topology and colony-density revision on `codex/rmg-crossroads`, based on the accepted
 [Artificial Battlefield V18](ARTIFICIAL_BATTLEFIELD_V18.md) commit `17881c4`. The user accepted Battlefield
 on 2026-09-10 and requested the next layout. Crossroads uses a central contest area, fixed player
 approaches, configurable side connections and terrain dividers. It adds Approach Width and Side
-Connections to the lobby, using generator 19 / configuration 1 / player schema 13.
+Connections to the lobby, using generator 19 / configuration 2 / player schema 13. The revised contract
+enforces exact crossing tiers and prevents colony density from reshaping water; with surface relations
+disabled, density preserves all terrain. The 786-map matrix and live startup checks passed; in-game
+acceptance is pending.
 
 Natural Landscape PVP `15f4882` and Artificial Battlefield `17881c4` are accepted, but have not been
 promoted to main. Ordinary Natural Landscape remains the default. PVP uses V17/configuration 1/schema
