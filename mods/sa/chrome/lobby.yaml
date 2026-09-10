@@ -403,7 +403,7 @@ Background@SERVER_LOBBY:
 					Height: 28
 					Visible: False
 					Font: Regular
-					TooltipText: Width of the winding passages. Complexity tightens and bends these routes.
+					TooltipText: Width of maze passages. Higher complexity adds more junctions and routes while narrowing them.
 					TooltipContainer: TOOLTIP_CONTAINER
 
 				Label@RMG_EXTRA_ROUTES_LABEL:

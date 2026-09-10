@@ -15,7 +15,9 @@ based on the accepted starting-area checkpoint `55f206b` (2026-09-10). It adds a
 asymmetric maze of winding passages, slowing surfaces and sparse colony alcoves.
 Passage Width and Extra Routes are its layout controls. Terrain remains fixed when
 colony density, weights, ownership or starting safe-area rules change.
-The layout uses player-settings schema 18 and awaits in-game review.
+The layout uses player-settings schema 18, configuration 2, and awaits in-game review.
+The revision makes complexity subdivide the maze into more and longer routes,
+retaining starting positions and large-area connections while replacing the fixed local graph.
 
 [Starting-area options](STARTING_AREA_OPTIONS.md) were accepted at `55f206b`.
 **Respect Starting Safe Area** applies to all eight current layouts and defaults On.

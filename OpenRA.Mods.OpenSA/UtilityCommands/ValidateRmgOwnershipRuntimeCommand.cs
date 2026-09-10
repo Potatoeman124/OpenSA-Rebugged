@@ -104,6 +104,13 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 
 			if (labyrinth)
 			{
+				foreach (var level in Enum.GetValues<Rmg.Reassessment.TerrainComplexity>())
+					Run($"labyrinth-review-{level}", 256, new[] { 0, 10, 20, 30, 40, 50 }, new int[6], bots: true, options: new RmgPlayerSettings
+					{
+						SchemaVersion = 18, LayoutFamily = RmgPlayerLayoutFamily.Labyrinth, Seed = 642188072337235576,
+						MapSize = 256, PlayerCount = 6, StartingColonyShares = new[] { 0, 10, 20, 30, 40, 50 }, Tileset = "DESERT",
+						LaneWidth = RmgBattlefieldLaneWidth.Narrow, ExtraRoutes = RmgLabyrinthRoutes.Few, TerrainComplexity = level
+					});
 				Run("labyrinth-solo", 64, new[] { 30 }, new int[1]);
 				Run("labyrinth-small", 64, new[] { 0, 10, 20, 30 }, new int[4]);
 				Run("labyrinth-desert", 128, new[] { 0, 10, 20 }, new int[3], bots: true, crowded: true, tileset: "DESERT", hostiles: true);

@@ -455,7 +455,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (UsesRegionsTerrain)
 			{
 				var suffix = PlayableWidth == 128 ? string.Empty : $"-{PlayableWidth}";
-				if (ProfileId != $"{Tileset.ToLowerInvariant()}-{(GeneratorVersion == 23 ? "labyrinth" : GeneratorVersion == 22 ? "strongholds" : GeneratorVersion == 21 ? "divided-lands" : GeneratorVersion == 20 ? "ring" : GeneratorVersion == 19 ? "crossroads" : GeneratorVersion == 18 ? "artificial-battlefield" : "natural-regions")}-v{GeneratorVersion}" + suffix || ConfigurationVersion != (GeneratorVersion == 13 ? 4 : GeneratorVersion is 18 or 19 or 21 ? 2 : 1) ||
+				if (ProfileId != $"{Tileset.ToLowerInvariant()}-{(GeneratorVersion == 23 ? "labyrinth" : GeneratorVersion == 22 ? "strongholds" : GeneratorVersion == 21 ? "divided-lands" : GeneratorVersion == 20 ? "ring" : GeneratorVersion == 19 ? "crossroads" : GeneratorVersion == 18 ? "artificial-battlefield" : "natural-regions")}-v{GeneratorVersion}" + suffix || ConfigurationVersion != (GeneratorVersion == 13 ? 4 : GeneratorVersion is 18 or 19 or 21 or 23 ? 2 : 1) ||
 					!RmgBiome.IsSupported(Tileset) || (Tileset != "NORMAL" && GeneratorVersion is not (16 or 17 or 18 or 19 or 20 or 21 or 22 or 23)) || (PlayableWidth is not (128 or 256) && !(PlayableWidth is 64 or 512 && GeneratorVersion is 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23)) || PlayableHeight != PlayableWidth ||
 					LogicalWidth * 2 != PlayableWidth || LogicalHeight != LogicalWidth || CordonWidth != 2 ||
 					ClearTemplateIds.Length == 0 || BlockedTemplateIds.Length == 0 || NeutralColonyActors.Length != 5 ||

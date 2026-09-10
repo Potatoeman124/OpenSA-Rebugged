@@ -249,10 +249,10 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 
 		void BindControls()
 		{
-			waterButton.GetTooltipText = () => IsLabyrinth ? "Water fills the spaces between passages. Low through Ultra use 60%, 72%, 82%, 91% and 100% of that space; tile transitions reduce final coverage." : waterButton.TooltipText;
+			waterButton.GetTooltipText = () => IsLabyrinth ? "Water fills the spaces between passages. Low through Ultra use 60%, 72%, 82%, 91% and 100% of that space; maze walls set a minimum, and tile transitions affect final coverage." : waterButton.TooltipText;
 			tacticalTerrainButton.GetTooltipText = () => IsLabyrinth ? "Slowing surfaces shape alternative routes. Complexity increases their target coverage; narrow passages, alcoves and original surface relations can limit it." : tacticalTerrainButton.TooltipText;
 			colonyButton.GetTooltipText = () => IsLabyrinth ? "Labyrinth uses one quarter of the usual colony target, rounded up. Colonies occupy existing alcoves and never widen passages. Crowded maps can stop below the target." : colonyButton.TooltipText;
-			complexityButton.GetTooltipText = () => IsLabyrinth ? "Higher complexity tightens and bends passages, adds slowing terrain. The seed retains its main junctions and starts." : complexityButton.TooltipText;
+			complexityButton.GetTooltipText = () => IsLabyrinth ? "Higher complexity subdivides the maze into more, longer and narrower routes. The seed retains its starting positions and large-scale connections." : complexityButton.TooltipText;
 			presetButton.GetText = () => presetCustomized ?
 				$"Custom ({RmgPlayerSettingsContract.PresetDisplayName(preset)})" :
 				RmgPlayerSettingsContract.PresetDisplayName(preset);
@@ -812,6 +812,8 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					var spacingSummary = closerColonies > 0 ? $" {closerColonies} placed with closer spacing." : string.Empty;
 					if ((HasFixedPlayerCounts || IsStrongholds || IsLabyrinth) && result.Generation.Validation.Warnings.Any(w => w.Code is "BATTLEFIELD_TERRAIN_CAPACITY" or "CROSSROADS_TERRAIN_CAPACITY" or "RING_TERRAIN_CAPACITY" or "DIVIDED_LANDS_TERRAIN_CAPACITY" or "STRONGHOLDS_TERRAIN_CAPACITY" or "LABYRINTH_TERRAIN_CAPACITY"))
 						spacingSummary += IsLabyrinth ? " Passages/alcoves/transitions limit modifiers." : " Routes/plazas/transitions limit coverage.";
+					if (IsLabyrinth && result.Generation.Validation.Warnings.Any(w => w.Code == "LABYRINTH_WATER_FLOOR"))
+						spacingSummary += " Maze walls set minimum water coverage.";
 					if (IsCrossroads && result.Generation.Validation.Warnings.Any(w => w.Code == "CROSSROADS_WATER_FLOOR"))
 						spacingSummary += " Dividers set minimum water coverage.";
 					if (IsRing && result.Generation.Validation.Warnings.Any(w => w.Code == "RING_WATER_FLOOR"))

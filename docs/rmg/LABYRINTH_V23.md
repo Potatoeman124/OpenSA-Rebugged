@@ -2,7 +2,7 @@
 
 Status: implemented on `codex/rmg-labyrinth`, based on the accepted starting-area
 checkpoint `55f206b`. Pending user in-game review. No merge or push is included.
-Player-settings schema 18; generator version 23; configuration 1.
+Player-settings schema 18; generator version 23; configuration 2.
 
 ## Gameplay intent
 
@@ -19,23 +19,25 @@ and initial ownership cannot repaint terrain or create more alcoves.
 
 ## Controls
 
-- **Terrain Complexity:** Small through Ultra tighten the passages, increase bend
-  amplitude, and raise the target coverage of slowing terrain. The seed's junctions,
-  core route graph, colony alcoves and starting anchors remain fixed. Complexity is
-  a geometry control, not a promise of monotonically increasing water percentage.
-- **Passage Width:** Narrow, Standard (default), Wide. At Ultra the protected passage
-  widths are 5, 7 and 10 native cells respectively; each earlier complexity step adds
-  1.2 cells. Small junctions and colony alcoves have their own necessary clearance.
-  Tile transitions can leave additional dry cells beside these minimum routes.
+- **Terrain Complexity:** changes the internal maze topology. Each fixed large area
+  is subdivided into a 1 x 1, 2 x 2, 3 x 2, 3 x 3 or 4 x 4 local maze from Small
+  through Ultra. This adds junctions, length, turns and route density while narrowing
+  passages. Starting anchors and the large-area connection tree remain fixed for the
+  seed. Local junctions, paths and colony alcoves intentionally change with complexity.
+- **Passage Width:** Narrow, Standard (default), Wide. The protected Narrow widths
+  are 14, 11, 8.5, 6.5 and 5 native cells across the five complexity levels. Standard
+  adds 2.5 cells; Wide adds 5. Junctions and colony alcoves have their own necessary
+  clearance. Tile transitions can leave additional dry cells beside minimum routes.
 - **Extra Routes:** Few, Standard (default), Many. Respectively opens 3%, 15% or 40%
-  of the remaining edges after constructing a connected maze tree. The same seed
-  adds edges in a stable order. These are planned passage connections, not an exact
-  count of every possible ground shortcut: low water can leave additional land, and
-  slowing surfaces can be crossed.
+  of the unused local and large-area connections, with deterministic ordering.
+  Local extras are apportioned over the whole map so rounding does not erase their
+  effect in smaller submazes. Water separators protect the boundaries between maze
+  cells; the route mask cuts the intended passages through them. Native transitions,
+  colony/start clearances and wider passages can still create additional local joins.
 - **Water Amount:** Low through Ultra fill 60%, 72%, 82%, 91% and 100% of the eligible
-  space outside the protected network. Final water coverage is lower after native
-  shoreline normalization. Scaling against available space prevents upper water
-  levels from all hitting the same absolute map-area ceiling.
+  space outside the protected network, with a minimum imposed by maze separators.
+  Native shoreline normalization also changes final coverage. Scaling against available
+  space prevents upper water levels from all hitting the same absolute map-area ceiling.
 - **Surface Modifiers:** existing quantity controls remain active. For complexity
   index `d = 0..4`, gravel target is `min(40, usual gravel + 6 + 3d)` percent of land;
   moss is `min(30, usual moss + 5 + 2d)`. The original transition rules still apply.
@@ -57,12 +59,24 @@ starting safe area enabled.
 
 ## Construction and validation
 
-A seeded, slightly offset grid provides 3 x 3, 5 x 5, 11 x 11 or 22 x 22 junctions for
-64, 128, 256 or 512 maps. A randomized depth-first spanning tree connects every
-junction. Optional edges add flanking choices. Six-segment curves bend each route
-according to complexity without moving its endpoints. Starts use separated junctions
-and actual starting-colony combat margins. A fixed subset of junctions provides
-small colony alcoves, distributed independently of density.
+Configuration 1 fixed the entire maze graph and mainly changed width and bends.
+The user rejected that interpretation after testing Small and Ultra with seed
+`642188072337235576`, Desert, 256 x 256, six players, Narrow passages and Few extras.
+Configuration 2 replaces that restriction with a hierarchy of connected local mazes.
+
+A seeded large-area tree connects 1 x 1, 2 x 2, 3 x 3 or 6 x 6 areas on 64, 128, 256
+or 512 maps. The same inter-area gates are retained across complexity levels. Each
+area receives a local maze whose subdivision depends on complexity. Routes to fixed
+starting anchors join that network. Starting anchors are selected using the previous
+reference lattice, preserving their positions from configuration 1.
+
+Alcoves are chosen from local junctions before colony settings are considered, capped
+by map area. Higher complexity can therefore offer more sites; higher colony density
+cannot. Real water separator strips stop coverage ranking from removing maze walls.
+Some native geometry joins remain possible around protected starts/alcoves. There is
+no guarantee that every particular point-to-point route gets longer: the total network
+length and density grow, while changed branches and optional connections can shorten
+individual journeys.
 
 Native water and land transitions are applied before colony placement. Placement
 uses finished native terrain and actual actor/exit coverage, retains two free cells
@@ -71,30 +85,44 @@ combat-spacing rules. The terrain hash is checked before and after placement. Th
 native validator independently checks connected actor access, production exits,
 footprint overlaps, protected passage cells, shoreline clearance and movement costs.
 
-The new report block is `regions.labyrinth_plan`. It records junctions, core and
-extra edges, curved passages, alcoves, widths and available water space. The normal
+The new report block is `regions.labyrinth_plan`. It records local junctions, the fixed large-area tree, subdivisions, extra
+edges, passage lengths, alcoves, widths, separator cells and available water space. The normal
 report also contains realized terrain coverage, requested/placed colonies, timings,
 world validation and package repeatability.
 
 ## Verification and reproduction
 
-Verified on 2026-09-10:
+Configuration 2 passed **272 native configurations** and **53 exact historical
+package replays** on 2026-09-10. **24 live skirmish scenarios** initialized twice,
+including all five complexity levels of the user's six-player Desert setup. The
+final wrapper package matches the native Ultra review case exactly. Repository
+validation passed; Release build has zero warnings/errors, and static analysis has
+no additions to its existing warnings.
 
-- **222** native Labyrinth configurations generated, linted and repeated successfully;
-  **53** historical packages reproduced exactly.
-- **19** live skirmish scenarios initialized twice with identical ownership outcomes;
-  actual previews, saved-map reloads, bots and production exits passed.
-- Live lobby controls passed **252** size/player/width/route roundtrips, invalid-input
-  rejection, family switching, persistence and the 64 x 64 player cap.
-- Repository build/runtime-data validation passed. Release build has zero warnings
-  and errors. Static checks retain the pre-existing 236 warnings with no additions.
-- The PowerShell wrapper produced the exact same package as its native matrix case.
+Evidence is under `artifacts/rmg/labyrinth/revision/`: `matrix-01/verification.json`,
+`runtime-final/verification.json`, `validation-01.log`, `style-final.log`,
+`release-final.log` and `wrapper-final/`. Previews in `matrix-01/` cover the exact
+user seed, all sizes, passage widths, extra routes and water/surface combinations.
+The matrix includes the exact user seed and settings at all five levels, expanded
+complexity/width tests on 64, 128 and 512 maps, and historical package comparisons.
+It independently counts boundaries on the exported native terrain and measures
+four-neighbour shortest walks between the user's unchanged starting centers. The
+latter measures terrain routes, not a unit's travel time or runtime pathfinding cost.
+Building footprints and production access are checked separately by the native validator.
 
-Evidence: `artifacts/rmg/labyrinth/matrix-02/verification.json`,
-`runtime-01/verification.json`, `ui-final/verification.json`,
-`validation-01.log`, `style-final.log`, and `release-final.log`.
-Native previews were inspected across complexity/width/routes, water/surface
-combinations, small and large maps, and multiple seeds at maximum placement pressure.
+For the user's 256-map example:
+
+| Complexity | Local route nodes | Total planned passage length (cells) | Protected Narrow width (cells) |
+|---|---:|---:|---:|
+| Small | 9 | 895 | 14 |
+| Medium | 36 | 1670 | 11 |
+| High | 54 | 1996 | 8.5 |
+| Extreme | 81 | 2336 | 6.5 |
+| Ultra | 144 | 3146 | 5 |
+
+These are geometry measures, not promises of equal journey distances or gameplay parity.
+The prior configuration's 222-case/19-world validation is historical evidence; it did not
+establish that complexity changed topology, and its fixed-graph assertion has been replaced.
 
 The native matrix in `scripts/rmg/Verify-Labyrinth.py` covers all five complexity
 levels crossed with passage width and extra routes; all 25 water/surface combinations

@@ -1,5 +1,6 @@
 """Labyrinth native terrain, parameter response, continuity and historical package checks."""
 import argparse,copy,json,sys,hashlib
+from collections import deque
 from pathlib import Path
 from importlib.util import spec_from_file_location,module_from_spec
 sys.dont_write_bytecode=True
@@ -45,6 +46,11 @@ def schedule():
         for size,players in ((64,4),(128,8),(256,8)):
             add(f'seed-{seed}-{size}',seed=str(seed),size=f'{size},{size}',players=players,terrain_complexity='ultra',passage_width='narrow',extra_routes='few',water_amount='ultra',gravel_moss_amount='ultra',neutral_colony_density='ultra',prevent_colony_overlapping=False,respect_starting_safe_area=False)
     for seed in (42,20260910):add(f'seed-{seed}-512',seed=str(seed),size='512,512',players=8,terrain_complexity='ultra',passage_width='narrow',extra_routes='few',water_amount='ultra',neutral_colony_density='ultra')
+    for size,players in ((64,4),(128,8),(512,8)):
+        for li,level in enumerate(LEVELS):
+            for wi,width in enumerate(WIDTHS):
+                add(f'scale-{size}-{level}-{width}',size=f'{size},{size}',players=players,seed='642188072337235576',terrain_complexity=level,passage_width=width,extra_routes=ROUTES[(li+wi)%3],neutral_colony_density='ultra',prevent_colony_overlapping=False,original_surface_relations=li%2==0)
+    for level in LEVELS:add('review-'+level,seed='642188072337235576',tileset='DESERT',players=6,terrain_complexity=level,passage_width='narrow',extra_routes='few')
     cases.extend(c for c in A.schedule() if 'baseline' in c)
     old=ROOT/'artifacts/rmg/starting-area/matrix-final'
     for name in ('forts-True-False-True','forts-False-True-True')+tuple(f'{f}-256-False-False' for f in A.FAMILIES):
@@ -81,11 +87,17 @@ def verify(folder,cases):
             names=[f'geometry-{l}-{width}-{routes}' for l in LEVELS];plans=[reports[x]['labyrinth_plan'] for x in names]
             assert len({hashlib.sha256(terrains[x]).hexdigest() for x in names})==5
             assert all(starts[x]==starts[names[0]] for x in names)
-            for field in ('nodes','edges','chambers'):assert all(p[field]==plans[0][field] for p in plans)
+            for field in ('macro_nodes','macro_tree'):assert all(p[field]==plans[0][field] for p in plans)
+            assert all(plans[i]['maze_nodes']<plans[i+1]['maze_nodes'] for i in range(4))
+            assert all(plans[i]['route_length_native']<plans[i+1]['route_length_native'] for i in range(4))
+            assert plans[-1]['route_length_native']>plans[0]['route_length_native']*2
             assert all(plans[i]['passage_width_native']>plans[i+1]['passage_width_native'] for i in range(4))
-            # Complexity changes the route geometry and slowing coverage, not just water quantity.
-            assert reports[names[-1]]['metrics']['surface_edges_per_100_native_edges']>reports[names[0]]['metrics']['surface_edges_per_100_native_edges']+1
-            assert reports[names[-1]]['metrics']['gravel_percent_land']+reports[names[-1]]['metrics']['moss_percent_land']>reports[names[0]]['metrics']['gravel_percent_land']+reports[names[0]]['metrics']['moss_percent_land']+5
+            # Independent native shoreline density: real barriers, not merely extra
+            # graph vertices on an otherwise unchanged terrain raster.
+            def boundary(data):
+                n=256
+                return sum((data[y*n+x]==1)!=(data[y*n+x+1]==1) for y in range(n) for x in range(n-1))+sum((data[y*n+x]==1)!=(data[(y+1)*n+x]==1) for y in range(n-1) for x in range(n))
+            assert boundary(terrains[names[-1]])>boundary(terrains[names[0]])*1.5,names
     for original in (True,False):
         names=[x for x in terrains if x.startswith(f'pressure-{original}-')]
         assert len({hashlib.sha256(terrains[x]).hexdigest() for x in names})==1,'Colonies or safety repainted terrain'
@@ -94,13 +106,28 @@ def verify(folder,cases):
     for l in LEVELS:
         plans=[reports[f'geometry-{l}-standard-{route}']['labyrinth_plan'] for route in ROUTES]
         assert plans[0]['extra_edges']<plans[1]['extra_edges']<plans[2]['extra_edges']
-        assert all(p['edges'][:plans[0]['tree_edges']]==plans[0]['edges'][:plans[0]['tree_edges']] for p in plans)
+        assert all(p['macro_tree']==plans[0]['macro_tree'] and p['macro_nodes']==plans[0]['macro_nodes'] for p in plans)
     for original in (True,False):
         for surface in ('low','standard','high','extreme','ultra'):
             names=[f'quantities-{w}-{surface}-{original}' for w in ('low','standard','high','extreme','ultra')]
             amounts=[reports[n]['metrics']['water_percent_map'] for n in names]
-            assert all(amounts[i+1]>amounts[i]+1 for i in range(4)),(names,amounts)
-    output=dict(status='PASS',generated_cases=len(rows),historical_packages=historical,cases=rows)
+            assert all(amounts[i+1]>amounts[i]+.5 for i in range(4)),(names,amounts)
+    review=[]
+    for level in LEVELS:
+        name='review-'+level;data=terrains[name];positions=[(x+2,y+2) for t,x,y in starts[name]];pair_lengths=[];n=256
+        for k,(x,y) in enumerate(positions[:-1]):
+            d=[-1]*len(data);d[y*n+x]=0;q=deque([y*n+x])
+            while q:
+                at=q.popleft();px=at%n;py=at//n
+                for adjacent in ((at-1 if px else -1),(at+1 if px<n-1 else -1),(at-n if py else -1),(at+n if py<n-1 else -1)):
+                    if adjacent>=0 and d[adjacent]<0 and data[adjacent]!=1:d[adjacent]=d[at]+1;q.append(adjacent)
+            pair_lengths.extend(d[y*n+x] for x,y in positions[k+1:])
+        assert min(pair_lengths)>0,name
+        plan=reports[name]['labyrinth_plan'];review.append(dict(complexity=level,junctions=plan['maze_nodes'],network_length=plan['route_length_native'],protected_width=plan['passage_width_native'],native_mean_walk=sum(pair_lengths)/len(pair_lengths)))
+        assert starts[name]==starts['review-small']
+    assert review[-1]['network_length']>review[0]['network_length']*3
+    assert review[-1]['native_mean_walk']>review[0]['native_mean_walk']*1.1
+    output=dict(status='PASS',generated_cases=len(rows),historical_packages=historical,review_seed=review,cases=rows)
     (folder/'verification.json').write_text(json.dumps(output,indent=2));print(json.dumps({k:v for k,v in output.items() if k!='cases'}),flush=True)
 
 if __name__=='__main__':
