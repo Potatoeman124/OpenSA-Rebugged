@@ -63,6 +63,16 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			return counts;
 		}
 
+		// Spawn numbers are engine-resolved, one-based map positions; zero is an absent player or a castle.
+		public static int[] AssignStrongholds(IReadOnlyList<int> colonySpawns, IReadOnlyList<int> playerSpawns)
+		{
+			if (colonySpawns.Any(s => s < 0 || s > playerSpawns.Count) || playerSpawns.Any(s => s < 0 || s > playerSpawns.Count) ||
+				playerSpawns.Where(s => s > 0).Distinct().Count() != playerSpawns.Count(s => s > 0))
+				throw new ArgumentException("Invalid stronghold spawn membership.");
+			var occupants = playerSpawns.Select((spawn, player) => (spawn, player)).Where(p => p.spawn > 0).ToDictionary(p => p.spawn, p => p.player);
+			return colonySpawns.Select(spawn => occupants.GetValueOrDefault(spawn, -1)).ToArray();
+		}
+
 		// Preserve the same quotas in both modes. Closest ranks player/site pairs by distance;
 		// Random shuffles quota labels across the entire colony pool.
 		public static int[] Assign(IReadOnlyList<RmgPoint> colonies, IReadOnlyList<RmgPoint> starts, IReadOnlyList<int> shares,

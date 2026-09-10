@@ -8,6 +8,8 @@ param(
     [switch]$DividedLands,
     [switch]$Strongholds,
     [bool]$GenerateCastles = $true,
+    [bool]$RespectStartingSafeArea = $true,
+    [bool]$OwnStartingStronghold = $false,
     [ValidateSet("none", "one", "two")][string]$LandCrossings = "one",
     [ValidateSet("narrow", "standard", "wide")][string]$CrossingWidth = "standard",
     [ValidateSet("round", "octagonal", "square")][string]$RingShape = "round",
@@ -63,9 +65,10 @@ if ($Pvp) {
     if ($Players -lt $groupSize -or $Players % $groupSize -ne 0) { throw "This axis choice requires complete groups of $groupSize players." }
 } elseif ($PSBoundParameters.ContainsKey('MirroringAxes')) { throw "MirroringAxes requires -Pvp." }
 if (!$Strongholds -and $PSBoundParameters.ContainsKey("GenerateCastles")) { throw "GenerateCastles requires -Strongholds." }
+if (!$Strongholds -and $PSBoundParameters.ContainsKey("OwnStartingStronghold")) { throw "OwnStartingStronghold requires -Strongholds." }
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
-    $OutputDirectory = Join-Path $root "artifacts\rmg\$(if ($Strongholds) { "strongholds-v22" } elseif ($DividedLands) { "divided-lands-v21" } elseif ($Ring) { "ring-v20" } elseif ($Crossroads) { "crossroads-v19" } elseif ($Battlefield) { "battlefield-v18" } elseif ($Pvp) { "regions-v17-pvp" } else { "regions-v16" })\$Seed-$MapSize-$Players-$TerrainComplexity-W$WaterAmount-G$GravelMossAmount-N$NeutralColonyDensity$(if ($Strongholds) { "-Castles$GenerateCastles" })-R$OriginalSurfaceRelations-O$PreventColonyOverlapping-C$AntsWeight-$BeetlesWeight-$ScorpionsWeight-$SpidersWeight-$WaspsWeight-S$($StartingColonyShares -join '-')$(if ($StartingColonyMode -eq 'random') { '-random' })$(if ($Tileset -ne 'NORMAL') { '-' + $Tileset })$(if ($Pvp) { '-axes' + $MirroringAxes })$(if ($Battlefield) { '-' + $BlockShape + '-' + $LaneWidth })$(if ($DividedLands) { '-' + $LandCrossings + '-' + $CrossingWidth })$(if ($Ring) { '-' + $RingShape + '-' + $RingWidth })$(if ($Crossroads) { '-' + $LaneWidth + '-' + $SideConnections })"
+    $OutputDirectory = Join-Path $root "artifacts\rmg\$(if ($Strongholds) { "strongholds-v22" } elseif ($DividedLands) { "divided-lands-v21" } elseif ($Ring) { "ring-v20" } elseif ($Crossroads) { "crossroads-v19" } elseif ($Battlefield) { "battlefield-v18" } elseif ($Pvp) { "regions-v17-pvp" } else { "regions-v16" })\$Seed-$MapSize-$Players-$TerrainComplexity-W$WaterAmount-G$GravelMossAmount-N$NeutralColonyDensity$(if ($Strongholds) { "-Castles$GenerateCastles" })-R$OriginalSurfaceRelations-O$PreventColonyOverlapping$(if (!$RespectStartingSafeArea) { "-NoSafeArea" })$(if ($OwnStartingStronghold) { "-OwnStronghold" })-C$AntsWeight-$BeetlesWeight-$ScorpionsWeight-$SpidersWeight-$WaspsWeight-S$($StartingColonyShares -join '-')$(if ($StartingColonyMode -eq 'random') { '-random' })$(if ($Tileset -ne 'NORMAL') { '-' + $Tileset })$(if ($Pvp) { '-axes' + $MirroringAxes })$(if ($Battlefield) { '-' + $BlockShape + '-' + $LaneWidth })$(if ($DividedLands) { '-' + $LandCrossings + '-' + $CrossingWidth })$(if ($Ring) { '-' + $RingShape + '-' + $RingWidth })$(if ($Crossroads) { '-' + $LaneWidth + '-' + $SideConnections })"
 }
 [IO.Directory]::CreateDirectory($OutputDirectory) | Out-Null
 $settingsPath = Join-Path $OutputDirectory "settings.json"
@@ -88,6 +91,9 @@ $settings = [ordered]@{
     prevent_colony_overlapping = $PreventColonyOverlapping
     neutral_colony_weights = [ordered]@{ ants = $AntsWeight; beetles = $BeetlesWeight; scorpions = $ScorpionsWeight; spiders = $SpidersWeight; wasps = $WaspsWeight }
 }
+if (!$RespectStartingSafeArea -or $OwnStartingStronghold) { $settings.schema_version = 17 }
+if (!$RespectStartingSafeArea) { $settings.respect_starting_safe_area = $false }
+if ($OwnStartingStronghold) { $settings.own_starting_stronghold = $true }
 if ($Strongholds) { $settings.generate_castles = $GenerateCastles }
 if ($DividedLands) { $settings.land_crossings = $LandCrossings.ToLowerInvariant(); $settings.crossing_width = $CrossingWidth.ToLowerInvariant() }
 if ($Ring) { $settings.ring_shape = $RingShape.ToLowerInvariant(); $settings.ring_width = $RingWidth.ToLowerInvariant() }

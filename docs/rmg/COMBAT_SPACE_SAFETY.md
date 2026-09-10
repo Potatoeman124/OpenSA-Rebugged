@@ -4,6 +4,19 @@
 
 This contract is implemented by Generator Version 2 configuration `normal-water-blocking-v2` version 3. It was added after live testing of configuration version 2 found match-start colony fire and newly produced units dying at their starting colony. On 2026-08-15, all five version 3 regression maps passed manual live validation with no match-start colony fire. Configuration version 3 is therefore the accepted combat-safe baseline for further RMG development; the earlier Phase 4D automated topology verdict remains historical evidence for configuration version 2 only.
 
+## Explicit schema 17 starting-area option
+
+The user-approved **Respect Starting Safe Area** toggle defaults On and applies to current
+Natural V16, Natural PVP V17, Artificial V18, Crossroads V19, Ring V20, Divided Lands V21 and
+Strongholds V22. Off explicitly waives neutral-to-start turret/production-path combat standoff.
+Actual colony footprints and production exit cells remain reserved for all starting factions;
+player-start versus player-start combat safety remains mandatory. It does not relax shoreline,
+layout routing, or the independently selected neutral-to-neutral overlap policy.
+
+The validator still measures negative start margins and reports `starting_safe_area_intrusions`
+when this exception is active. Historical schemas cannot activate it. The following original
+contract remains the default behavior. See [settings and ownership semantics](STARTING_AREA_OPTIONS.md).
+
 ## Explicit V14 and V15 neutral-spacing option
 
 Regions V14 adds, and V15 retains, the user-requested **Prevent Colony Overlapping**, default **On**. With it enabled,

@@ -79,7 +79,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (frozen != TerrainComparison.Hash(TerrainComparison.NativeBytes(map))) throw new InvalidOperationException("Mirrored placement changed terrain.");
 			map.NaturalSurfacesFrozen = true;
 			var validation = new RmgValidationReport();
-			ValidateColonyCombatSpace(map, profile, validation, !settings.PreventColonyOverlapping, nativeCoordinates: true);
+			ValidateColonyCombatSpace(map, profile, validation, !settings.PreventColonyOverlapping, nativeCoordinates: true, respectStartingSafeArea: settings.RespectStartingSafeArea);
 			if (colonyCount < settings.EffectiveNeutralColonyCount)
 				validation.Warnings.Add(new RmgValidationIssue("NEUTRAL_CAPACITY", settings.GeneratorVersion == 22 ? $"Placed {colonyCount}/{settings.EffectiveNeutralColonyCount} colonies in available fortified sites." : $"Placed {colonyCount}/{settings.EffectiveNeutralColonyCount} colonies in complete mirrored groups of {groupSize}."));
 			map.RegionsReport = terrain.Report;
@@ -108,10 +108,11 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			report["neutral_colonies_drawn_by_type"] = new JObject(RmgColonyWeights.Keys.Select(key => new JProperty(key, drawnTypes.Count(t => t == key + "_colony") * groupSize)));
 			report["neutral_colonies_placed_by_type"] = new JObject(RmgColonyWeights.Keys.Select(key => new JProperty(key, map.Actors.Count(a => a.Role == "neutral-colony" && a.Type == key + "_colony"))));
 			report["starting_colony_shares"] = new JArray(settings.StartingColonyShares);
-			var allocation = RmgColonyOwnership.Allocate(colonyCount, settings.StartingColonyShares);
+			var allocation = settings.OwnStartingStronghold ? Enumerable.Range(1, settings.PlayerCount).Select(spawn => map.Actors.Count(a => a.Role == "neutral-colony" && a.StrongholdSpawn == spawn)).ToArray() :
+				RmgColonyOwnership.Allocate(colonyCount, settings.StartingColonyShares);
 			report["starting_colonies_allocated_if_all_slots_occupied"] = new JArray(allocation);
 			report["unowned_colonies_if_all_slots_occupied"] = colonyCount - allocation.Sum();
-			report["ownership_assignment"] = settings.StartingColonyMode == RmgColonyOwnershipMode.Random ? "runtime-player-slot-and-seeded-random" : "runtime-player-slot-and-actual-start";
+			report["ownership_assignment"] = settings.OwnStartingStronghold ? "runtime-actual-spawn-stronghold" : settings.StartingColonyMode == RmgColonyOwnershipMode.Random ? "runtime-player-slot-and-seeded-random" : "runtime-player-slot-and-actual-start";
 			report["starting_colony_mode"] = RmgColonyOwnership.ModeName(settings.StartingColonyMode);
 			report["doodads_requested"] = target;
 			report["doodads_placed"] = decorations.Count;
@@ -166,7 +167,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var rules = profile.ColonyCombatRules;
 			var cursors = drawnTypes.Distinct().ToDictionary(type => type, _ => 0);
 			bool Fits(string type, RmgPoint[] points) => sites.NativeOrbitFits(type, points) &&
-				points.All(p => starts.All(q => rules.ColonyStartMarginAtNative(type, p, q) >= 0));
+				(!settings.RespectStartingSafeArea || points.All(p => starts.All(q => rules.ColonyStartMarginAtNative(type, p, q) >= 0)));
 			void Place(string type, RmgPoint[] points)
 			{
 				foreach (var p in points)

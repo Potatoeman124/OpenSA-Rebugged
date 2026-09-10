@@ -220,7 +220,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				var frontline = type is "ants_colony" or "beetles_colony";
 				var range = rules.AttackRangeNative(type);
 
-				// Neutral colonies still need combat clearance before ownership is assigned.
+				// Species roles remain stable whether starting combat clearance is enabled or disabled.
 				// Keep support behind the production line by its weapon range plus a small buffer.
 				var targetFront = frontline ? .65 : Math.Clamp(.65 - (range + 5) / fort.Radius, .05, .60);
 				var targetSide = .60;
@@ -229,10 +229,10 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			}
 
 			var ordered = drawn.Distinct().ToDictionary(t => t, t => candidates.OrderBy(p => RoleScore(t, p)).ToArray());
-			bool Fits(string type, RmgPoint p) => sites.NativeOrbitFits(type, new[] { p }) && geometry.Starts.All(s => rules.ColonyStartMarginAtNative(type, p, s) >= 0);
+			bool Fits(string type, RmgPoint p) => sites.NativeOrbitFits(type, new[] { p }) && (!settings.RespectStartingSafeArea || geometry.Starts.All(s => rules.ColonyStartMarginAtNative(type, p, s) >= 0));
 			void Place(string type, RmgPoint p)
 			{
-				blank.Actors.Add(RmgMirroring.Actor(type, profile.ColonyOwner, "neutral-colony", p, settings.PlayerCount + colonies.Count));
+				blank.Actors.Add(RmgMirroring.Actor(type, profile.ColonyOwner, "neutral-colony", p, settings.PlayerCount + colonies.Count) with { StrongholdSpawn = fortIds[p] < settings.PlayerCount ? fortIds[p] + 1 : 0 });
 				colonies.Add((type, p, fortIds[p])); sites.ReserveNativeOrbit(type, new[] { p });
 			}
 

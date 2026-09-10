@@ -112,6 +112,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public int[] StartingColonyShares { get; set; } = Array.Empty<int>();
 		public RmgColonyOwnershipMode StartingColonyMode { get; set; } = RmgColonyOwnershipMode.ClosestToSpawn;
 		public bool GenerateCastles { get; set; } = true;
+		public bool RespectStartingSafeArea { get; set; } = true;
+		public bool OwnStartingStronghold { get; set; }
 		public int MirroringAxes { get; set; }
 		public RmgBattlefieldBlockShape BlockShape { get; set; } = RmgBattlefieldBlockShape.CutCorners;
 		public RmgBattlefieldLaneWidth LaneWidth { get; set; } = RmgBattlefieldLaneWidth.Standard;
@@ -168,6 +170,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 			if (GeneratorVersion == 18) { fields.Add($"block-shape={RmgBattlefieldParameters.Name(BlockShape)}"); fields.Add($"lane-width={RmgBattlefieldParameters.Name(LaneWidth)}"); }
 
+			if (!RespectStartingSafeArea) fields.Add("respect-starting-safe-area=false");
+			if (OwnStartingStronghold) fields.Add("own-starting-stronghold=true");
 			if (GeneratorVersion == 22) fields.Add($"generate-castles={GenerateCastles.ToString().ToLowerInvariant()}");
 
 			if (GeneratorVersion == 21) { fields.Add($"land-crossings={RmgDividedLandsParameters.Name(LandCrossings)}"); fields.Add($"crossing-width={RmgBattlefieldParameters.Name(LaneWidth)}"); }
@@ -524,7 +528,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 	public sealed record RmgGraphNode(string Id, string Role, RmgPoint Location);
 	public sealed record RmgGraphEdge(string Id, string From, string To, int RouteId);
-	public sealed record RmgActorPlan(string Type, string Owner, string Role, RmgPoint LogicalLocation, int EquivalenceGroup, int NativeFrame = 0);
+	public sealed record RmgActorPlan(string Type, string Owner, string Role, RmgPoint LogicalLocation, int EquivalenceGroup, int NativeFrame = 0, int StrongholdSpawn = 0);
 	public sealed record RmgObstacleRegion(int Id, int SymmetryOrbit, int CellCount);
 	public sealed record RmgChokepoint(string Id, int RouteId, int SymmetryOrbit, RmgPoint From, RmgPoint To, int LengthNative, int WidthNative);
 	public sealed record RmgRepairRecord(int Index, string Type, string Reason, int TargetId, RmgPoint[] ChangedCells);

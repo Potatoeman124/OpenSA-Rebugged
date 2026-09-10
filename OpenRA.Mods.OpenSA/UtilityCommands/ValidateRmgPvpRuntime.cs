@@ -229,6 +229,45 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			lobby.Get<CheckboxWidget>("RMG_GENERATE_CASTLES").OnClick();
 			Draw(output, "strongholds-64-options");
 			CheckStrongholdsContract();
+			var safeArea = lobby.Get<CheckboxWidget>("RMG_RESPECT_STARTING_SAFE_AREA");
+			var ownFort = lobby.Get<CheckboxWidget>("RMG_OWN_STARTING_STRONGHOLD");
+			var ownership = lobby.Get<ButtonWidget>("RMG_COLONY_OWNERSHIP");
+			Require(safeArea.IsChecked() && !ownFort.IsChecked(), "Wrong starting-area defaults.");
+			safeArea.OnClick(); ownFort.OnClick();
+			Require(!Settings().RespectStartingSafeArea && Settings().OwnStartingStronghold && ownership.IsDisabled(), "Starting-area controls did not reach settings or disable overridden sliders.");
+			Choose("RMG_SIZE", "256 x 256");
+			Draw(output, "starting-area-strongholds-options");
+			foreach (var family in new[] { "Natural Landscape (Regions)", "Natural Landscape PVP", "Artificial Battlefield", "Crossroads", "Ring", "Divided Lands" })
+			{
+				Choose("RMG_LAYOUT_FAMILY", family);
+				Require(safeArea.IsVisible() && !Settings().RespectStartingSafeArea && !ownFort.IsVisible() && !Settings().OwnStartingStronghold && !ownership.IsDisabled(), "Starting-area options leaked or reset while switching family.");
+				var roundtrip = RmgPlayerSettingsContract.Parse(((RmgPlayerSettings)typeof(RmgLobbyLogic).GetMethod("CreatePlayerSettings", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(logic, new object[] { 1UL })).ToJson());
+				Require(!roundtrip.RespectStartingSafeArea, "Starting-area setting was lost in JSON roundtrip.");
+			}
+
+			Choose("RMG_LAYOUT_FAMILY", "Strongholds");
+			Require(ownFort.IsChecked() && Settings().OwnStartingStronghold, "Stronghold ownership selection was lost.");
+			ownFort.OnClick();
+			Require(!Settings().OwnStartingStronghold && !ownership.IsDisabled(), "Existing ownership cannot be restored.");
+			safeArea.OnClick();
+			Require(Settings().RespectStartingSafeArea, "Safe area cannot be restored.");
+			foreach (var field in new[] { "respect_starting_safe_area", "own_starting_stronghold" })
+				foreach (var invalid in new[] { "wrong-type", "old-schema", "old-layout" })
+				{
+					var json = new RmgPlayerSettings { SchemaVersion = 17, LayoutFamily = RmgPlayerLayoutFamily.Strongholds }.ToJson();
+					json[field] = field == "own_starting_stronghold";
+					if (invalid == "wrong-type") json[field] = 1;
+					if (invalid == "old-schema") json["schema_version"] = 16;
+					if (invalid == "old-layout") { json["layout_family"] = "structured-competitive"; json.Remove("generate_castles"); }
+					var rejected = false;
+					try { RmgPlayerSettingsContract.Resolve(RmgPlayerSettingsContract.Parse(json)); }
+					catch (ArgumentException) { rejected = true; }
+					Require(rejected, $"Invalid starting-area input was accepted: {field}/{invalid}.");
+				}
+
+			Require(RmgColonyOwnership.AssignStrongholds(new[] { 1, 0, 2, 3, 1 }, new[] { 3, 0, 1 }).SequenceEqual(new[] { 2, -1, -1, 0, 2 }), "Stronghold ownership redistributed absent forts or castles.");
+			Require(RmgColonyOwnership.AssignStrongholds(Array.Empty<int>(), new[] { 1 }).Length == 0, "Empty stronghold pool failed.");
+			Console.WriteLine("PASS: both starting-area controls, defaults, all seven layouts, override visibility, serialization and restoration.");
 			var battlefieldValid = 0;
 			foreach (var size in new[] { 64, 128, 256, 512 })
 				for (var players = 1; players <= 8; players++)

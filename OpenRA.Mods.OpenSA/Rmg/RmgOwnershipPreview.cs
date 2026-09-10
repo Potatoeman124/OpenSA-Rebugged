@@ -32,7 +32,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public static RmgOwnershipPreview Resolve(MapPreview map, Session lobby, IReadOnlyList<ColonyPreviewSite> sites)
 		{
 			var info = map.WorldActorInfo.TraitInfoOrDefault<RmgStartingColonyOwnershipInfo>();
-			if (info == null || !info.PlayerShares.Any(s => s > 0) || lobby.GlobalSettings.Map != map.Uid) return null;
+			if (info == null || (!info.OwnStartingStronghold && !info.PlayerShares.Any(s => s > 0)) || lobby.GlobalSettings.Map != map.Uid) return null;
 			RmgColonyOwnership.ValidateShares(info.PlayerShares, map.PlayerCount);
 			// Lobby data arrives in separate slot/client/settings messages. Wait for a consistent, startable snapshot.
 			if (lobby.Clients.Any(c => c.Slot != null && (!lobby.Slots.ContainsKey(c.Slot) || !map.Players.Players.ContainsKey(c.Slot))) ||
@@ -45,6 +45,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var result = new RmgOwnershipPreview();
 			var starts = new RmgPoint[info.PlayerShares.Length];
 			var shares = new int[starts.Length];
+			var spawns = new int[starts.Length];
 			var clients = new Session.Client[starts.Length];
 			for (var i = 0; i < starts.Length; i++)
 			{
@@ -60,6 +61,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				var location = map.SpawnPoints[player.SpawnPoint - 1] + offsets[0];
 				starts[i] = new RmgPoint(location.X, location.Y);
 				shares[i] = info.PlayerShares[i];
+				spawns[i] = player.SpawnPoint;
 				clients[i] = client;
 				// Keep random faction hidden in the tooltip while showing its resolved starting position.
 				result.SpawnOccupants[player.SpawnPoint] = new SpawnOccupant(new Session.Client { Name = client.Name, Color = client.Color,
@@ -67,7 +69,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			}
 			var byName = sites.ToDictionary(s => s.Name);
 			var eligible = info.ColonyActorNames.Where(byName.ContainsKey).Select(name => byName[name]).ToArray();
-			var owners = RmgColonyOwnership.Assign(eligible.Select(s => new RmgPoint(s.Location.X, s.Location.Y)).ToArray(), starts, shares, info.ChoiceMode, info.RandomSeed);
+			var owners = info.OwnStartingStronghold ? info.StrongholdOwners(eligible.Select(s => s.Name), spawns) : RmgColonyOwnership.Assign(eligible.Select(s => new RmgPoint(s.Location.X, s.Location.Y)).ToArray(), starts, shares, info.ChoiceMode, info.RandomSeed);
 			for (var i = 0; i < owners.Length; i++)
 				if (owners[i] >= 0)
 				{

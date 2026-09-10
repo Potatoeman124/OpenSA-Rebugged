@@ -114,7 +114,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				var ownership = map.Rules.Actors[SystemActors.World].TraitInfoOrDefault<Traits.World.RmgStartingColonyOwnershipInfo>();
 				var colonyNames = map.ActorDefinitions.Where(node => profile.NeutralColonyActors.Contains(node.Value.Value)).Select(node => node.Key).ToArray();
 				Require(ownership != null && ownership.PlayerShares.SequenceEqual(settings.StartingColonyShares) &&
-					ownership.ColonyActorNames.SequenceEqual(colonyNames) && ownership.ChoiceMode == settings.StartingColonyMode &&
+					ownership.ColonyActorNames.SequenceEqual(colonyNames) && ownership.OwnStartingStronghold == settings.OwnStartingStronghold &&
+					(!settings.OwnStartingStronghold || ownership.ColonySpawnPoints.SequenceEqual(generation.Map.Actors.Where(a => a.Role == "neutral-colony").Select(a => a.StrongholdSpawn))) && ownership.ChoiceMode == settings.StartingColonyMode &&
 					(settings.StartingColonyMode != RmgColonyOwnershipMode.Random || ownership.RandomSeed == settings.Seed), "STARTING_OWNERSHIP_RULE", "Saved startup ownership settings differ from the generated colony pool.");
 			}
 			if (settings.GeneratorVersion is 17 or 18 or 19 or 20 or 21)

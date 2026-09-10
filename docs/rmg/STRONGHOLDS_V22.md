@@ -4,7 +4,8 @@
 
 Developed on `codex/rmg-strongholds` from accepted Divided Lands revision `91f1594`
 (2026-09-10). Strongholds uses generator **22**, configuration **1**, and player-settings
-schema **16**. In-game acceptance is pending. No merge or push is part of this step.
+schema **16**. Accepted in game at `af971d7` on 2026-09-10.
+The subsequent [starting-area options](STARTING_AREA_OPTIONS.md) use schema 17 when enabled.
 
 Strongholds starts the asymmetric part of the layout roadmap. It does not mirror terrain,
 starts, colonies, species or doodads, and does not enforce equal travel costs or equal colony
@@ -59,16 +60,18 @@ translations for otherwise identical settings.
 | Surface Modifiers | Controls the normal gravel/moss targets, preferentially along defensive belts and approaches. |
 | Neutral Colony Density | Fills available fortified sites. It never clears moats or narrows protected entrances to meet a target. |
 | Neutral Colony Types | Honors all species weights, including excluded types and the all-zero setting. Draws are individual, not mirrored groups. |
-| Prevent Colony Overlapping | On enforces the existing turret separation. Off fills shortfalls with the smallest available turret-range overlap, while preserving physical sites, shore passage and starting combat safety. |
+| Prevent Colony Overlapping | On enforces the existing turret separation. Off fills shortfalls with the smallest available turret-range overlap, while preserving physical sites and shore passage. Starting combat safety is controlled separately by Respect Starting Safe Area. |
 | Original Surface Relations | On keeps original surface transitions and colony sites on dirt. Off allows colonies on slowing terrain and makes all terrain independent of density/types/ownership. |
-| Starting Ownership | Existing percentage/weight allocation and Closest to Spawn / Random choice apply to the whole generated colony pool, including castles. |
+| Respect Starting Safe Area | On by default. Off allows extra colonies within the starting colony combat buffer while keeping footprints and exits clear. |
+| Own Starting Stronghold | Off by default. On grants every colony in the occupied player fort to its actual spawning player; castles and unoccupied forts remain neutral. |
+| Starting Ownership | Existing percentage/weight allocation and Closest to Spawn / Random choice apply to the whole generated colony pool, including castles, when Own Starting Stronghold is Off. |
 
-The layout does not automatically grant the colonies inside a player's stronghold to that
-player. Starting Ownership is the control for that. Neutral preview icons remain grey and
+Automatic whole-fort ownership is opt-in. With it Off, the existing Starting Ownership controls apply. Neutral preview icons remain grey and
 assigned colonies use the actual lobby player colors. Save Map retains these rules.
 
 At very small sizes or high player counts, starting combat clearances can leave little or no
-space for additional colonies, especially with castles disabled. The status reports the
+space for additional colonies, especially with castles disabled. Disabling Respect Starting Safe Area
+releases the combat buffer; physical capacity still limits placement. The status reports the
 actual/target count instead of silently expanding the fort terrain. Castles can also be empty
 when weights are zero or safe sites cannot be found. Their terrain still follows the checkbox.
 

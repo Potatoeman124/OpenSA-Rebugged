@@ -41,7 +41,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				while (cursors[type] < candidates.Count)
 				{
 					var point = candidates[cursors[type]++];
-					if (!sites.ColonyFits(type, point) || !ColonyCombatSpaceIsValid(map, profile, type, point)) continue;
+					if (!sites.ColonyFits(type, point) || !ColonyCombatSpaceIsValid(map, profile, type, point, settings.RespectStartingSafeArea)) continue;
 					Place(type, point);
 					placed = true;
 					break;
@@ -62,7 +62,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				for (var i = 0; i < candidates.Count; i++)
 				{
 					var point = candidates[i];
-					if (!sites.ColonyFits(type, point) || map.Starts.Any(start => !rules.CombatSpaceIsSafeFromAnyStartingActor(type, point, start))) continue;
+					if (!sites.ColonyFits(type, point) || (settings.RespectStartingSafeArea && map.Starts.Any(start => !rules.CombatSpaceIsSafeFromAnyStartingActor(type, point, start)))) continue;
 					var candidate = new RegionsColonyCandidate(type, point, i);
 					queue.Enqueue(candidate, candidate.Priority);
 				}

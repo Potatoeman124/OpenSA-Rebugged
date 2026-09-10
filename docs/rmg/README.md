@@ -10,14 +10,15 @@ The RMG must preserve that boundary: it may refer to terrain and actor identifie
 
 ## Current development
 
-[Strongholds V22](STRONGHOLDS_V22.md) is the current layout on `codex/rmg-strongholds`,
-based on accepted [Divided Lands V21](DIVIDED_LANDS_V21.md) revision `91f1594` (2026-09-10).
-It adds asymmetric fortified player areas, defensive surface belts, species-aware colony placement,
-and an optional **Generate Castles** checkbox. It uses generator 22 / configuration 1 /
-player-settings schema 16. In-game acceptance is pending.
+[Starting-area options](STARTING_AREA_OPTIONS.md) are the current change on
+`codex/rmg-starting-area-options`, based on accepted Strongholds revision `af971d7` (2026-09-10).
+**Respect Starting Safe Area** applies to all seven current layouts and defaults On.
+**Own Starting Stronghold** defaults Off; when On it overrides ownership shares/mode,
+assigning each occupied starting fort to the player who actually spawns there. Castles remain neutral.
+The new options use player-settings schema 17; default settings retain their older schema and map identities.
 
 Natural Landscape PVP `15f4882`, Artificial Battlefield `17881c4`, Crossroads `cfa6f9e`, Ring
-`ae6512c` and Divided Lands `91f1594` are accepted. New layouts from Strongholds onward are
+`ae6512c` Divided Lands `91f1594`, and Strongholds `af971d7` are accepted. New layouts from Strongholds onward are
 asymmetric by user direction. Existing families retain their earlier symmetry contracts.
 Ordinary Natural Landscape remains the default; no merge or push is part of this implementation.
 Historical schemas preserve older generators. Structured Competitive remains retired from the
@@ -75,7 +76,7 @@ generated-map selection initializes Explored Map On and Fog of War Off; later re
 user changes. With overlap prevention off, the generator fills neutral-colony shortfalls using the smallest
 available turret-spacing overlaps while retaining physical clearance and all player-start protections.
 
-Schema 12 selects V18 for explicit Artificial Battlefield. Schema 13 adds Crossroads V19. Schema 14 adds Ring V20. Schema 15 adds Divided Lands V21. Schema 16 adds Strongholds V22.
+Schema 12 selects V18 for explicit Artificial Battlefield. Schema 13 adds Crossroads V19. Schema 14 adds Ring V20. Schema 15 adds Divided Lands V21. Schema 16 adds Strongholds V22. Schema 17 adds the optional starting safe-area and whole-stronghold ownership controls.
 Schema 11 and newer select V17 for Natural Landscape PVP and preserve V16 for ordinary Natural Landscape.
 Schema 10 selects V16; schema 9 preserves V15; schema 8 preserves V14; schema 7 preserves [accepted V13 complexity](NATURAL_REGIONS_V13_EXTENDED_OPTIONS.md);
 schema 6 replays [Regions V12](NATURAL_REGIONS_V12_CONTINUITY.md); schema 5 preserves

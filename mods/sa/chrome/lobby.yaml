@@ -283,14 +283,14 @@ Background@SERVER_LOBBY:
 					TooltipText: Generate, validate, install, and select this map candidate.
 				Label@RMG_MIRRORING_AXES_LABEL:
 					X: 20
-					Y: 310
+					Y: 350
 					Width: 150
 					Height: 28
 					Text: Mirroring Axes
 					Visible: False
 				DropDownButton@RMG_MIRRORING_AXES:
 					X: 175
-					Y: 310
+					Y: 350
 					Width: 220
 					Height: 28
 					Visible: False
@@ -298,14 +298,14 @@ Background@SERVER_LOBBY:
 					TooltipText: Mirror terrain, starting positions and colony types across 1, 2 or 4 axes. Players form groups of 2, 4 or 8. One-axis orientation follows the seed.
 				Label@RMG_BLOCK_SHAPE_LABEL:
 					X: 20
-					Y: 310
+					Y: 350
 					Width: 150
 					Height: 28
 					Text: Block Shape
 					Visible: False
 				DropDownButton@RMG_BLOCK_SHAPE:
 					X: 175
-					Y: 310
+					Y: 350
 					Width: 220
 					Height: 28
 					Visible: False
@@ -313,22 +313,39 @@ Background@SERVER_LOBBY:
 					TooltipText: Shape the planned water and surface blocks as rectangles, cut corners or diamonds. Colony sites stay fixed.
 				Label@RMG_LANE_WIDTH_LABEL:
 					X: 430
-					Y: 310
+					Y: 350
 					Width: 150
 					Height: 28
 					Text: Lane Width
 					Visible: False
 				DropDownButton@RMG_LANE_WIDTH:
 					X: 590
-					Y: 310
+					Y: 350
 					Width: 220
 					Height: 28
 					Visible: False
 					TooltipContainer: TOOLTIP_CONTAINER
 					TooltipText: Set clear combat lanes to Narrow, Standard or Wide. Wider lanes leave less room for water and surface modifiers.
-				Checkbox@RMG_GENERATE_CASTLES:
+				Checkbox@RMG_RESPECT_STARTING_SAFE_AREA:
 					X: 20
 					Y: 310
+					Width: 375
+					Height: 28
+					Text: Respect Starting Safe Area
+					TooltipContainer: TOOLTIP_CONTAINER
+					TooltipText: Keep other colonies outside each starting colony's combat area. Turn off to allow nearby colonies; building footprints and production exits remain clear.
+				Checkbox@RMG_OWN_STARTING_STRONGHOLD:
+					X: 430
+					Y: 350
+					Width: 380
+					Height: 28
+					Text: Own Starting Stronghold
+					Visible: False
+					TooltipContainer: TOOLTIP_CONTAINER
+					TooltipText: Each player owns all colonies in their starting stronghold. Overrides Starting Ownership; castles and unoccupied strongholds stay neutral. Turn off to use the saved ownership settings.
+				Checkbox@RMG_GENERATE_CASTLES:
+					X: 20
+					Y: 350
 					Width: 370
 					Height: 28
 					Text: Generate Castles
@@ -337,14 +354,14 @@ Background@SERVER_LOBBY:
 					TooltipText: Add smaller fortified colony clusters between player strongholds where space permits. Colonies use the existing density, type weights and Starting Ownership settings.
 				Label@RMG_LAND_CROSSINGS_LABEL:
 					X: 20
-					Y: 310
+					Y: 350
 					Width: 150
 					Height: 28
 					Text: Land Crossings
 					Visible: False
 				DropDownButton@RMG_LAND_CROSSINGS:
 					X: 175
-					Y: 310
+					Y: 350
 					Width: 220
 					Height: 28
 					Visible: False
@@ -352,14 +369,14 @@ Background@SERVER_LOBBY:
 					TooltipText: None keeps home territories disconnected. One or Two creates that many crossings along each shared border.
 				Label@RMG_CROSSING_WIDTH_LABEL:
 					X: 430
-					Y: 310
+					Y: 350
 					Width: 150
 					Height: 28
 					Text: Crossing Width
 					Visible: False
 				DropDownButton@RMG_CROSSING_WIDTH:
 					X: 590
-					Y: 310
+					Y: 350
 					Width: 220
 					Height: 28
 					Visible: False
@@ -367,14 +384,14 @@ Background@SERVER_LOBBY:
 					TooltipText: Width of the land crossings: Narrow, Standard or Wide. With no crossings this choice is retained for later.
 				Label@RMG_RING_SHAPE_LABEL:
 					X: 20
-					Y: 310
+					Y: 350
 					Width: 150
 					Height: 28
 					Text: Ring Shape
 					Visible: False
 				DropDownButton@RMG_RING_SHAPE:
 					X: 175
-					Y: 310
+					Y: 350
 					Width: 220
 					Height: 28
 					Visible: False
@@ -382,14 +399,14 @@ Background@SERVER_LOBBY:
 					TooltipText: Shape of the central lake and continuous land ring.
 				Label@RMG_RING_WIDTH_LABEL:
 					X: 430
-					Y: 310
+					Y: 350
 					Width: 150
 					Height: 28
 					Text: Ring Width
 					Visible: False
 				DropDownButton@RMG_RING_WIDTH:
 					X: 590
-					Y: 310
+					Y: 350
 					Width: 220
 					Height: 28
 					Visible: False
@@ -397,14 +414,14 @@ Background@SERVER_LOBBY:
 					TooltipText: Width of the land belt. The central lake sets minimum water coverage; colonies cannot erase the ring.
 				Label@RMG_APPROACH_WIDTH_LABEL:
 					X: 20
-					Y: 310
+					Y: 350
 					Width: 150
 					Height: 28
 					Text: Approach Width
 					Visible: False
 				DropDownButton@RMG_APPROACH_WIDTH:
 					X: 175
-					Y: 310
+					Y: 350
 					Width: 220
 					Height: 28
 					Visible: False
@@ -412,14 +429,14 @@ Background@SERVER_LOBBY:
 					TooltipText: Set the clear main approaches to Narrow, Standard or Wide. Starts and colony sites stay fixed.
 				Label@RMG_SIDE_CONNECTIONS_LABEL:
 					X: 430
-					Y: 310
+					Y: 350
 					Width: 150
 					Height: 28
 					Text: Side Connections
 					Visible: False
 				DropDownButton@RMG_SIDE_CONNECTIONS:
 					X: 590
-					Y: 310
+					Y: 350
 					Width: 220
 					Height: 28
 					Visible: False

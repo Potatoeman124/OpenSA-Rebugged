@@ -256,20 +256,20 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 	public static partial class RmgGenerator
 	{
-		static bool ColonyCombatSpaceIsValid(RmgLogicalMap map, RmgProfile profile, string actorType, RmgPoint point)
+		static bool ColonyCombatSpaceIsValid(RmgLogicalMap map, RmgProfile profile, string actorType, RmgPoint point, bool respectStartingSafeArea = true)
 		{
 			if (profile.GeneratorVersion < 2)
 				return true;
 
 			var rules = profile.ColonyCombatRules;
-			if (map.Starts.Any(start => !rules.CombatSpaceIsSafeFromAnyStartingActor(actorType, point, start)))
+			if (respectStartingSafeArea && map.Starts.Any(start => !rules.CombatSpaceIsSafeFromAnyStartingActor(actorType, point, start)))
 				return false;
 
 			return !map.Actors.Where(actor => actor.Owner == profile.ColonyOwner).Any(actor =>
 				!rules.CombatSpaceIsSafe(actorType, point, actor.Type, actor.LogicalLocation));
 		}
 
-		static void ValidateColonyCombatSpace(RmgLogicalMap map, RmgProfile profile, RmgValidationReport report, bool allowNeutralOverlap = false, bool nativeCoordinates = false)
+		static void ValidateColonyCombatSpace(RmgLogicalMap map, RmgProfile profile, RmgValidationReport report, bool allowNeutralOverlap = false, bool nativeCoordinates = false, bool respectStartingSafeArea = true)
 		{
 			if (profile.GeneratorVersion < 2)
 				return;
@@ -280,13 +280,15 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var minimumMargin = int.MaxValue;
 			var overlappingPairs = 0;
 			var maximumOverlap = 0;
+			var startingOverlaps = 0;
 
 			foreach (var colony in colonies)
 				foreach (var start in starts)
 				{
 					var margin = nativeCoordinates ? rules.ColonyStartMarginAtNative(colony.Type, RmgMirroring.Native(colony), start) : rules.CombatSpaceMarginFromAnyStartingActorNative(colony.Type, colony.LogicalLocation, start);
 					minimumMargin = Math.Min(minimumMargin, margin);
-					if (margin < 0)
+					if (margin < 0) startingOverlaps++;
+					if (margin < 0 && respectStartingSafeArea)
 						report.HardFailures.Add(new RmgValidationIssue("COLONY_COMBAT_SPACE",
 							$"{colony.Type} at {colony.LogicalLocation} violates a possible starting colony's bidirectional turret/production envelope at {start} by {-margin} native cells."));
 				}
@@ -323,6 +325,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				report.Metrics["maximum_neutral_overlap_native"] = maximumOverlap;
 			}
 
+			if (!respectStartingSafeArea) report.Metrics["starting_safe_area_intrusions"] = startingOverlaps;
 			report.Metrics["maximum_colony_attack_range_native"] = rules.MaximumAttackRangeNative;
 			report.Metrics["colony_combat_safety_buffer_native"] = rules.SafetyBufferNative;
 			report.Metrics["maximum_required_colony_separation_logical"] = rules.MaximumRequiredSeparationLogical;

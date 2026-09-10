@@ -349,6 +349,12 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					new MiniYamlNode("ColonyActorNames", string.Join(", ", generation.Map.Actors.Select((actor, index) => (actor, index))
 						.Where(pair => pair.actor.Role == "neutral-colony").Select(pair => "Actor" + pair.index)))
 				}));
+				if (generation.Settings.OwnStartingStronghold)
+				{
+					ownership.Value.Nodes.Add(new MiniYamlNode("OwnStartingStronghold", "True"));
+					ownership.Value.Nodes.Add(new MiniYamlNode("ColonySpawnPoints", string.Join(", ", generation.Map.Actors.Where(a => a.Role == "neutral-colony").Select(a => a.StrongholdSpawn))));
+				}
+
 				if (generation.Settings.StartingColonyMode != RmgColonyOwnershipMode.ClosestToSpawn)
 				{
 					ownership.Value.Nodes.Add(new MiniYamlNode("ChoiceMode", generation.Settings.StartingColonyMode.ToString()));

@@ -3,6 +3,7 @@
 #endregion
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using OpenRA.Graphics;
 using OpenRA.Mods.Common.Traits;
@@ -19,6 +20,17 @@ namespace OpenRA.Mods.OpenSA.Traits.World
 		public readonly string[] ColonyActorNames = Array.Empty<string>();
 		public readonly RmgColonyOwnershipMode ChoiceMode = RmgColonyOwnershipMode.ClosestToSpawn;
 		public readonly ulong RandomSeed = 0;
+		public readonly bool OwnStartingStronghold = false;
+		public readonly int[] ColonySpawnPoints = Array.Empty<int>();
+
+		public int[] StrongholdOwners(IEnumerable<string> names, int[] playerSpawns)
+		{
+			if (ColonySpawnPoints.Length != ColonyActorNames.Length || playerSpawns.Length != PlayerShares.Length)
+				throw new InvalidOperationException("Invalid RMG stronghold ownership metadata.");
+			var membership = ColonyActorNames.Select((name, i) => (name, spawn: ColonySpawnPoints[i])).ToDictionary(p => p.name, p => p.spawn);
+			return RmgColonyOwnership.AssignStrongholds(names.Select(name => membership[name]).ToArray(), playerSpawns);
+		}
+
 		public override object Create(ActorInitializer init) => new RmgStartingColonyOwnership(this);
 	}
 
@@ -39,9 +51,9 @@ namespace OpenRA.Mods.OpenSA.Traits.World
 				.Select(i => world.Players.FirstOrDefault(p => p.Playable && p.InternalName == "Multi" + i)).ToArray();
 			var shares = info.PlayerShares.Select((value, i) => players[i] == null ? 0 : value).ToArray();
 			var spawned = world.WorldActor.Trait<SpawnMapActors>().Actors;
-			var colonies = info.ColonyActorNames.Select(name => spawned.TryGetValue(name, out var actor) ? actor : null)
-				.Where(actor => actor != null && actor.IsInWorld && actor.Owner.NonCombatant &&
-					actor.TraitOrDefault<Colony.Colony>() != null).ToArray();
+			var names = info.ColonyActorNames.Where(name => spawned.TryGetValue(name, out var actor) && actor.IsInWorld &&
+				actor.Owner.NonCombatant && actor.TraitOrDefault<Colony.Colony>() != null).ToArray();
+			var colonies = names.Select(name => spawned[name]).ToArray();
 			var starts = players.Select(player =>
 			{
 				if (player == null) return new RmgPoint(0, 0);
@@ -49,7 +61,7 @@ namespace OpenRA.Mods.OpenSA.Traits.World
 				var location = startingColony?.Location ?? player.HomeLocation;
 				return new RmgPoint(location.X, location.Y);
 			}).ToArray();
-			var owners = RmgColonyOwnership.Assign(colonies.Select(actor => new RmgPoint(actor.Location.X, actor.Location.Y)).ToArray(), starts, shares, info.ChoiceMode, info.RandomSeed);
+			var owners = info.OwnStartingStronghold ? info.StrongholdOwners(names, players.Select(p => p?.SpawnPoint ?? 0).ToArray()) : RmgColonyOwnership.Assign(colonies.Select(actor => new RmgPoint(actor.Location.X, actor.Location.Y)).ToArray(), starts, shares, info.ChoiceMode, info.RandomSeed);
 			AssignedCounts = new int[shares.Length];
 			// Owner-change notifications refresh production, capture conditions and render traits.
 			// Run once at the end of the setup frame, before players can issue normal orders.

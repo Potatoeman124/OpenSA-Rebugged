@@ -29,7 +29,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		const int NormalLobbyWidth = 900;
 		const int NormalLobbyHeight = 600;
 		const int RmgLobbyWidth = 1182;
-		const int RmgLobbyHeight = 412;
+		const int RmgLobbyHeight = 452;
 
 		enum TerrainChoice { Normal, Desert, Swamp, Candy }
 		enum SizeChoice { Small, Standard, Large, Huge }
@@ -73,6 +73,8 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		bool FixedPlayerCount => IsPvp && RmgMirroring.GroupSize(mirroringAxes) == MaximumPlayers;
 		bool IsBattlefield => layoutFamily == RmgPlayerLayoutFamily.ArtificialBattlefield;
 		bool generateCastles = true;
+		bool respectStartingSafeArea = true;
+		bool ownStartingStronghold;
 		bool IsStrongholds => layoutFamily == RmgPlayerLayoutFamily.Strongholds;
 		bool IsDividedLands => layoutFamily == RmgPlayerLayoutFamily.DividedLands;
 		bool IsRing => layoutFamily == RmgPlayerLayoutFamily.Ring;
@@ -189,11 +191,11 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			SetLobbyBounds(RmgLobbyWidth, RmgLobbyHeight + (HasLayoutOptions ? 40 : 0));
 			SetBounds("SERVER_NAME", 0, 8, 1182, 25);
 			SetBounds("RMG_TOGGLE_BUTTON", 20, 8, 200, 25);
-			SetBounds("RMG_PANEL", 20, 42, 1142, 350 + (HasLayoutOptions ? 40 : 0));
-			lobby.Get("RMG_SETTINGS_BACKGROUND").Bounds = new Rectangle(0, 0, 820, 350 + (HasLayoutOptions ? 40 : 0));
-			lobby.Get("RMG_PREVIEW_BACKGROUND").Bounds = new Rectangle(835, 0, 307, 350 + (HasLayoutOptions ? 40 : 0));
-			lobby.Get("RMG_STATUS").Bounds = new Rectangle(20, HasLayoutOptions ? 348 : 308, 770, 38);
-			lobby.Get("RMG_PREVIEW_CAPTION").Bounds = new Rectangle(845, HasLayoutOptions ? 358 : 318, 287, 25);
+			SetBounds("RMG_PANEL", 20, 42, 1142, 390 + (HasLayoutOptions ? 40 : 0));
+			lobby.Get("RMG_SETTINGS_BACKGROUND").Bounds = new Rectangle(0, 0, 820, 390 + (HasLayoutOptions ? 40 : 0));
+			lobby.Get("RMG_PREVIEW_BACKGROUND").Bounds = new Rectangle(835, 0, 307, 390 + (HasLayoutOptions ? 40 : 0));
+			lobby.Get("RMG_STATUS").Bounds = new Rectangle(20, HasLayoutOptions ? 388 : 348, 770, 38);
+			lobby.Get("RMG_PREVIEW_CAPTION").Bounds = new Rectangle(845, HasLayoutOptions ? 398 : 358, 287, 25);
 			SetBounds("MAP_PREVIEW_ROOT", 875, 55, 270, 250);
 		}
 
@@ -354,6 +356,16 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			foreach (var id in new[] { "RMG_RING_SHAPE", "RMG_RING_SHAPE_LABEL", "RMG_RING_WIDTH", "RMG_RING_WIDTH_LABEL" })
 				lobby.Get(id).IsVisible = () => IsRing;
 
+			var safeArea = lobby.Get<CheckboxWidget>("RMG_RESPECT_STARTING_SAFE_AREA");
+			safeArea.IsChecked = () => respectStartingSafeArea;
+			safeArea.IsDisabled = () => !CanConfigure();
+			safeArea.OnClick = () => { respectStartingSafeArea = !respectStartingSafeArea; MarkStale(); };
+			var strongholdOwnership = lobby.Get<CheckboxWidget>("RMG_OWN_STARTING_STRONGHOLD");
+			strongholdOwnership.IsVisible = () => IsStrongholds;
+			strongholdOwnership.IsChecked = () => ownStartingStronghold;
+			strongholdOwnership.IsDisabled = () => !CanConfigure();
+			strongholdOwnership.OnClick = () => { ownStartingStronghold = !ownStartingStronghold; MarkStale(); };
+
 			var castles = lobby.Get<CheckboxWidget>("RMG_GENERATE_CASTLES");
 			castles.IsVisible = () => IsStrongholds;
 			castles.IsChecked = () => generateCastles;
@@ -488,7 +500,8 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 				}) }
 			});
 			var ownershipButton = lobby.Get<ButtonWidget>("RMG_COLONY_OWNERSHIP");
-			ownershipButton.IsDisabled = weightsButton.IsDisabled;
+			ownershipButton.IsDisabled = () => weightsButton.IsDisabled() || (IsStrongholds && ownStartingStronghold);
+			ownershipButton.GetText = () => IsStrongholds && ownStartingStronghold ? "Whole Stronghold Owned" : "Starting Ownership...";
 			ownershipButton.OnClick = () => Ui.OpenWindow("RMG_COLONY_OWNERSHIP_PANEL", new WidgetArgs
 			{
 				{ "initialShares", ownershipShares.Take(playerCount).ToArray() },
@@ -709,7 +722,9 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		RmgPlayerSettings CreatePlayerSettings(ulong seed) => new RmgPlayerSettings
 		{
 			GenerateCastles = !IsStrongholds || generateCastles,
-			SchemaVersion = IsStrongholds ? 16 : IsDividedLands ? 15 : IsRing ? 14 : IsCrossroads ? 13 : IsBattlefield ? 12 : IsPvp ? 11 : UsesModernTerrain ? 10 : 3,
+			RespectStartingSafeArea = respectStartingSafeArea,
+			OwnStartingStronghold = IsStrongholds && ownStartingStronghold,
+			SchemaVersion = !respectStartingSafeArea || (IsStrongholds && ownStartingStronghold) ? 17 : IsStrongholds ? 16 : IsDividedLands ? 15 : IsRing ? 14 : IsCrossroads ? 13 : IsBattlefield ? 12 : IsPvp ? 11 : UsesModernTerrain ? 10 : 3,
 			MirroringAxes = IsPvp ? mirroringAxes : 0,
 			BlockShape = IsBattlefield ? blockShape : RmgBattlefieldBlockShape.CutCorners,
 			RingShape = IsRing ? ringShape : RmgRingShape.Round,

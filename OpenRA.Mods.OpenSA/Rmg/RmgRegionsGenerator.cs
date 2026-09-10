@@ -158,7 +158,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				throw new InvalidOperationException("Regions placement or doodads modified completed terrain.");
 			map.NaturalSurfacesFrozen = true;
 			var validation = new RmgValidationReport();
-			ValidateColonyCombatSpace(map, profile, validation, allowNeutralOverlap);
+			ValidateColonyCombatSpace(map, profile, validation, allowNeutralOverlap, respectStartingSafeArea: settings.RespectStartingSafeArea);
 			if (colonyCount < settings.EffectiveNeutralColonyCount)
 				validation.Warnings.Add(new RmgValidationIssue("NEUTRAL_CAPACITY",
 					$"Placed {colonyCount}/{settings.NeutralColonyCount} neutral colonies on valid existing terrain."));

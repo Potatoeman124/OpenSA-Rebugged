@@ -546,6 +546,10 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				throw new ArgumentException("Neutral colony weights must be an object.");
 			settings.NeutralColonyWeights.Validate(settings.GeneratorVersion is 16 or 17 or 18 or 19 or 20 or 21 or 22 ? 100 : 1000);
 			RmgColonyOwnership.ValidateShares(settings.StartingColonyShares, settings.PlayerCount);
+			if (!settings.RespectStartingSafeArea && settings.GeneratorVersion is not (16 or 17 or 18 or 19 or 20 or 21 or 22))
+				throw new ArgumentException("Starting safe area options require a current layout.");
+			if (settings.OwnStartingStronghold && settings.GeneratorVersion != 22)
+				throw new ArgumentException("Starting stronghold ownership requires Strongholds.");
 			if (!Enum.IsDefined(settings.StartingColonyMode) || (settings.GeneratorVersion is not (16 or 17 or 18 or 19 or 20 or 21 or 22) && settings.StartingColonyMode != RmgColonyOwnershipMode.ClosestToSpawn))
 				throw new ArgumentException("Starting colony mode requires Regions V16 and a valid choice.");
 			if (settings.GeneratorVersion is not (16 or 17 or 18 or 19 or 20 or 21 or 22) && settings.StartingColonyShares.Length != 0)
