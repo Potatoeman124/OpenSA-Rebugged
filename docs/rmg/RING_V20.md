@@ -3,8 +3,8 @@
 ## Status
 
 Implemented on `codex/rmg-ring` from accepted Crossroads revision `cfa6f9e` (2026-09-10).
-Ring uses generator **V20 / configuration 1 / player-settings schema 14**. It is ready for
-in-game review after the validation described below. No merge or push is part of this step.
+Ring uses generator **V20 / configuration 1 / player-settings schema 14**. The user accepted
+revision `ae6512c` on 2026-09-10 and requested Divided Lands next. No merge or push was requested.
 Ordinary Natural Landscape V16 remains the default; selecting Ring initially uses Round / Standard.
 
 ## Layout contract

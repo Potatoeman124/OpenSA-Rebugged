@@ -326,6 +326,36 @@ Background@SERVER_LOBBY:
 					Visible: False
 					TooltipContainer: TOOLTIP_CONTAINER
 					TooltipText: Set clear combat lanes to Narrow, Standard or Wide. Wider lanes leave less room for water and surface modifiers.
+				Label@RMG_LAND_CROSSINGS_LABEL:
+					X: 20
+					Y: 310
+					Width: 150
+					Height: 28
+					Text: Land Crossings
+					Visible: False
+				DropDownButton@RMG_LAND_CROSSINGS:
+					X: 175
+					Y: 310
+					Width: 220
+					Height: 28
+					Visible: False
+					TooltipContainer: TOOLTIP_CONTAINER
+					TooltipText: None keeps home territories disconnected. One or Two creates that many crossings along each shared border.
+				Label@RMG_CROSSING_WIDTH_LABEL:
+					X: 430
+					Y: 310
+					Width: 150
+					Height: 28
+					Text: Crossing Width
+					Visible: False
+				DropDownButton@RMG_CROSSING_WIDTH:
+					X: 590
+					Y: 310
+					Width: 220
+					Height: 28
+					Visible: False
+					TooltipContainer: TOOLTIP_CONTAINER
+					TooltipText: Width of the land crossings: Narrow, Standard or Wide. With no crossings this choice is retained for later.
 				Label@RMG_RING_SHAPE_LABEL:
 					X: 20
 					Y: 310

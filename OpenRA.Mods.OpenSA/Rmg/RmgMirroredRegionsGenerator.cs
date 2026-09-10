@@ -84,7 +84,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				validation.Warnings.Add(new RmgValidationIssue("NEUTRAL_CAPACITY", $"Placed {colonyCount}/{settings.EffectiveNeutralColonyCount} colonies in complete mirrored groups of {groupSize}."));
 			map.RegionsReport = terrain.Report;
 			var report = map.RegionsReport;
-			report["status"] = settings.GeneratorVersion == 20 ? "PLAYABLE_RING_V20" : settings.GeneratorVersion == 19 ? "PLAYABLE_CROSSROADS_V19" : planned == null ? "PLAYABLE_REGIONS_V17" : "PLAYABLE_ARTIFICIAL_BATTLEFIELD_V18";
+			report["status"] = settings.GeneratorVersion == 21 ? "PLAYABLE_DIVIDED_LANDS_V21" : settings.GeneratorVersion == 20 ? "PLAYABLE_RING_V20" : settings.GeneratorVersion == 19 ? "PLAYABLE_CROSSROADS_V19" : planned == null ? "PLAYABLE_REGIONS_V17" : "PLAYABLE_ARTIFICIAL_BATTLEFIELD_V18";
 			report["placement_status"] = "MIRRORED_LOCAL_SITES_VALID";
 			report["terrain_repainted_for_placement"] = false;
 			report["placement_ms"] = placementMs;
@@ -92,7 +92,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			report["mirroring_axes"] = settings.MirroringAxes;
 			report["mirror_orientation"] = settings.MirroringAxes != 1 ? "horizontal-vertical" + (settings.MirroringAxes == 4 ? "-diagonals" : "") : (settings.Seed & 1) == 0 ? "vertical" : "horizontal";
 			report["symmetry_requirement"] = "NATIVE_TERRAIN_STARTS_AND_TYPED_COLONIES";
-			report["strategic_routes_requirement"] = planned == null ? "NOT_REQUIRED" : "CONNECTED_GROUND_LANE_NETWORK";
+			report["strategic_routes_requirement"] = settings.GeneratorVersion == 21 ? (settings.LandCrossings == RmgLandCrossings.None ? "DISCONNECTED_TERRITORIES" : "EXACT_BORDER_CROSSINGS") : planned == null ? "NOT_REQUIRED" : "CONNECTED_GROUND_LANE_NETWORK";
 			report["neutral_colonies_requested"] = settings.EffectiveNeutralColonyCount;
 			report["neutral_colonies_density_target"] = settings.NeutralColonyCount;
 			report["neutral_colonies_group_target"] = settings.EffectiveNeutralColonyCount / groupSize * groupSize;
@@ -116,9 +116,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			report["doodads_requested"] = target;
 			report["doodads_placed"] = decorations.Count;
 			report["placement_candidates"] = candidates.Length;
-			report["geography_contract"] = settings.GeneratorVersion == 20 ? "continuous-ring-central-lake-v20" : settings.GeneratorVersion == 19 ? "central-junction-approaches-v19" : planned == null ? "mirrored-fixed-regions-extended-detail-v17" : "planned-geometric-battlefield-v18";
+			report["geography_contract"] = settings.GeneratorVersion == 21 ? "separate-home-territories-v21" : settings.GeneratorVersion == 20 ? "continuous-ring-central-lake-v20" : settings.GeneratorVersion == 19 ? "central-junction-approaches-v19" : planned == null ? "mirrored-fixed-regions-extended-detail-v17" : "planned-geometric-battlefield-v18";
 			report["preferred_start_reference"] = planned == null ? "same-axes-v12-low-complexity" : "fixed-planned-player-plazas";
-			if (planned != null) report[settings.GeneratorVersion == 20 ? "ring_plan" : settings.GeneratorVersion == 19 ? "crossroads_plan" : "battlefield_plan"] = planned.Report;
+			if (planned != null) report[settings.GeneratorVersion == 21 ? "divided_lands_plan" : settings.GeneratorVersion == 20 ? "ring_plan" : settings.GeneratorVersion == 19 ? "crossroads_plan" : "battlefield_plan"] = planned.Report;
 			report["start_displacement_native"] = new JArray(starts.Select((p, i) => i < preferred.Count ? Math.Sqrt(RegionDistanceSquared(p, preferred[i])) : (double?)null));
 			return new RmgGenerationResult
 			{

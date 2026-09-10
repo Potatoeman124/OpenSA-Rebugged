@@ -189,6 +189,25 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			Require(Settings().GeneratorVersion == 16 && !lobby.Get("RMG_RING_SHAPE").IsVisible(), "Leaving Ring changed the Natural baseline.");
 			CheckRingContract();
 
+			Choose("RMG_LAYOUT_FAMILY", "Divided Lands");
+			Require(Settings().GeneratorVersion == 21 && lobby.Get("RMG_LAND_CROSSINGS").IsVisible() && !lobby.Get("RMG_SIDE_CONNECTIONS").IsVisible(), "Divided Lands controls did not activate.");
+			Choose("RMG_LAND_CROSSINGS", "Two per border"); Choose("RMG_CROSSING_WIDTH", "Wide");
+			Choose("RMG_SIZE", "512 x 512"); slider.UpdateValue(2);
+			Require(Settings().PlayerCount == 8 && Settings().LandCrossings == RmgLandCrossings.Two && Settings().LaneWidth == RmgBattlefieldLaneWidth.Wide, "Divided Lands UI choices did not reach settings.");
+			Draw(output, "divided-512-options");
+			Choose("RMG_PRESET", "Balanced"); Require(Settings().GeneratorVersion == 21, "Preset selection exited Divided Lands.");
+			lobby.Get<ButtonWidget>("RMG_COLONY_OWNERSHIP").OnClick();
+			Require(Ui.CurrentWindow().Get<ScrollPanelWidget>("SETTINGS").Children.Count == 8, "Divided Lands ownership rows disagree with players.");
+			Ui.CurrentWindow().Get<ButtonWidget>("CANCEL").OnClick();
+			Choose("RMG_SIZE", "64 x 64"); Require(Settings().PlayerCount == 4 && slider.MaximumValue == 1, "Divided Lands small-map cap failed.");
+			Draw(output, "divided-64-options");
+			Choose("RMG_LAYOUT_FAMILY", "Crossroads");
+			Require(Settings().SideConnections == RmgCrossroadsConnections.Many && Settings().LaneWidth == RmgBattlefieldLaneWidth.Narrow, "Divided Lands changed stored Crossroads settings.");
+			Choose("RMG_LAYOUT_FAMILY", "Divided Lands");
+			Require(Settings().LandCrossings == RmgLandCrossings.Two && Settings().LaneWidth == RmgBattlefieldLaneWidth.Wide, "Divided Lands choices were lost after switching families.");
+			Choose("RMG_LAYOUT_FAMILY", "Natural Landscape (Regions)");
+			Require(Settings().GeneratorVersion == 16 && !lobby.Get("RMG_LAND_CROSSINGS").IsVisible(), "Leaving Divided Lands changed the Natural baseline.");
+			CheckDividedLandsContract();
 			var battlefieldValid = 0;
 			foreach (var size in new[] { 64, 128, 256, 512 })
 				for (var players = 1; players <= 8; players++)
@@ -302,6 +321,67 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			}
 
 			Console.WriteLine($"PASS: 288 Ring settings ({valid} valid), invalid field/schema checks and actual Ring UI.");
+		}
+
+		static void CheckDividedLandsContract()
+		{
+			var valid = 0;
+			foreach (var size in new[] { 64, 128, 256, 512 })
+				for (var players = 1; players <= 8; players++)
+					foreach (var width in Enum.GetValues<RmgBattlefieldLaneWidth>())
+						foreach (var crossings in Enum.GetValues<RmgLandCrossings>())
+						{
+							var expected = players is 2 or 4 or 8 && players <= (size == 64 ? 4 : 8);
+							var accepted = false;
+							try
+							{
+								var requested = new RmgPlayerSettings
+								{
+									SchemaVersion = 15, LayoutFamily = RmgPlayerLayoutFamily.DividedLands,
+									MapSize = size, PlayerCount = players, LaneWidth = width, LandCrossings = crossings, Tileset = "DESERT"
+								};
+								var parsed = RmgPlayerSettingsContract.Resolve(RmgPlayerSettingsContract.Parse(requested.ToJson())).Normalized;
+								accepted = parsed.GeneratorVersion == 21 && parsed.LaneWidth == width && parsed.LandCrossings == crossings;
+							}
+							catch (ArgumentException) { }
+							Require(accepted == expected, $"Divided Lands settings disagree at {size}/{players}/{width}/{crossings}.");
+							if (accepted) valid++;
+						}
+
+			foreach (var invalid in new[]
+			{
+				("schema_version", "14"), ("layout_family", "artificial-battlefield"), ("block_shape", "diamonds"),
+				("lane_width", "standard"), ("crossing_width", "ultra"), ("land_crossings", "three"), ("mirroring_axes", "1")
+			})
+			{
+				var requested = new RmgPlayerSettings { SchemaVersion = 15, LayoutFamily = RmgPlayerLayoutFamily.DividedLands }.ToJson();
+				requested[invalid.Item1] = invalid.Item1 is "schema_version" or "mirroring_axes" ? new Newtonsoft.Json.Linq.JValue(int.Parse(invalid.Item2)) : new Newtonsoft.Json.Linq.JValue(invalid.Item2);
+				var rejected = false;
+				try { RmgPlayerSettingsContract.Resolve(RmgPlayerSettingsContract.Parse(requested)); } catch (ArgumentException) { rejected = true; }
+				Require(rejected, "Invalid Divided Lands field/schema accepted: " + invalid.Item1);
+			}
+
+			var topologySettings = new RmgGenerationSettings { GeneratorVersion = 21, MapSize = 64, PlayerCount = 2, MirroringAxes = 1, LandCrossings = RmgLandCrossings.None };
+			var starts = new[] { new RmgPoint(10, 31), new RmgPoint(53, 31) };
+			var separated = Enumerable.Range(0, 64 * 64).Select(i => Math.Abs(i % 64 - 31.5) > 5).ToArray();
+			DividedLandsTopology.ValidateGround(separated, topologySettings, starts);
+			var bridge = (bool[])separated.Clone();
+			for (var y = 29; y <= 34; y++) for (var x = 26; x <= 37; x++) bridge[y * 64 + x] = true;
+			var extraRejected = false;
+			try { DividedLandsTopology.ValidateGround(bridge, topologySettings, starts); } catch (RmgGenerationRejectedException) { extraRejected = true; }
+			Require(extraRejected, "Divided Lands accepted an unexpected crossing.");
+			topologySettings.LandCrossings = RmgLandCrossings.One;
+			DividedLandsTopology.ValidateGround(bridge, topologySettings, starts);
+			var missingRejected = false;
+			try { DividedLandsTopology.ValidateGround(separated, topologySettings, starts); } catch (RmgGenerationRejectedException) { missingRejected = true; }
+			Require(missingRejected, "Divided Lands accepted a missing crossing.");
+			var bypass = (bool[])bridge.Clone();
+			for (var x = 0; x < 64; x++) bypass[x] = true;
+			var bypassRejected = false;
+			try { DividedLandsTopology.ValidateGround(bypass, topologySettings, starts); } catch (RmgGenerationRejectedException) { bypassRejected = true; }
+			Require(bypassRejected, "Divided Lands accepted an unplanned map-edge bypass.");
+
+			Console.WriteLine($"PASS: 288 Divided Lands settings ({valid} valid), invalid fields, missing/extra crossing and edge-bypass negative controls, and actual Divided Lands UI.");
 		}
 
 		static MapPreview SavePvpRuntimeCopy(Utility utility, MapPreview source, Folder directory, string id)
