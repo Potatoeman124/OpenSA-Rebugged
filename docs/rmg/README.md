@@ -10,20 +10,16 @@ The RMG must preserve that boundary: it may refer to terrain and actor identifie
 
 ## Current development
 
-[Crossroads V19](CROSSROADS_V19.md) has received a topology and colony-density revision on `codex/rmg-crossroads`, based on the accepted
-[Artificial Battlefield V18](ARTIFICIAL_BATTLEFIELD_V18.md) commit `17881c4`. The user accepted Battlefield
-on 2026-09-10 and requested the next layout. Crossroads uses a central contest area, fixed player
-approaches, configurable side connections and terrain dividers. It adds Approach Width and Side
-Connections to the lobby, using generator 19 / configuration 2 / player schema 13. The revised contract
-enforces exact crossing tiers and prevents colony density from reshaping water; with surface relations
-disabled, density preserves all terrain. The 786-map matrix and live startup checks passed; in-game
-acceptance is pending.
+[Ring V20](RING_V20.md) is the current layout on `codex/rmg-ring`, based on the accepted
+[Crossroads V19](CROSSROADS_V19.md) revision `cfa6f9e`. The user accepted Crossroads on 2026-09-10.
+Ring provides a continuous land loop around an enclosed central lake, with Ring Shape and Ring Width
+controls, using generator 20 / configuration 1 / player-settings schema 14. Its density-independent
+colony belt protects the loop, and native validation checks that actual actor footprints leave a
+complete ground circuit around the lake. In-game acceptance is pending.
 
-Natural Landscape PVP `15f4882` and Artificial Battlefield `17881c4` are accepted, but have not been
-promoted to main. Ordinary Natural Landscape remains the default. PVP uses V17/configuration 1/schema
-11, and Battlefield uses V18/configuration 2/schema 12. Their output is preserved by regression replays.
+Natural Landscape PVP `15f4882`, Artificial Battlefield `17881c4` and Crossroads `cfa6f9e` are accepted.
+Ordinary Natural Landscape remains the default; no merge or push is part of the Ring implementation.
 Historical schemas preserve older generators. Structured Competitive remains retired from the lobby.
-The linked documents record the one-layout-at-a-time roadmap and validation evidence.
 
 ## Current integration checkpoint
 
@@ -77,7 +73,7 @@ generated-map selection initializes Explored Map On and Fog of War Off; later re
 user changes. With overlap prevention off, the generator fills neutral-colony shortfalls using the smallest
 available turret-spacing overlaps while retaining physical clearance and all player-start protections.
 
-Schema 12 selects V18 for explicit Artificial Battlefield. Schema 13 adds Crossroads V19.
+Schema 12 selects V18 for explicit Artificial Battlefield. Schema 13 adds Crossroads V19. Schema 14 adds Ring V20.
 Schema 11 and newer select V17 for Natural Landscape PVP and preserve V16 for ordinary Natural Landscape.
 Schema 10 selects V16; schema 9 preserves V15; schema 8 preserves V14; schema 7 preserves [accepted V13 complexity](NATURAL_REGIONS_V13_EXTENDED_OPTIONS.md);
 schema 6 replays [Regions V12](NATURAL_REGIONS_V12_CONTINUITY.md); schema 5 preserves

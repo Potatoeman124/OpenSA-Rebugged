@@ -21,6 +21,14 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var components = Components(occupied);
 			var common = CommonComponent(components, access);
 			if (common < 0) result.HardFailures.Add(new RmgValidationIssue("BATTLEFIELD_ACCESS", "Player plazas and colony sites do not share a ground-access component after actual footprints are placed."));
+			if (generation.Settings.GeneratorVersion == 20)
+			{
+				var origin = common < 0 ? -1 : occupied.Index(access[0].First(c => components.Label(c) == common));
+				var loop = RingTopology.HasGroundLoop(occupied.Passable, occupied.Width, occupied.Height, origin);
+				result.RegionsPolicy["ring_ground_loop_after_actors"] = loop;
+				if (!loop) result.HardFailures.Add(new RmgValidationIssue("RING_LOOP_BLOCKED", "Actual colony footprints interrupt the complete ground loop around the central lake."));
+			}
+
 			var terrain = TerrainOnlyGrid(source);
 			var profiles = new List<long[]>();
 			foreach (var start in starts)

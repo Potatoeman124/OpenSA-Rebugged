@@ -17,7 +17,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 	public static partial class NativeMovementValidator
 	{
 		static IEnumerable<CPos> NativeStartingPositions(RmgGenerationResult generation) =>
-			generation.Settings.GeneratorVersion is 17 or 18 or 19 ? generation.Map.Actors.Where(a => a.Role == "start").Select(a =>
+			generation.Settings.GeneratorVersion is 17 or 18 or 19 or 20 ? generation.Map.Actors.Where(a => a.Role == "start").Select(a =>
 			{
 				var point = RmgMirroring.Native(a);
 				return new CPos(point.X + generation.Profile.CordonWidth, point.Y + generation.Profile.CordonWidth);
@@ -102,14 +102,14 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					result.HardFailures.Add(new RmgValidationIssue(code, message));
 			}
 
-			if (settings.GeneratorVersion is 15 or 16 or 17 or 18 or 19)
+			if (settings.GeneratorVersion is 15 or 16 or 17 or 18 or 19 or 20)
 			{
 				var weights = settings.NeutralColonyWeights;
 				var allowed = RmgColonyWeights.Keys.Where((_, i) => weights.Values[i] > 0).Select(key => key + "_colony").ToHashSet();
 				Require(colonies.All(colony => allowed.Contains(colony.Type)), "COLONY_WEIGHTS", "Saved map contains an excluded neutral colony type.");
 				Require(colonies.Length <= settings.EffectiveNeutralColonyCount, "COLONY_COUNT", "Saved map exceeds the effective neutral colony target.");
 			}
-			if (settings.GeneratorVersion is 16 or 17 or 18 or 19)
+			if (settings.GeneratorVersion is 16 or 17 or 18 or 19 or 20)
 			{
 				var ownership = map.Rules.Actors[SystemActors.World].TraitInfoOrDefault<Traits.World.RmgStartingColonyOwnershipInfo>();
 				var colonyNames = map.ActorDefinitions.Where(node => profile.NeutralColonyActors.Contains(node.Value.Value)).Select(node => node.Key).ToArray();
@@ -117,7 +117,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					ownership.ColonyActorNames.SequenceEqual(colonyNames) && ownership.ChoiceMode == settings.StartingColonyMode &&
 					(settings.StartingColonyMode != RmgColonyOwnershipMode.Random || ownership.RandomSeed == settings.Seed), "STARTING_OWNERSHIP_RULE", "Saved startup ownership settings differ from the generated colony pool.");
 			}
-			if (settings.GeneratorVersion is 17 or 18 or 19)
+			if (settings.GeneratorVersion is 17 or 18 or 19 or 20)
 			{
 				var differences = RmgMirroring.TerrainMismatches(native, settings.MapSize, settings.MirroringAxes, settings.Seed);
 				Require(differences == 0, "PVP_TERRAIN_SYMMETRY", $"{differences} saved terrain cells differ from their reflection.");
@@ -140,13 +140,13 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			Require(semantics == 0, "NATIVE_SEMANTICS", $"{semantics} native cells differ from generated semantics or height.");
 			Require(!actorMismatch, "NATIVE_ACTORS", "Saved actors differ from the validated placement plan.");
 			Require(!settings.OriginalSurfaceRelations || contacts == 0, "ORIGINAL_SURFACE_CONTACT", $"{contacts} forbidden native surface contacts.");
-			if (settings.GeneratorVersion is 18 or 19) ValidatePlannedBattlefield(map, generation, withStarts, grid, starts, colonies, result);
+			if (settings.GeneratorVersion is 18 or 19 or 20) ValidatePlannedBattlefield(map, generation, withStarts, grid, starts, colonies, result);
 
 			result.RegionsPolicy["validator"] = result.ValidatorName;
 			result.RegionsPolicy["accepted"] = result.Accepted;
 			result.RegionsPolicy["hard_failures"] = new JArray(result.HardFailures.Select(f => f.ToJson()));
-			result.RegionsPolicy["accessibility_requirement"] = settings.GeneratorVersion is 18 or 19 ? "STARTS_AND_COLONIES_CONNECTED" : "NOT_REQUIRED";
-			result.RegionsPolicy["strategic_routes_requirement"] = settings.GeneratorVersion is 18 or 19 ? "CONNECTED_CLEAR_LANE_NETWORK" : "NOT_REQUIRED";
+			result.RegionsPolicy["accessibility_requirement"] = settings.GeneratorVersion is 18 or 19 or 20 ? "STARTS_AND_COLONIES_CONNECTED" : "NOT_REQUIRED";
+			result.RegionsPolicy["strategic_routes_requirement"] = settings.GeneratorVersion is 18 or 19 or 20 ? "CONNECTED_CLEAR_LANE_NETWORK" : "NOT_REQUIRED";
 			result.RegionsPolicy["flying_unit_availability_requirement"] = "NOT_REQUIRED";
 			result.RegionsPolicy["original_surface_dirt_placement_enforced"] = settings.OriginalSurfaceRelations;
 			result.RegionsPolicy["native_semantic_mismatches"] = semantics;

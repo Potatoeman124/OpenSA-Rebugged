@@ -72,14 +72,17 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		bool IsPvp => layoutFamily == RmgPlayerLayoutFamily.NaturalLandscapePvp;
 		bool FixedPlayerCount => IsPvp && RmgMirroring.GroupSize(mirroringAxes) == MaximumPlayers;
 		bool IsBattlefield => layoutFamily == RmgPlayerLayoutFamily.ArtificialBattlefield;
+		bool IsRing => layoutFamily == RmgPlayerLayoutFamily.Ring;
 		bool IsCrossroads => layoutFamily == RmgPlayerLayoutFamily.Crossroads;
-		bool HasFixedPlayerCounts => IsBattlefield || IsCrossroads;
+		bool HasFixedPlayerCounts => IsBattlefield || IsCrossroads || IsRing;
 		bool HasLayoutOptions => IsPvp || HasFixedPlayerCounts;
-		bool UsesModernTerrain => layoutFamily is RmgPlayerLayoutFamily.NaturalLandscape or RmgPlayerLayoutFamily.NaturalLandscapePvp or RmgPlayerLayoutFamily.ArtificialBattlefield or RmgPlayerLayoutFamily.Crossroads;
+		bool UsesModernTerrain => layoutFamily is RmgPlayerLayoutFamily.NaturalLandscape or RmgPlayerLayoutFamily.NaturalLandscapePvp or RmgPlayerLayoutFamily.ArtificialBattlefield or RmgPlayerLayoutFamily.Crossroads or RmgPlayerLayoutFamily.Ring;
 		static readonly int[] BattlefieldPlayerCounts = { 2, 4, 8 };
 		RmgBattlefieldBlockShape blockShape = RmgBattlefieldBlockShape.CutCorners;
 		RmgBattlefieldLaneWidth laneWidth = RmgBattlefieldLaneWidth.Standard;
 		RmgBattlefieldLaneWidth approachWidth = RmgBattlefieldLaneWidth.Standard;
+		RmgRingShape ringShape = RmgRingShape.Round;
+		RmgBattlefieldLaneWidth ringWidth = RmgBattlefieldLaneWidth.Standard;
 		RmgCrossroadsConnections sideConnections = RmgCrossroadsConnections.Standard;
 		TerrainComplexity complexity = TerrainComplexity.Standard;
 		RmgPlayerColonyDensity colonyDensity = RmgPlayerColonyDensity.Standard;
@@ -276,7 +279,8 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					new Choice<RmgPlayerLayoutFamily>(RmgPlayerLayoutFamily.NaturalLandscape, "Natural Landscape (Regions)"),
 					new Choice<RmgPlayerLayoutFamily>(RmgPlayerLayoutFamily.NaturalLandscapePvp, "Natural Landscape PVP"),
 					new Choice<RmgPlayerLayoutFamily>(RmgPlayerLayoutFamily.ArtificialBattlefield, "Artificial Battlefield"),
-					new Choice<RmgPlayerLayoutFamily>(RmgPlayerLayoutFamily.Crossroads, "Crossroads")
+					new Choice<RmgPlayerLayoutFamily>(RmgPlayerLayoutFamily.Crossroads, "Crossroads"),
+					new Choice<RmgPlayerLayoutFamily>(RmgPlayerLayoutFamily.Ring, "Ring")
 				}, () => layoutFamily, value =>
 				{
 					layoutFamily = value;
@@ -331,6 +335,17 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			}, () => sideConnections, value => { sideConnections = value; MarkStale(); });
 			foreach (var id in new[] { "RMG_APPROACH_WIDTH", "RMG_APPROACH_WIDTH_LABEL", "RMG_SIDE_CONNECTIONS", "RMG_SIDE_CONNECTIONS_LABEL" })
 				lobby.Get(id).IsVisible = () => IsCrossroads;
+
+			var ringShapeButton = lobby.Get<DropDownButtonWidget>("RMG_RING_SHAPE");
+			ringShapeButton.GetText = () => ringShape.ToString();
+			BindDropDown(ringShapeButton, Enum.GetValues<RmgRingShape>().Select(v => new Choice<RmgRingShape>(v, v.ToString())).ToArray(),
+				() => ringShape, value => { ringShape = value; MarkStale(); });
+			var ringWidthButton = lobby.Get<DropDownButtonWidget>("RMG_RING_WIDTH");
+			ringWidthButton.GetText = () => ringWidth.ToString();
+			BindDropDown(ringWidthButton, Enum.GetValues<RmgBattlefieldLaneWidth>().Select(v => new Choice<RmgBattlefieldLaneWidth>(v, v.ToString())).ToArray(),
+				() => ringWidth, value => { ringWidth = value; MarkStale(); });
+			foreach (var id in new[] { "RMG_RING_SHAPE", "RMG_RING_SHAPE_LABEL", "RMG_RING_WIDTH", "RMG_RING_WIDTH_LABEL" })
+				lobby.Get(id).IsVisible = () => IsRing;
 
 			layoutButton.GetText = () => LayoutDisplayName(layout);
 			BindDropDown(layoutButton,
@@ -671,10 +686,11 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 
 		RmgPlayerSettings CreatePlayerSettings(ulong seed) => new RmgPlayerSettings
 		{
-			SchemaVersion = IsCrossroads ? 13 : IsBattlefield ? 12 : IsPvp ? 11 : UsesModernTerrain ? 10 : 3,
+			SchemaVersion = IsRing ? 14 : IsCrossroads ? 13 : IsBattlefield ? 12 : IsPvp ? 11 : UsesModernTerrain ? 10 : 3,
 			MirroringAxes = IsPvp ? mirroringAxes : 0,
 			BlockShape = IsBattlefield ? blockShape : RmgBattlefieldBlockShape.CutCorners,
-			LaneWidth = IsCrossroads ? approachWidth : IsBattlefield ? laneWidth : RmgBattlefieldLaneWidth.Standard,
+			RingShape = IsRing ? ringShape : RmgRingShape.Round,
+			LaneWidth = IsRing ? ringWidth : IsCrossroads ? approachWidth : IsBattlefield ? laneWidth : RmgBattlefieldLaneWidth.Standard,
 			SideConnections = IsCrossroads ? sideConnections : RmgCrossroadsConnections.Standard,
 			MapSize = size switch { SizeChoice.Small => 64, SizeChoice.Standard => 128, SizeChoice.Large => 256, _ => 512 },
 			Preset = preset,
@@ -736,11 +752,13 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					var moss = cells.Count(cell => cell == RmgNativeTerrainIntent.Vegetation);
 					var closerColonies = (int?)result.Generation.Map.RegionsReport["neutral_colonies_fallback"] ?? 0;
 					var spacingSummary = closerColonies > 0 ? $" {closerColonies} placed with closer spacing." : string.Empty;
-					if (HasFixedPlayerCounts && result.Generation.Validation.Warnings.Any(w => w.Code is "BATTLEFIELD_TERRAIN_CAPACITY" or "CROSSROADS_TERRAIN_CAPACITY"))
+					if (HasFixedPlayerCounts && result.Generation.Validation.Warnings.Any(w => w.Code is "BATTLEFIELD_TERRAIN_CAPACITY" or "CROSSROADS_TERRAIN_CAPACITY" or "RING_TERRAIN_CAPACITY"))
 						spacingSummary += " Routes/plazas/transitions limit coverage.";
 					if (IsCrossroads && result.Generation.Validation.Warnings.Any(w => w.Code == "CROSSROADS_WATER_FLOOR"))
 						spacingSummary += " Dividers set minimum water coverage.";
-					SetStatus($"Ready: {(IsCrossroads ? "Crossroads" : IsBattlefield ? "Battlefield" : "Regions")} / {RmgPlayerSettingsContract.ComplexityDisplayName(complexity, true)} ({result.Performance.TotalMilliseconds / 1000d:0.0}s). " +
+					if (IsRing && result.Generation.Validation.Warnings.Any(w => w.Code == "RING_WATER_FLOOR"))
+						spacingSummary += " Central lake sets minimum water coverage.";
+					SetStatus($"Ready: {(IsRing ? "Ring" : IsCrossroads ? "Crossroads" : IsBattlefield ? "Battlefield" : "Regions")} / {RmgPlayerSettingsContract.ComplexityDisplayName(complexity, true)} ({result.Performance.TotalMilliseconds / 1000d:0.0}s). " +
 						$"Water {100D * water / cells.Length:0.0}%; {(terrain == TerrainChoice.Normal ? "gravel/moss" : "surface modifiers")} {100D * gravel / land:0.0}/{100D * moss / land:0.0}% of land; " +
 						$"colonies {placedColonies}/{settingsResolution.Normalized.EffectiveNeutralColonyCount}.{spacingSummary}",
 						result.Generation.Validation.Warnings.Count > 0 ? StatusKind.Warning : StatusKind.Success);
@@ -926,6 +944,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			RmgPlayerLayoutFamily.StructuredCompetitive => "Structured Competitive",
 			RmgPlayerLayoutFamily.ArtificialBattlefield => "Artificial Battlefield",
 			RmgPlayerLayoutFamily.Crossroads => "Crossroads",
+			RmgPlayerLayoutFamily.Ring => "Ring",
 			_ => "Preset"
 		};
 

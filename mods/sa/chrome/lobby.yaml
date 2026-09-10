@@ -326,6 +326,36 @@ Background@SERVER_LOBBY:
 					Visible: False
 					TooltipContainer: TOOLTIP_CONTAINER
 					TooltipText: Set clear combat lanes to Narrow, Standard or Wide. Wider lanes leave less room for water and surface modifiers.
+				Label@RMG_RING_SHAPE_LABEL:
+					X: 20
+					Y: 310
+					Width: 150
+					Height: 28
+					Text: Ring Shape
+					Visible: False
+				DropDownButton@RMG_RING_SHAPE:
+					X: 175
+					Y: 310
+					Width: 220
+					Height: 28
+					Visible: False
+					TooltipContainer: TOOLTIP_CONTAINER
+					TooltipText: Shape of the central lake and continuous land ring.
+				Label@RMG_RING_WIDTH_LABEL:
+					X: 430
+					Y: 310
+					Width: 150
+					Height: 28
+					Text: Ring Width
+					Visible: False
+				DropDownButton@RMG_RING_WIDTH:
+					X: 590
+					Y: 310
+					Width: 220
+					Height: 28
+					Visible: False
+					TooltipContainer: TOOLTIP_CONTAINER
+					TooltipText: Width of the land belt. The central lake sets minimum water coverage; colonies cannot erase the ring.
 				Label@RMG_APPROACH_WIDTH_LABEL:
 					X: 20
 					Y: 310

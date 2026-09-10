@@ -169,6 +169,26 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			Choose("RMG_LAYOUT_FAMILY", "Natural Landscape (Regions)");
 			Require(Settings().GeneratorVersion == 16 && !lobby.Get("RMG_APPROACH_WIDTH").IsVisible(), "Leaving Crossroads changed the Natural baseline.");
 			CheckCrossroadsContract();
+			Choose("RMG_LAYOUT_FAMILY", "Ring");
+			Require(Settings().GeneratorVersion == 20 && lobby.Get("RMG_RING_SHAPE").IsVisible() && !lobby.Get("RMG_SIDE_CONNECTIONS").IsVisible(), "Ring controls did not activate.");
+			Choose("RMG_RING_SHAPE", "Square"); Choose("RMG_RING_WIDTH", "Wide");
+			Choose("RMG_SIZE", "512 x 512"); slider.UpdateValue(2);
+			Require(Settings().PlayerCount == 8 && Settings().RingShape == RmgRingShape.Square && Settings().LaneWidth == RmgBattlefieldLaneWidth.Wide, "Ring UI choices did not reach settings.");
+			Draw(output, "ring-512-options");
+			Choose("RMG_PRESET", "Balanced"); Require(Settings().GeneratorVersion == 20, "Preset selection exited Ring.");
+			lobby.Get<ButtonWidget>("RMG_COLONY_OWNERSHIP").OnClick();
+			Require(Ui.CurrentWindow().Get<ScrollPanelWidget>("SETTINGS").Children.Count == 8, "Ring ownership rows disagree with players.");
+			Ui.CurrentWindow().Get<ButtonWidget>("CANCEL").OnClick();
+			Choose("RMG_SIZE", "64 x 64"); Require(Settings().PlayerCount == 4 && slider.MaximumValue == 1, "Ring small-map cap failed.");
+			Draw(output, "ring-64-options");
+			Choose("RMG_LAYOUT_FAMILY", "Crossroads");
+			Require(Settings().SideConnections == RmgCrossroadsConnections.Many && Settings().LaneWidth == RmgBattlefieldLaneWidth.Narrow, "Ring changed stored Crossroads settings.");
+			Choose("RMG_LAYOUT_FAMILY", "Ring");
+			Require(Settings().RingShape == RmgRingShape.Square && Settings().LaneWidth == RmgBattlefieldLaneWidth.Wide, "Ring choices were lost after switching families.");
+			Choose("RMG_LAYOUT_FAMILY", "Natural Landscape (Regions)");
+			Require(Settings().GeneratorVersion == 16 && !lobby.Get("RMG_RING_SHAPE").IsVisible(), "Leaving Ring changed the Natural baseline.");
+			CheckRingContract();
+
 			var battlefieldValid = 0;
 			foreach (var size in new[] { 64, 128, 256, 512 })
 				for (var players = 1; players <= 8; players++)
@@ -236,6 +256,52 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			}
 
 			Console.WriteLine($"PASS: 288 Crossroads settings ({valid} valid), invalid field/schema checks and actual Crossroads UI.");
+		}
+
+		static void CheckRingContract()
+		{
+			var annulus = Enumerable.Range(0, 64 * 64).Select(i => Math.Abs(Math.Sqrt((i % 64 - 31.5) * (i % 64 - 31.5) + (i / 64 - 31.5) * (i / 64 - 31.5)) - 20) <= 5).ToArray();
+			Require(RingTopology.HasGroundLoop(annulus, 64, 64, 32 * 64 + 12), "Ring topology rejected a complete loop.");
+			for (var y = 0; y < 32; y++) for (var x = 30; x <= 33; x++) annulus[y * 64 + x] = false;
+			Require(!RingTopology.HasGroundLoop(annulus, 64, 64, 32 * 64 + 12), "Ring topology accepted a broken loop.");
+
+			var valid = 0;
+			foreach (var size in new[] { 64, 128, 256, 512 })
+				for (var players = 1; players <= 8; players++)
+					foreach (var width in Enum.GetValues<RmgBattlefieldLaneWidth>())
+						foreach (var shape in Enum.GetValues<RmgRingShape>())
+						{
+							var expected = players is 2 or 4 or 8 && players <= (size == 64 ? 4 : 8);
+							var accepted = false;
+							try
+							{
+								var requested = new RmgPlayerSettings
+								{
+									SchemaVersion = 14, LayoutFamily = RmgPlayerLayoutFamily.Ring,
+									MapSize = size, PlayerCount = players, LaneWidth = width, RingShape = shape, Tileset = "DESERT"
+								};
+								var parsed = RmgPlayerSettingsContract.Resolve(RmgPlayerSettingsContract.Parse(requested.ToJson())).Normalized;
+								accepted = parsed.GeneratorVersion == 20 && parsed.LaneWidth == width && parsed.RingShape == shape;
+							}
+							catch (ArgumentException) { }
+							Require(accepted == expected, $"Ring settings disagree at {size}/{players}/{width}/{shape}.");
+							if (accepted) valid++;
+						}
+
+			foreach (var invalid in new[]
+			{
+				("schema_version", "13"), ("layout_family", "artificial-battlefield"), ("block_shape", "diamonds"),
+				("lane_width", "standard"), ("ring_width", "ultra"), ("ring_shape", "triangle"), ("mirroring_axes", "1")
+			})
+			{
+				var requested = new RmgPlayerSettings { SchemaVersion = 14, LayoutFamily = RmgPlayerLayoutFamily.Ring }.ToJson();
+				requested[invalid.Item1] = invalid.Item1 is "schema_version" or "mirroring_axes" ? new Newtonsoft.Json.Linq.JValue(int.Parse(invalid.Item2)) : new Newtonsoft.Json.Linq.JValue(invalid.Item2);
+				var rejected = false;
+				try { RmgPlayerSettingsContract.Resolve(RmgPlayerSettingsContract.Parse(requested)); } catch (ArgumentException) { rejected = true; }
+				Require(rejected, "Invalid Ring field/schema accepted: " + invalid.Item1);
+			}
+
+			Console.WriteLine($"PASS: 288 Ring settings ({valid} valid), invalid field/schema checks and actual Ring UI.");
 		}
 
 		static MapPreview SavePvpRuntimeCopy(Utility utility, MapPreview source, Folder directory, string id)

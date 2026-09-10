@@ -2,8 +2,8 @@
 
 ## Current status
 
-Crossroads has been revised on `codex/rmg-crossroads` after the user's review of `536088b`;
-the revision is ready for their next in-game review.
+The user accepted the Crossroads revision at `cfa6f9e` on 2026-09-10 and requested Ring next.
+The revision was developed on `codex/rmg-crossroads` after review of `536088b`.
 The revised generator uses **V19 / configuration 2 / player-settings schema 13**. The first version
 is not accepted: its complexity subdivisions opened unintended crossings, and colony reservations
 could overrule the intended geometry. Its former qualification that None only disabled *planned*

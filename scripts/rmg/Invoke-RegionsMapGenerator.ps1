@@ -4,6 +4,9 @@ param(
     [switch]$Pvp,
     [switch]$Battlefield,
     [switch]$Crossroads,
+    [switch]$Ring,
+    [ValidateSet("round", "octagonal", "square")][string]$RingShape = "round",
+    [ValidateSet("narrow", "standard", "wide")][string]$RingWidth = "standard",
     [ValidateSet("none", "standard", "many")][string]$SideConnections = "standard",
     [ValidateSet("rectangles", "cut-corners", "diamonds")][string]$BlockShape = "cut-corners",
     [ValidateSet("narrow", "standard", "wide")][Alias("ApproachWidth")][string]$LaneWidth = "standard",
@@ -39,12 +42,14 @@ if ($StartingColonyShares.Count -ne 0 -and $StartingColonyShares.Count -ne $Play
 if ($MapSize -eq 64 -and $Players -gt 4) {
     throw "64x64 supports 1 through 4 players."
 }
-if ($Battlefield -and $Crossroads) { throw "Choose only one layout family." }
-if ($Crossroads -and $PSBoundParameters.ContainsKey("BlockShape")) { throw "BlockShape applies only to Battlefield." }
+if (@($Pvp, $Battlefield, $Crossroads, $Ring).Where({ $_ }).Count -gt 1) { throw "Choose only one layout family." }
+if (($Crossroads -or $Ring) -and $PSBoundParameters.ContainsKey("BlockShape")) { throw "BlockShape applies only to Battlefield." }
 if (!$Crossroads -and $PSBoundParameters.ContainsKey("SideConnections")) { throw "SideConnections requires -Crossroads." }
-if ($Battlefield -or $Crossroads) {
-    if ($Pvp -or $PSBoundParameters.ContainsKey("MirroringAxes")) { throw "Battlefield and Crossroads cannot be combined with Pvp or MirroringAxes." }
-    if ($Players -notin @(2, 4, 8)) { throw "Battlefield and Crossroads support 2, 4 or 8 players." }
+if (!$Ring -and ($PSBoundParameters.ContainsKey("RingShape") -or $PSBoundParameters.ContainsKey("RingWidth"))) { throw "RingShape and RingWidth require -Ring." }
+if ($Ring -and $PSBoundParameters.ContainsKey("LaneWidth")) { throw "Use RingWidth for -Ring." }
+if ($Battlefield -or $Crossroads -or $Ring) {
+    if ($Pvp -or $PSBoundParameters.ContainsKey("MirroringAxes")) { throw "Planned layouts cannot be combined with Pvp or MirroringAxes." }
+    if ($Players -notin @(2, 4, 8)) { throw "Planned layouts support 2, 4 or 8 players." }
 } elseif ($PSBoundParameters.ContainsKey("BlockShape") -or $PSBoundParameters.ContainsKey("LaneWidth")) { throw "BlockShape requires -Battlefield; LaneWidth requires -Battlefield or -Crossroads." }
 if ($Pvp) {
     $groupSize = if ($MirroringAxes -eq 4) { 8 } else { 2 * $MirroringAxes }
@@ -52,7 +57,7 @@ if ($Pvp) {
 } elseif ($PSBoundParameters.ContainsKey('MirroringAxes')) { throw "MirroringAxes requires -Pvp." }
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
-    $OutputDirectory = Join-Path $root "artifacts\rmg\$(if ($Crossroads) { "crossroads-v19" } elseif ($Battlefield) { "battlefield-v18" } elseif ($Pvp) { "regions-v17-pvp" } else { "regions-v16" })\$Seed-$MapSize-$Players-$TerrainComplexity-W$WaterAmount-G$GravelMossAmount-N$NeutralColonyDensity-R$OriginalSurfaceRelations-O$PreventColonyOverlapping-C$AntsWeight-$BeetlesWeight-$ScorpionsWeight-$SpidersWeight-$WaspsWeight-S$($StartingColonyShares -join '-')$(if ($StartingColonyMode -eq 'random') { '-random' })$(if ($Tileset -ne 'NORMAL') { '-' + $Tileset })$(if ($Pvp) { '-axes' + $MirroringAxes })$(if ($Battlefield) { '-' + $BlockShape + '-' + $LaneWidth })$(if ($Crossroads) { '-' + $LaneWidth + '-' + $SideConnections })"
+    $OutputDirectory = Join-Path $root "artifacts\rmg\$(if ($Ring) { "ring-v20" } elseif ($Crossroads) { "crossroads-v19" } elseif ($Battlefield) { "battlefield-v18" } elseif ($Pvp) { "regions-v17-pvp" } else { "regions-v16" })\$Seed-$MapSize-$Players-$TerrainComplexity-W$WaterAmount-G$GravelMossAmount-N$NeutralColonyDensity-R$OriginalSurfaceRelations-O$PreventColonyOverlapping-C$AntsWeight-$BeetlesWeight-$ScorpionsWeight-$SpidersWeight-$WaspsWeight-S$($StartingColonyShares -join '-')$(if ($StartingColonyMode -eq 'random') { '-random' })$(if ($Tileset -ne 'NORMAL') { '-' + $Tileset })$(if ($Pvp) { '-axes' + $MirroringAxes })$(if ($Battlefield) { '-' + $BlockShape + '-' + $LaneWidth })$(if ($Ring) { '-' + $RingShape + '-' + $RingWidth })$(if ($Crossroads) { '-' + $LaneWidth + '-' + $SideConnections })"
 }
 [IO.Directory]::CreateDirectory($OutputDirectory) | Out-Null
 $settingsPath = Join-Path $OutputDirectory "settings.json"
@@ -61,12 +66,12 @@ if ((Test-Path -LiteralPath $settingsPath) -and !$Overwrite) {
 }
 $settings = [ordered]@{
     starting_colony_shares = @(if ($StartingColonyShares.Count -eq 0) { @(0) * $Players } else { $StartingColonyShares })
-    schema_version = $(if ($Crossroads) { 13 } elseif ($Battlefield) { 12 } elseif ($Pvp) { 11 } else { 10 })
+    schema_version = $(if ($Ring) { 14 } elseif ($Crossroads) { 13 } elseif ($Battlefield) { 12 } elseif ($Pvp) { 11 } else { 10 })
     preset = "balanced"
     seed = $Seed.ToString([Globalization.CultureInfo]::InvariantCulture)
     size = "$MapSize,$MapSize"
     players = $Players
-    layout_family = $(if ($Crossroads) { "crossroads" } elseif ($Battlefield) { "artificial-battlefield" } elseif ($Pvp) { "natural-landscape-pvp" } else { "natural-landscape" })
+    layout_family = $(if ($Ring) { "ring" } elseif ($Crossroads) { "crossroads" } elseif ($Battlefield) { "artificial-battlefield" } elseif ($Pvp) { "natural-landscape-pvp" } else { "natural-landscape" })
     neutral_colony_density = $NeutralColonyDensity
     water_amount = $WaterAmount
     gravel_moss_amount = $GravelMossAmount
@@ -75,6 +80,7 @@ $settings = [ordered]@{
     prevent_colony_overlapping = $PreventColonyOverlapping
     neutral_colony_weights = [ordered]@{ ants = $AntsWeight; beetles = $BeetlesWeight; scorpions = $ScorpionsWeight; spiders = $SpidersWeight; wasps = $WaspsWeight }
 }
+if ($Ring) { $settings.ring_shape = $RingShape.ToLowerInvariant(); $settings.ring_width = $RingWidth.ToLowerInvariant() }
 if ($Pvp) { $settings.mirroring_axes = $MirroringAxes }
 if ($Battlefield) { $settings.block_shape = $BlockShape; $settings.lane_width = $LaneWidth }
 if ($Crossroads) { $settings.approach_width = $LaneWidth; $settings.side_connections = $SideConnections }

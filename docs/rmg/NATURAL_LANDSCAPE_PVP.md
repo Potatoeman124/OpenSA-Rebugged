@@ -19,8 +19,8 @@ The user selected the following order of work, with a separate review of each la
 
 1. Natural Landscape PVP: this implementation.
 2. [Artificial Battlefield V18](ARTIFICIAL_BATTLEFIELD_V18.md): accepted by the user on 2026-09-10 at `17881c4`.
-3. [Crossroads V19](CROSSROADS_V19.md): current implementation and review step.
-4. Ring.
+3. [Crossroads V19](CROSSROADS_V19.md): accepted by the user on 2026-09-10 at `cfa6f9e`.
+4. [Ring V20](RING_V20.md): current implementation and review step.
 5. Divided Lands.
 6. Strongholds.
 7. Labyrinth.

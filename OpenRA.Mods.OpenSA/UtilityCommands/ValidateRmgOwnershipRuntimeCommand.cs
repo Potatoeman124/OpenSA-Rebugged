@@ -31,9 +31,9 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 	public sealed partial class ValidateRmgOwnershipRuntimeCommand : IUtilityCommand
 	{
 		string IUtilityCommand.Name => "--validate-sa-rmg-runtime";
-		bool IUtilityCommand.ValidateArguments(string[] args) => args.Length >= 2 && args.Length <= 4 && args.Skip(2).All(a => a is "--wide" or "--512" or "--save" or "--pvp" or "--battlefield" or "--crossroads");
+		bool IUtilityCommand.ValidateArguments(string[] args) => args.Length >= 2 && args.Length <= 4 && args.Skip(2).All(a => a is "--wide" or "--512" or "--save" or "--pvp" or "--battlefield" or "--crossroads" or "--ring");
 
-		[Desc("OUTPUT-DIRECTORY [--wide] [--512|--save|--pvp|--battlefield|--crossroads]", "Exercise colony ownership, live previews and skirmish startup; --512 checks large maps, --save checks saved copies, --pvp checks mirrored Regions.")]
+		[Desc("OUTPUT-DIRECTORY [--wide] [--512|--save|--pvp|--battlefield|--crossroads|--ring]", "Exercise colony ownership, live previews and skirmish startup; --512 checks large maps, --save checks saved copies, --pvp checks mirrored Regions.")]
 		void IUtilityCommand.Run(Utility utility, string[] args)
 		{
 			var output = Path.GetFullPath(args[1]);
@@ -63,15 +63,16 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				return;
 			}
 
-			if (args.Contains("--pvp") || args.Contains("--battlefield") || args.Contains("--crossroads")) CheckPvpWidgets(utility, output);
+			if (args.Contains("--pvp") || args.Contains("--battlefield") || args.Contains("--crossroads") || args.Contains("--ring")) CheckPvpWidgets(utility, output);
 			else { CheckWidgets(output); CheckLobby(utility, output); }
 			var results = new JArray();
 			var battlefield = args.Contains("--battlefield");
+			var ring = args.Contains("--ring");
 			var crossroads = args.Contains("--crossroads");
 			void Run(string id, int size, int[] shares, int[] spawns, int absent = -1, bool empty = false, bool bots = false, ulong seed = 397716241463670640, bool crowded = false, RmgColonyOwnershipMode mode = RmgColonyOwnershipMode.ClosestToSpawn, string tileset = "NORMAL", bool hostiles = false, int axes = 0, RmgPlayerSettings options = null)
 			{
-				var requested = options ?? new RmgPlayerSettings { SchemaVersion = crossroads ? 13 : battlefield ? 12 : axes == 0 ? 10 : 11, MirroringAxes = axes, MapSize = size, PlayerCount = shares.Length,
-					Seed = seed, Tileset = tileset, NeutralColonyDensity = crowded ? RmgPlayerColonyDensity.Ultra : RmgPlayerColonyDensity.Standard, LayoutFamily = crossroads ? RmgPlayerLayoutFamily.Crossroads : battlefield ? RmgPlayerLayoutFamily.ArtificialBattlefield : axes == 0 ? RmgPlayerLayoutFamily.NaturalLandscape : RmgPlayerLayoutFamily.NaturalLandscapePvp,
+				var requested = options ?? new RmgPlayerSettings { SchemaVersion = ring ? 14 : crossroads ? 13 : battlefield ? 12 : axes == 0 ? 10 : 11, MirroringAxes = axes, MapSize = size, PlayerCount = shares.Length,
+					Seed = seed, Tileset = tileset, NeutralColonyDensity = crowded ? RmgPlayerColonyDensity.Ultra : RmgPlayerColonyDensity.Standard, LayoutFamily = ring ? RmgPlayerLayoutFamily.Ring : crossroads ? RmgPlayerLayoutFamily.Crossroads : battlefield ? RmgPlayerLayoutFamily.ArtificialBattlefield : axes == 0 ? RmgPlayerLayoutFamily.NaturalLandscape : RmgPlayerLayoutFamily.NaturalLandscapePvp,
 					StartingColonyShares = shares, StartingColonyMode = mode, NeutralColonyWeights = empty ? new(0, 0, 0, 0, 0) : new() };
 				var settings = RmgPlayerSettingsContract.Resolve(requested).Normalized;
 				var package = OpenRaRmgMapAdapter.GenerateAndSave(utility.ModData, RmgProfile.Load(utility.ModData, settings),
@@ -80,7 +81,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				using var directory = new OpenRA.FileSystem.Folder(output);
 				utility.ModData.MapCache.LoadMap(id + ".oramap", directory, MapClassification.User, utility.ModData.Manifest.Get<MapGrid>(), null);
 				var map = utility.ModData.MapCache[package.EngineUid];
-				if (axes != 0 || battlefield || crossroads) map = SavePvpRuntimeCopy(utility, map, directory, id);
+				if (axes != 0 || battlefield || crossroads || ring) map = SavePvpRuntimeCopy(utility, map, directory, id);
 				if (bots && crowded) CheckServer(utility, map);
 				var first = CheckWorld(utility, map, shares, spawns, absent, bots, Path.Combine(output, id), hostiles);
 				var second = CheckWorld(utility, map, shares, spawns, absent, bots, null, hostiles);
@@ -90,7 +91,25 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				Console.WriteLine($"PASS: {id}, pool {first["pool"]}, assigned {first["counts"]}, repeat world identical.");
 			}
 
-			if (crossroads)
+			if (ring)
+			{
+				Run("ring-small", 64, new[] { 0, 10, 20, 30 }, new int[4]);
+				Run("ring-desert", 128, new[] { 0, 10, 20, 30 }, new int[4], bots: true, crowded: true, tileset: "DESERT", hostiles: true);
+				Run("ring-swamp", 256, new[] { 40, 80 }, new int[2], seed: 1, bots: true, mode: RmgColonyOwnershipMode.Random, tileset: "SWAMP");
+				Run("ring-candy-eight", 512, Enumerable.Repeat(100, 8).ToArray(), new int[8], bots: true, mode: RmgColonyOwnershipMode.Random, tileset: "CANDY");
+				foreach (var shape in Enum.GetValues<RmgRingShape>())
+					foreach (var compact in new[] { (64, 4), (128, 8), (512, 8) })
+						Run($"ring-ultra-{shape}-{compact.Item1}", compact.Item1, new int[compact.Item2], new int[compact.Item2], bots: true, options: new RmgPlayerSettings
+						{
+							SchemaVersion = 14, LayoutFamily = RmgPlayerLayoutFamily.Ring, Seed = 1,
+							MapSize = compact.Item1, PlayerCount = compact.Item2, StartingColonyShares = new int[compact.Item2],
+							RingShape = shape, LaneWidth = RmgBattlefieldLaneWidth.Wide,
+							TerrainComplexity = Rmg.Reassessment.TerrainComplexity.Ultra, WaterAmount = RmgPlayerParameterLevel.Ultra,
+							TacticalTerrain = RmgPlayerParameterLevel.Ultra, NeutralColonyDensity = RmgPlayerColonyDensity.Ultra,
+							PreventColonyOverlapping = false, OriginalSurfaceRelations = false
+						});
+			}
+			else if (crossroads)
 			{
 				Run("crossroads-small", 64, new[] { 0, 10, 20, 30 }, new int[4]);
 				Run("crossroads-desert", 128, new[] { 0, 10, 20, 30 }, new int[4], bots: true, crowded: true, tileset: "DESERT", hostiles: true);
