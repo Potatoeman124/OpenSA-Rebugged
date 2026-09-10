@@ -18,8 +18,8 @@ connections across the map.
 The user selected the following order of work, with a separate review of each layout:
 
 1. Natural Landscape PVP: this implementation.
-2. [Artificial Battlefield V18](ARTIFICIAL_BATTLEFIELD_V18.md): implemented next, pending user review.
-3. Crossroads.
+2. [Artificial Battlefield V18](ARTIFICIAL_BATTLEFIELD_V18.md): accepted by the user on 2026-09-10 at `17881c4`.
+3. [Crossroads V19](CROSSROADS_V19.md): current implementation and review step.
 4. Ring.
 5. Divided Lands.
 6. Strongholds.

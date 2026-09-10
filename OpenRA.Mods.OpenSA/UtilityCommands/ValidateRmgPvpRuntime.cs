@@ -152,6 +152,23 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			Draw(output, "battlefield-64-options");
 			Choose("RMG_LAYOUT_FAMILY", "Natural Landscape (Regions)");
 			Require(Settings().GeneratorVersion == 16 && !lobby.Get("RMG_BLOCK_SHAPE").IsVisible(), "Leaving Battlefield changed the Natural baseline.");
+			Choose("RMG_LAYOUT_FAMILY", "Crossroads");
+			Require(Settings().GeneratorVersion == 19 && lobby.Get("RMG_APPROACH_WIDTH").IsVisible() && !lobby.Get("RMG_BLOCK_SHAPE").IsVisible(), "Crossroads family controls did not activate.");
+			Choose("RMG_APPROACH_WIDTH", "Narrow"); Choose("RMG_SIDE_CONNECTIONS", "Two tiers");
+			Choose("RMG_SIZE", "512 x 512"); slider.UpdateValue(2);
+			Require(Settings().PlayerCount == 8 && Settings().LaneWidth == RmgBattlefieldLaneWidth.Narrow && Settings().SideConnections == RmgCrossroadsConnections.Many, "Crossroads UI choices did not reach generation settings.");
+			Draw(output, "crossroads-512-options");
+			Choose("RMG_PRESET", "Balanced"); Require(Settings().GeneratorVersion == 19, "Preset selection exited Crossroads.");
+			lobby.Get<ButtonWidget>("RMG_COLONY_OWNERSHIP").OnClick();
+			Require(Ui.CurrentWindow().Get<ScrollPanelWidget>("SETTINGS").Children.Count == 8, "Crossroads ownership rows disagree with players.");
+			Ui.CurrentWindow().Get<ButtonWidget>("CANCEL").OnClick();
+			Choose("RMG_SIZE", "64 x 64"); Require(Settings().PlayerCount == 4 && slider.MaximumValue == 1, "Crossroads small-map cap failed.");
+			Draw(output, "crossroads-64-options");
+			Choose("RMG_LAYOUT_FAMILY", "Artificial Battlefield");
+			Require(Settings().GeneratorVersion == 18 && Settings().BlockShape == RmgBattlefieldBlockShape.Diamonds && Settings().LaneWidth == RmgBattlefieldLaneWidth.Wide, "Crossroads changed stored Battlefield geometry choices.");
+			Choose("RMG_LAYOUT_FAMILY", "Natural Landscape (Regions)");
+			Require(Settings().GeneratorVersion == 16 && !lobby.Get("RMG_APPROACH_WIDTH").IsVisible(), "Leaving Crossroads changed the Natural baseline.");
+			CheckCrossroadsContract();
 			var battlefieldValid = 0;
 			foreach (var size in new[] { 64, 128, 256, 512 })
 				for (var players = 1; players <= 8; players++)
@@ -178,6 +195,47 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			Console.WriteLine($"PASS: 288 Battlefield size/player/shape/lane settings ({battlefieldValid} valid), actual Battlefield UI, all modern controls and baseline switching.");
 			Ui.ResetAll();
 			Console.WriteLine($"PASS: 96 size/player/axes combinations ({valid} allowed), invalid axes, actual PvP UI settings, size limits, ownership and baseline switching.");
+		}
+
+		static void CheckCrossroadsContract()
+		{
+			var valid = 0;
+			foreach (var size in new[] { 64, 128, 256, 512 })
+				for (var players = 1; players <= 8; players++)
+					foreach (var width in Enum.GetValues<RmgBattlefieldLaneWidth>())
+						foreach (var connections in Enum.GetValues<RmgCrossroadsConnections>())
+						{
+							var expected = players is 2 or 4 or 8 && players <= (size == 64 ? 4 : 8);
+							var accepted = false;
+							try
+							{
+								var requested = new RmgPlayerSettings
+								{
+									SchemaVersion = 13, LayoutFamily = RmgPlayerLayoutFamily.Crossroads,
+									MapSize = size, PlayerCount = players, LaneWidth = width, SideConnections = connections, Tileset = "DESERT"
+								};
+								var parsed = RmgPlayerSettingsContract.Resolve(RmgPlayerSettingsContract.Parse(requested.ToJson())).Normalized;
+								accepted = parsed.GeneratorVersion == 19 && parsed.LaneWidth == width && parsed.SideConnections == connections;
+							}
+							catch (ArgumentException) { }
+							Require(accepted == expected, $"Crossroads settings disagree at {size}/{players}/{width}/{connections}.");
+							if (accepted) valid++;
+						}
+
+			foreach (var invalid in new[]
+			{
+				("schema_version", "12"), ("layout_family", "artificial-battlefield"), ("block_shape", "diamonds"),
+				("lane_width", "standard"), ("approach_width", "ultra"), ("side_connections", "three"), ("mirroring_axes", "1")
+			})
+			{
+				var requested = new RmgPlayerSettings { SchemaVersion = 13, LayoutFamily = RmgPlayerLayoutFamily.Crossroads }.ToJson();
+				requested[invalid.Item1] = invalid.Item1 is "schema_version" or "mirroring_axes" ? new Newtonsoft.Json.Linq.JValue(int.Parse(invalid.Item2)) : new Newtonsoft.Json.Linq.JValue(invalid.Item2);
+				var rejected = false;
+				try { RmgPlayerSettingsContract.Resolve(RmgPlayerSettingsContract.Parse(requested)); } catch (ArgumentException) { rejected = true; }
+				Require(rejected, "Invalid Crossroads field/schema accepted: " + invalid.Item1);
+			}
+
+			Console.WriteLine($"PASS: 288 Crossroads settings ({valid} valid), invalid field/schema checks and actual Crossroads UI.");
 		}
 
 		static MapPreview SavePvpRuntimeCopy(Utility utility, MapPreview source, Folder directory, string id)

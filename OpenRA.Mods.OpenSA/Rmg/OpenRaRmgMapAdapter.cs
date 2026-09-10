@@ -201,7 +201,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (terrainInfo is not ITemplatedTerrainInfo templated)
 				throw new InvalidDataException($"Tileset {profile.Tileset} is not template-based.");
 
-			if (profile.GeneratorVersion is 16 or 17 or 18) RmgBiome.ValidateCatalogue(modData, profile.Tileset);
+			if (profile.GeneratorVersion is 16 or 17 or 18 or 19) RmgBiome.ValidateCatalogue(modData, profile.Tileset);
 
 			ValidateTemplates(profile.ClearTemplateIds, "Clear");
 			if (profile.UsesClearLandDetails)
@@ -301,8 +301,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			};
 
 			if (profile.UsesRegionsTerrain)
-				map.Title = $"OpenSA Regions C-{RmgPlayerSettingsContract.ComplexityDisplayName(generation.Settings.TerrainComplexity, generation.Settings.GeneratorVersion is 13 or 14 or 15 or 16 or 17 or 18)} W-{generation.Settings.WaterAmount} G-{generation.Settings.TacticalTerrain} {generation.Settings.Seed}";
+				map.Title = $"OpenSA Regions C-{RmgPlayerSettingsContract.ComplexityDisplayName(generation.Settings.TerrainComplexity, generation.Settings.GeneratorVersion is 13 or 14 or 15 or 16 or 17 or 18 or 19)} W-{generation.Settings.WaterAmount} G-{generation.Settings.TacticalTerrain} {generation.Settings.Seed}";
 			if (generation.Settings.GeneratorVersion == 17) map.Title = $"OpenSA Natural PVP {generation.Settings.MirroringAxes} {(generation.Settings.MirroringAxes == 1 ? "axis" : "axes")} C-{RmgPlayerSettingsContract.ComplexityDisplayName(generation.Settings.TerrainComplexity, true)} {generation.Settings.Seed}";
+			if (generation.Settings.GeneratorVersion == 19) map.Title = $"OpenSA Crossroads {RmgPlayerSettingsContract.ComplexityDisplayName(generation.Settings.TerrainComplexity, true)} {generation.Settings.Seed}";
 			if (generation.Settings.GeneratorVersion == 18) map.Title = $"OpenSA Artificial Battlefield {RmgBattlefieldParameters.Name(generation.Settings.BlockShape)} {generation.Settings.Seed}";
 			if (profile.Tileset != "NORMAL") map.Title = profile.Tileset + " " + map.Title;
 			if (generation.Settings.MapSize != 128)
@@ -337,7 +338,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				map.ActorDefinitions.Add(new MiniYamlNode($"Actor{map.ActorDefinitions.Count}", actor.Save()));
 			}
 
-			if (generation.Settings.GeneratorVersion is 16 or 17 or 18)
+			if (generation.Settings.GeneratorVersion is 16 or 17 or 18 or 19)
 			{
 				var ownership = new MiniYamlNode("RmgStartingColonyOwnership", new MiniYaml(null, new List<MiniYamlNode>
 				{
@@ -785,6 +786,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			RmgTopologyPreset.NaturalTerrainV10 => "natural-terrain-v10",
 			RmgTopologyPreset.NaturalRegions => "natural-regions",
 			RmgTopologyPreset.PlannedBattlefield => "planned-battlefield",
+			RmgTopologyPreset.Crossroads => "crossroads",
 			_ => throw new ArgumentOutOfRangeException(nameof(topology))
 		};
 	}

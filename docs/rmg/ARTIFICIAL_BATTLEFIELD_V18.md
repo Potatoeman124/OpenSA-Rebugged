@@ -1,10 +1,10 @@
 # Artificial Battlefield V18
 
-## Scope and status (2026-09-09)
+## Scope and status (2026-09-10)
 
 Branch: `codex/rmg-artificial-battlefield`, based on accepted Natural Landscape PVP `15f4882`.
-The current implementation is **generator 18 / configuration 2 / player schema 12**, pending renewed
-user in-game review. No merge or push was requested. Ordinary Natural Landscape V16 and Natural
+The accepted implementation is **generator 18 / configuration 2 / player schema 12**, commit `17881c4`.
+The user accepted this layout on 2026-09-10 and requested Crossroads next. No merge or push was requested. Ordinary Natural Landscape V16 and Natural
 Landscape PVP V17 retain their accepted output; historical V7 remains available through older schemas.
 
 The user requested deliberate geometric terrain, pre-planned colonies and fair PvP opportunities.

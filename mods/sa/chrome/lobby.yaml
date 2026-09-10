@@ -326,6 +326,36 @@ Background@SERVER_LOBBY:
 					Visible: False
 					TooltipContainer: TOOLTIP_CONTAINER
 					TooltipText: Set clear combat lanes to Narrow, Standard or Wide. Wider lanes leave less room for water and surface modifiers.
+				Label@RMG_APPROACH_WIDTH_LABEL:
+					X: 20
+					Y: 310
+					Width: 150
+					Height: 28
+					Text: Approach Width
+					Visible: False
+				DropDownButton@RMG_APPROACH_WIDTH:
+					X: 175
+					Y: 310
+					Width: 220
+					Height: 28
+					Visible: False
+					TooltipContainer: TOOLTIP_CONTAINER
+					TooltipText: Set the clear main approaches to Narrow, Standard or Wide. Starts and colony sites stay fixed.
+				Label@RMG_SIDE_CONNECTIONS_LABEL:
+					X: 430
+					Y: 310
+					Width: 150
+					Height: 28
+					Text: Side Connections
+					Visible: False
+				DropDownButton@RMG_SIDE_CONNECTIONS:
+					X: 590
+					Y: 310
+					Width: 220
+					Height: 28
+					Visible: False
+					TooltipContainer: TOOLTIP_CONTAINER
+					TooltipText: Add one or two tiers of ground connections between approaches, bypassing the central junction. None disables planned side connections; other terrain may still be passable.
 				LabelWithTooltip@RMG_STATUS:
 					X: 20
 					Y: 308

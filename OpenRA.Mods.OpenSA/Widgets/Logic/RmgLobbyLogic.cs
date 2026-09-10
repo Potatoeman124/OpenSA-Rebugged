@@ -72,11 +72,15 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		bool IsPvp => layoutFamily == RmgPlayerLayoutFamily.NaturalLandscapePvp;
 		bool FixedPlayerCount => IsPvp && RmgMirroring.GroupSize(mirroringAxes) == MaximumPlayers;
 		bool IsBattlefield => layoutFamily == RmgPlayerLayoutFamily.ArtificialBattlefield;
-		bool HasLayoutOptions => IsPvp || IsBattlefield;
-		bool UsesModernTerrain => layoutFamily is RmgPlayerLayoutFamily.NaturalLandscape or RmgPlayerLayoutFamily.NaturalLandscapePvp or RmgPlayerLayoutFamily.ArtificialBattlefield;
+		bool IsCrossroads => layoutFamily == RmgPlayerLayoutFamily.Crossroads;
+		bool HasFixedPlayerCounts => IsBattlefield || IsCrossroads;
+		bool HasLayoutOptions => IsPvp || HasFixedPlayerCounts;
+		bool UsesModernTerrain => layoutFamily is RmgPlayerLayoutFamily.NaturalLandscape or RmgPlayerLayoutFamily.NaturalLandscapePvp or RmgPlayerLayoutFamily.ArtificialBattlefield or RmgPlayerLayoutFamily.Crossroads;
 		static readonly int[] BattlefieldPlayerCounts = { 2, 4, 8 };
 		RmgBattlefieldBlockShape blockShape = RmgBattlefieldBlockShape.CutCorners;
 		RmgBattlefieldLaneWidth laneWidth = RmgBattlefieldLaneWidth.Standard;
+		RmgBattlefieldLaneWidth approachWidth = RmgBattlefieldLaneWidth.Standard;
+		RmgCrossroadsConnections sideConnections = RmgCrossroadsConnections.Standard;
 		TerrainComplexity complexity = TerrainComplexity.Standard;
 		RmgPlayerColonyDensity colonyDensity = RmgPlayerColonyDensity.Standard;
 		RmgPlayerParameterLevel waterAmount = RmgPlayerParameterLevel.Standard;
@@ -271,7 +275,8 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 				{
 					new Choice<RmgPlayerLayoutFamily>(RmgPlayerLayoutFamily.NaturalLandscape, "Natural Landscape (Regions)"),
 					new Choice<RmgPlayerLayoutFamily>(RmgPlayerLayoutFamily.NaturalLandscapePvp, "Natural Landscape PVP"),
-					new Choice<RmgPlayerLayoutFamily>(RmgPlayerLayoutFamily.ArtificialBattlefield, "Artificial Battlefield")
+					new Choice<RmgPlayerLayoutFamily>(RmgPlayerLayoutFamily.ArtificialBattlefield, "Artificial Battlefield"),
+					new Choice<RmgPlayerLayoutFamily>(RmgPlayerLayoutFamily.Crossroads, "Crossroads")
 				}, () => layoutFamily, value =>
 				{
 					layoutFamily = value;
@@ -307,6 +312,25 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 				() => laneWidth, value => { laneWidth = value; MarkStale(); });
 			foreach (var id in new[] { "RMG_BLOCK_SHAPE", "RMG_BLOCK_SHAPE_LABEL", "RMG_LANE_WIDTH", "RMG_LANE_WIDTH_LABEL" })
 				lobby.Get(id).IsVisible = () => IsBattlefield;
+
+			var approachButton = lobby.Get<DropDownButtonWidget>("RMG_APPROACH_WIDTH");
+			approachButton.GetText = () => approachWidth.ToString();
+			BindDropDown(approachButton, new[]
+			{
+				new Choice<RmgBattlefieldLaneWidth>(RmgBattlefieldLaneWidth.Narrow, "Narrow"),
+				new Choice<RmgBattlefieldLaneWidth>(RmgBattlefieldLaneWidth.Standard, "Standard"),
+				new Choice<RmgBattlefieldLaneWidth>(RmgBattlefieldLaneWidth.Wide, "Wide")
+			}, () => approachWidth, value => { approachWidth = value; MarkStale(); });
+			var connectionsButton = lobby.Get<DropDownButtonWidget>("RMG_SIDE_CONNECTIONS");
+			connectionsButton.GetText = () => sideConnections switch { RmgCrossroadsConnections.None => "None", RmgCrossroadsConnections.Many => "Two tiers", _ => "One tier" };
+			BindDropDown(connectionsButton, new[]
+			{
+				new Choice<RmgCrossroadsConnections>(RmgCrossroadsConnections.None, "None"),
+				new Choice<RmgCrossroadsConnections>(RmgCrossroadsConnections.Standard, "One tier"),
+				new Choice<RmgCrossroadsConnections>(RmgCrossroadsConnections.Many, "Two tiers")
+			}, () => sideConnections, value => { sideConnections = value; MarkStale(); });
+			foreach (var id in new[] { "RMG_APPROACH_WIDTH", "RMG_APPROACH_WIDTH_LABEL", "RMG_SIDE_CONNECTIONS", "RMG_SIDE_CONNECTIONS_LABEL" })
+				lobby.Get(id).IsVisible = () => IsCrossroads;
 
 			layoutButton.GetText = () => LayoutDisplayName(layout);
 			BindDropDown(layoutButton,
@@ -409,7 +433,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			};
 
 			UpdatePlayerRange();
-			lobby.Get<LabelWidget>("RMG_PLAYERS_MIN").GetText = () => IsBattlefield ? "2" : IsPvp ? RmgMirroring.GroupSize(mirroringAxes).ToString(CultureInfo.InvariantCulture) : UsesModernTerrain ? "1" : "2";
+			lobby.Get<LabelWidget>("RMG_PLAYERS_MIN").GetText = () => HasFixedPlayerCounts ? "2" : IsPvp ? RmgMirroring.GroupSize(mirroringAxes).ToString(CultureInfo.InvariantCulture) : UsesModernTerrain ? "1" : "2";
 			lobby.Get<LabelWidget>("RMG_PLAYERS_MAX").GetText = () => MaximumPlayers.ToString(CultureInfo.InvariantCulture);
 			var weightsButton = lobby.Get<ButtonWidget>("RMG_COLONY_WEIGHTS");
 			weightsButton.IsDisabled = () => !CanConfigure() || !UsesModernTerrain;
@@ -442,16 +466,16 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 				}) }
 			});
 			playersSlider.Value = playerCount;
-			playersSlider.GetValue = () => IsBattlefield ? Array.IndexOf(BattlefieldPlayerCounts, playerCount) : playerCount;
+			playersSlider.GetValue = () => HasFixedPlayerCounts ? Array.IndexOf(BattlefieldPlayerCounts, playerCount) : playerCount;
 			playersSlider.OnChange += value =>
 			{
 				if (!CanConfigure()) return;
-				var selected = IsBattlefield ? BattlefieldPlayerCounts[Math.Clamp((int)Math.Round(value), 0, MaximumPlayers == 4 ? 1 : 2)] : IsPvp ? Math.Clamp((int)Math.Round(value / RmgMirroring.GroupSize(mirroringAxes), MidpointRounding.AwayFromZero) * RmgMirroring.GroupSize(mirroringAxes), RmgMirroring.GroupSize(mirroringAxes), MaximumPlayers) : UsesModernTerrain ? Math.Clamp((int)Math.Round(value), 1, MaximumPlayers) : value < 3 ? 2 : 4;
+				var selected = HasFixedPlayerCounts ? BattlefieldPlayerCounts[Math.Clamp((int)Math.Round(value), 0, MaximumPlayers == 4 ? 1 : 2)] : IsPvp ? Math.Clamp((int)Math.Round(value / RmgMirroring.GroupSize(mirroringAxes), MidpointRounding.AwayFromZero) * RmgMirroring.GroupSize(mirroringAxes), RmgMirroring.GroupSize(mirroringAxes), MaximumPlayers) : UsesModernTerrain ? Math.Clamp((int)Math.Round(value), 1, MaximumPlayers) : value < 3 ? 2 : 4;
 				if (selected == playerCount)
 					return;
 
 				playerCount = selected;
-				playersSlider.Value = IsBattlefield ? Array.IndexOf(BattlefieldPlayerCounts, selected) : selected;
+				playersSlider.Value = HasFixedPlayerCounts ? Array.IndexOf(BattlefieldPlayerCounts, selected) : selected;
 				presetCustomized = true;
 				MarkStale();
 			};
@@ -516,7 +540,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		{
 			preset = selected;
 			presetCustomized = false;
-			if (!IsPvp && !IsBattlefield) layoutFamily = RmgPlayerLayoutFamily.NaturalLandscape;
+			if (!IsPvp && !HasFixedPlayerCounts) layoutFamily = RmgPlayerLayoutFamily.NaturalLandscape;
 			layout = LayoutChoice.OpenFields;
 			originalSurfaceRelations = true;
 			preventColonyOverlapping = true;
@@ -582,7 +606,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 
 		void UpdatePlayerRange()
 		{
-			if (IsBattlefield)
+			if (HasFixedPlayerCounts)
 			{
 				playerCount = Math.Min(MaximumPlayers, playerCount <= 2 ? 2 : playerCount <= 4 ? 4 : 8);
 				playersSlider.MinimumValue = 0;
@@ -647,10 +671,11 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 
 		RmgPlayerSettings CreatePlayerSettings(ulong seed) => new RmgPlayerSettings
 		{
-			SchemaVersion = IsBattlefield ? 12 : IsPvp ? 11 : UsesModernTerrain ? 10 : 3,
+			SchemaVersion = IsCrossroads ? 13 : IsBattlefield ? 12 : IsPvp ? 11 : UsesModernTerrain ? 10 : 3,
 			MirroringAxes = IsPvp ? mirroringAxes : 0,
 			BlockShape = IsBattlefield ? blockShape : RmgBattlefieldBlockShape.CutCorners,
-			LaneWidth = IsBattlefield ? laneWidth : RmgBattlefieldLaneWidth.Standard,
+			LaneWidth = IsCrossroads ? approachWidth : IsBattlefield ? laneWidth : RmgBattlefieldLaneWidth.Standard,
+			SideConnections = IsCrossroads ? sideConnections : RmgCrossroadsConnections.Standard,
 			MapSize = size switch { SizeChoice.Small => 64, SizeChoice.Standard => 128, SizeChoice.Large => 256, _ => 512 },
 			Preset = preset,
 			Seed = seed,
@@ -711,9 +736,9 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					var moss = cells.Count(cell => cell == RmgNativeTerrainIntent.Vegetation);
 					var closerColonies = (int?)result.Generation.Map.RegionsReport["neutral_colonies_fallback"] ?? 0;
 					var spacingSummary = closerColonies > 0 ? $" {closerColonies} placed with closer spacing." : string.Empty;
-					if (IsBattlefield && result.Generation.Validation.Warnings.Any(w => w.Code == "BATTLEFIELD_TERRAIN_CAPACITY"))
+					if (HasFixedPlayerCounts && result.Generation.Validation.Warnings.Any(w => w.Code is "BATTLEFIELD_TERRAIN_CAPACITY" or "CROSSROADS_TERRAIN_CAPACITY"))
 						spacingSummary += " Routes/plazas/transitions limit coverage.";
-					SetStatus($"Ready: {(IsBattlefield ? "Battlefield" : "Regions")} / {RmgPlayerSettingsContract.ComplexityDisplayName(complexity, true)} ({result.Performance.TotalMilliseconds / 1000d:0.0}s). " +
+					SetStatus($"Ready: {(IsCrossroads ? "Crossroads" : IsBattlefield ? "Battlefield" : "Regions")} / {RmgPlayerSettingsContract.ComplexityDisplayName(complexity, true)} ({result.Performance.TotalMilliseconds / 1000d:0.0}s). " +
 						$"Water {100D * water / cells.Length:0.0}%; {(terrain == TerrainChoice.Normal ? "gravel/moss" : "surface modifiers")} {100D * gravel / land:0.0}/{100D * moss / land:0.0}% of land; " +
 						$"colonies {placedColonies}/{settingsResolution.Normalized.EffectiveNeutralColonyCount}.{spacingSummary}",
 						result.Generation.Validation.Warnings.Count > 0 ? StatusKind.Warning : StatusKind.Success);
@@ -898,6 +923,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			RmgPlayerLayoutFamily.NaturalLandscapePvp => "Natural Landscape PVP",
 			RmgPlayerLayoutFamily.StructuredCompetitive => "Structured Competitive",
 			RmgPlayerLayoutFamily.ArtificialBattlefield => "Artificial Battlefield",
+			RmgPlayerLayoutFamily.Crossroads => "Crossroads",
 			_ => "Preset"
 		};
 

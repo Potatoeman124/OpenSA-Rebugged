@@ -36,7 +36,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public static void ValidateOptions(RmgPlayerSettings settings)
 		{
 			if (!Enum.IsDefined(settings.BlockShape) || !Enum.IsDefined(settings.LaneWidth)) throw new ArgumentException("Invalid Battlefield geometry options.");
-			if (!settings.IsPlannedBattlefield && (settings.BlockShape != RmgBattlefieldBlockShape.CutCorners || settings.LaneWidth != RmgBattlefieldLaneWidth.Standard))
+			if (!settings.IsPlannedBattlefield && (settings.BlockShape != RmgBattlefieldBlockShape.CutCorners || (!settings.IsCrossroads && settings.LaneWidth != RmgBattlefieldLaneWidth.Standard)))
 				throw new ArgumentException("Block Shape and Lane Width require schema 12 and Artificial Battlefield.");
 		}
 
