@@ -326,6 +326,15 @@ Background@SERVER_LOBBY:
 					Visible: False
 					TooltipContainer: TOOLTIP_CONTAINER
 					TooltipText: Set clear combat lanes to Narrow, Standard or Wide. Wider lanes leave less room for water and surface modifiers.
+				Checkbox@RMG_GENERATE_CASTLES:
+					X: 20
+					Y: 310
+					Width: 370
+					Height: 28
+					Text: Generate Castles
+					Visible: False
+					TooltipContainer: TOOLTIP_CONTAINER
+					TooltipText: Add smaller fortified colony clusters between player strongholds where space permits. Colonies use the existing density, type weights and Starting Ownership settings.
 				Label@RMG_LAND_CROSSINGS_LABEL:
 					X: 20
 					Y: 310

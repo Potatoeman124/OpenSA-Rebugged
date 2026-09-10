@@ -33,7 +33,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			}
 
 			plan.Report["topology"] = CrossroadsTopology.Validate(terrain.Map, settings, plan.Starts, plan.Report);
-			var result = CompleteMirroredRegions(profile, settings, terrain, null, plan);
+			var result = CompleteRegionsWithPlan(profile, settings, terrain, null, plan);
 			var report = result.Map.RegionsReport;
 			report["experiment_id"] = "crossroads-v19"; report["identity"] = settings.Canonical(profile);
 			report["accessibility_requirement"] = "STARTS_AND_COLONIES_CONNECTED";

@@ -31,7 +31,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			}
 
 			plan.Report["topology"] = DividedLandsTopology.Validate(TerrainComparison.NativeBytes(terrain.Map), settings, plan.Starts);
-			var result = CompleteMirroredRegions(profile, settings, terrain, null, plan);
+			var result = CompleteRegionsWithPlan(profile, settings, terrain, null, plan);
 			var report = result.Map.RegionsReport;
 			report["experiment_id"] = "divided-lands-v21"; report["identity"] = settings.Canonical(profile);
 			report["accessibility_requirement"] = "CONNECTED_HOME_TERRITORIES";

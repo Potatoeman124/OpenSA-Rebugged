@@ -441,6 +441,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public static RmgGenerationResult Generate(RmgProfile profile, RmgGenerationSettings settings)
 		{
 			ValidateSettings(profile, settings);
+			if (settings.GeneratorVersion == 22) return GenerateStrongholds(profile, settings);
 			if (settings.GeneratorVersion == 21) return GenerateDividedLands(profile, settings);
 			if (settings.GeneratorVersion == 20) return GenerateRing(profile, settings);
 			if (settings.GeneratorVersion == 19) return GenerateCrossroads(profile, settings);
@@ -499,13 +500,13 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (settings.MapSize != profile.PlayableWidth || settings.MapSize != profile.PlayableHeight)
 				throw new ArgumentException("Requested map size does not match the generation profile.");
 			if (!RmgBiome.IsSupported(settings.Tileset) || settings.Tileset != profile.Tileset ||
-				(settings.Tileset != "NORMAL" && (settings.GeneratorVersion is not (16 or 17 or 18 or 19 or 20 or 21) || !profile.UsesRegionsTerrain)))
+				(settings.Tileset != "NORMAL" && (settings.GeneratorVersion is not (16 or 17 or 18 or 19 or 20 or 21 or 22) || !profile.UsesRegionsTerrain)))
 				throw new ArgumentException("RMG tileset and profile must match the supported Regions contract.");
 			if (settings.GeneratorVersion != profile.GeneratorVersion)
 				throw new ArgumentException($"Generator Version {settings.GeneratorVersion} is not supported by profile {profile.ProfileId}.");
-			if (profile.UsesRegionsTerrain && (settings.TopologyPreset != (settings.GeneratorVersion == 21 ? RmgTopologyPreset.DividedLands : settings.GeneratorVersion == 20 ? RmgTopologyPreset.Ring : settings.GeneratorVersion == 19 ? RmgTopologyPreset.Crossroads : settings.GeneratorVersion == 18 ? RmgTopologyPreset.PlannedBattlefield : RmgTopologyPreset.NaturalRegions) ||
-				settings.LayoutFamily != (settings.GeneratorVersion == 21 ? RmgLayoutFamily.DividedLands : settings.GeneratorVersion == 20 ? RmgLayoutFamily.Ring : settings.GeneratorVersion == 19 ? RmgLayoutFamily.Crossroads : settings.GeneratorVersion == 18 ? RmgLayoutFamily.ArtificialBattlefield : settings.GeneratorVersion == 17 ? RmgLayoutFamily.NaturalLandscapePvp : RmgLayoutFamily.NaturalLandscape) || (!Enum.IsDefined(settings.TerrainComplexity) ||
-				(settings.GeneratorVersion is not (13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21) && settings.TerrainComplexity > Reassessment.TerrainComplexity.High))))
+			if (profile.UsesRegionsTerrain && (settings.TopologyPreset != (settings.GeneratorVersion == 22 ? RmgTopologyPreset.Strongholds : settings.GeneratorVersion == 21 ? RmgTopologyPreset.DividedLands : settings.GeneratorVersion == 20 ? RmgTopologyPreset.Ring : settings.GeneratorVersion == 19 ? RmgTopologyPreset.Crossroads : settings.GeneratorVersion == 18 ? RmgTopologyPreset.PlannedBattlefield : RmgTopologyPreset.NaturalRegions) ||
+				settings.LayoutFamily != (settings.GeneratorVersion == 22 ? RmgLayoutFamily.Strongholds : settings.GeneratorVersion == 21 ? RmgLayoutFamily.DividedLands : settings.GeneratorVersion == 20 ? RmgLayoutFamily.Ring : settings.GeneratorVersion == 19 ? RmgLayoutFamily.Crossroads : settings.GeneratorVersion == 18 ? RmgLayoutFamily.ArtificialBattlefield : settings.GeneratorVersion == 17 ? RmgLayoutFamily.NaturalLandscapePvp : RmgLayoutFamily.NaturalLandscape) || (!Enum.IsDefined(settings.TerrainComplexity) ||
+				(settings.GeneratorVersion is not (13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22) && settings.TerrainComplexity > Reassessment.TerrainComplexity.High))))
 				throw new ArgumentException("Regions requires Natural Landscape and a valid Terrain Complexity.");
 			if (profile.GeneratorVersion == 1 && settings.TopologyPreset != RmgTopologyPreset.Off)
 				throw new ArgumentException("Generator Version 1 requires TopologyPreset=off.");
@@ -538,18 +539,18 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				settings.TacticalTerrain != RmgParameterLevel.Standard))
 				throw new ArgumentException($"Generator Version {settings.GeneratorVersion} supports only Standard Water and tactical terrain.");
 			if (!Enum.IsDefined(settings.WaterAmount) || !Enum.IsDefined(settings.TacticalTerrain) ||
-				(settings.GeneratorVersion is not (14 or 15 or 16 or 17 or 18 or 19 or 20 or 21) && (settings.WaterAmount > RmgParameterLevel.High ||
+				(settings.GeneratorVersion is not (14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22) && (settings.WaterAmount > RmgParameterLevel.High ||
 				settings.TacticalTerrain > RmgParameterLevel.High || !settings.PreventColonyOverlapping)))
 				throw new ArgumentException("Extended quantities and relaxed spacing require Regions V14.");
 			if (settings.NeutralColonyWeights == null)
 				throw new ArgumentException("Neutral colony weights must be an object.");
-			settings.NeutralColonyWeights.Validate(settings.GeneratorVersion is 16 or 17 or 18 or 19 or 20 or 21 ? 100 : 1000);
+			settings.NeutralColonyWeights.Validate(settings.GeneratorVersion is 16 or 17 or 18 or 19 or 20 or 21 or 22 ? 100 : 1000);
 			RmgColonyOwnership.ValidateShares(settings.StartingColonyShares, settings.PlayerCount);
-			if (!Enum.IsDefined(settings.StartingColonyMode) || (settings.GeneratorVersion is not (16 or 17 or 18 or 19 or 20 or 21) && settings.StartingColonyMode != RmgColonyOwnershipMode.ClosestToSpawn))
+			if (!Enum.IsDefined(settings.StartingColonyMode) || (settings.GeneratorVersion is not (16 or 17 or 18 or 19 or 20 or 21 or 22) && settings.StartingColonyMode != RmgColonyOwnershipMode.ClosestToSpawn))
 				throw new ArgumentException("Starting colony mode requires Regions V16 and a valid choice.");
-			if (settings.GeneratorVersion is not (16 or 17 or 18 or 19 or 20 or 21) && settings.StartingColonyShares.Length != 0)
+			if (settings.GeneratorVersion is not (16 or 17 or 18 or 19 or 20 or 21 or 22) && settings.StartingColonyShares.Length != 0)
 				throw new ArgumentException("Starting colony shares require Regions V16.");
-			if (settings.GeneratorVersion is 15 or 16 or 17 or 18 or 19 or 20 or 21)
+			if (settings.GeneratorVersion is 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22)
 			{
 				if (settings.PlayerCount < 1 || settings.PlayerCount > 8)
 					throw new ArgumentException("Regions V15 and V16 support 1 through 8 players.");

@@ -208,6 +208,27 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			Choose("RMG_LAYOUT_FAMILY", "Natural Landscape (Regions)");
 			Require(Settings().GeneratorVersion == 16 && !lobby.Get("RMG_LAND_CROSSINGS").IsVisible(), "Leaving Divided Lands changed the Natural baseline.");
 			CheckDividedLandsContract();
+			Choose("RMG_LAYOUT_FAMILY", "Strongholds");
+			Require(Settings().GeneratorVersion == 22 && Settings().MirroringAxes == 0 && Settings().GenerateCastles && lobby.Get("RMG_GENERATE_CASTLES").IsVisible(), "Strongholds did not activate asymmetric generation and default castles.");
+			Require(!lobby.Get("RMG_MIRRORING_AXES").IsVisible() && !lobby.Get("RMG_LAND_CROSSINGS").IsVisible(), "Symmetric controls leaked into Strongholds.");
+			lobby.Get<CheckboxWidget>("RMG_GENERATE_CASTLES").OnClick();
+			Choose("RMG_SIZE", "512 x 512");
+			foreach (var count in new[] { 1, 3, 5, 7, 8 }) { slider.UpdateValue(count); Require(Settings().PlayerCount == count, "Strongholds lost an asymmetric player count."); }
+			Choose("RMG_PRESET", "Balanced");
+			Require(Settings().GeneratorVersion == 22 && !Settings().GenerateCastles, "Preset changed Strongholds or castles.");
+			Draw(output, "strongholds-512-options");
+			lobby.Get<ButtonWidget>("RMG_COLONY_OWNERSHIP").OnClick();
+			Require(Ui.CurrentWindow().Get<ScrollPanelWidget>("SETTINGS").Children.Count == 8, "Strongholds ownership rows differ from players.");
+			Ui.CurrentWindow().Get<ButtonWidget>("CANCEL").OnClick();
+			Choose("RMG_SIZE", "64 x 64");
+			Require(Settings().PlayerCount == 4 && slider.MaximumValue == 4, "Strongholds small-map cap failed.");
+			Choose("RMG_LAYOUT_FAMILY", "Natural Landscape (Regions)");
+			Require(Settings().GeneratorVersion == 16 && !lobby.Get("RMG_GENERATE_CASTLES").IsVisible(), "Strongholds changed Natural baseline.");
+			Choose("RMG_LAYOUT_FAMILY", "Strongholds");
+			Require(!Settings().GenerateCastles, "Stored castle selection lost.");
+			lobby.Get<CheckboxWidget>("RMG_GENERATE_CASTLES").OnClick();
+			Draw(output, "strongholds-64-options");
+			CheckStrongholdsContract();
 			var battlefieldValid = 0;
 			foreach (var size in new[] { 64, 128, 256, 512 })
 				for (var players = 1; players <= 8; players++)
@@ -234,6 +255,37 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			Console.WriteLine($"PASS: 288 Battlefield size/player/shape/lane settings ({battlefieldValid} valid), actual Battlefield UI, all modern controls and baseline switching.");
 			Ui.ResetAll();
 			Console.WriteLine($"PASS: 96 size/player/axes combinations ({valid} allowed), invalid axes, actual PvP UI settings, size limits, ownership and baseline switching.");
+		}
+
+		static void CheckStrongholdsContract()
+		{
+			var valid = 0;
+			foreach (var size in new[] { 64, 128, 256, 512 })
+				for (var players = 1; players <= 8; players++)
+					foreach (var castles in new[] { false, true })
+					{
+						var accepted = false;
+						try
+						{
+							var request = new RmgPlayerSettings { SchemaVersion = 16, LayoutFamily = RmgPlayerLayoutFamily.Strongholds, MapSize = size, PlayerCount = players, GenerateCastles = castles, Tileset = "CANDY" };
+							var normalized = RmgPlayerSettingsContract.Resolve(RmgPlayerSettingsContract.Parse(request.ToJson())).Normalized;
+							accepted = normalized.GeneratorVersion == 22 && normalized.MirroringAxes == 0 && normalized.GenerateCastles == castles;
+						}
+						catch (ArgumentException) { }
+						Require(accepted == (size != 64 || players <= 4), $"Strongholds settings disagree at {size}/{players}/{castles}.");
+						if (accepted) valid++;
+					}
+
+			foreach (var invalid in new[] { ("schema_version", "15"), ("layout_family", "natural-landscape"), ("generate_castles", "yes"), ("mirroring_axes", "1"), ("land_crossings", "one") })
+			{
+				var request = new RmgPlayerSettings { SchemaVersion = 16, LayoutFamily = RmgPlayerLayoutFamily.Strongholds }.ToJson();
+				request[invalid.Item1] = invalid.Item1 is "schema_version" or "mirroring_axes" ? new Newtonsoft.Json.Linq.JValue(int.Parse(invalid.Item2)) : new Newtonsoft.Json.Linq.JValue(invalid.Item2);
+				var rejected = false;
+				try { RmgPlayerSettingsContract.Resolve(RmgPlayerSettingsContract.Parse(request)); } catch (ArgumentException) { rejected = true; }
+				Require(rejected, "Invalid Strongholds field accepted: " + invalid.Item1);
+			}
+
+			Console.WriteLine($"PASS: 64 Strongholds size/player/castle combinations ({valid} valid), invalid fields, and actual Strongholds UI.");
 		}
 
 		static void CheckCrossroadsContract()

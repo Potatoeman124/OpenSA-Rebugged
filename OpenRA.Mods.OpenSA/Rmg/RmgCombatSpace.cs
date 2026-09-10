@@ -99,6 +99,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			StartingColonyActors.SelectMany(first => StartingColonyActors.Select(second =>
 				ToNativeMargin(StartingPairMarginWorld(first, firstLocation, second, secondLocation)))).Min();
 
+		public int AttackRangeNative(string actorType) => DivideRoundUp(Profile(actorType).MaximumAttackRangeWorld, WorldUnitsPerNativeCell);
+
 		public int ColonyMarginAtNative(string firstActor, RmgPoint first, string secondActor, RmgPoint second) =>
 			ToNativeMargin(ColonyCenterMarginWorld(firstActor, first, secondActor, second, WorldUnitsPerNativeCell));
 
@@ -315,7 +317,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 							$"Starts {map.Starts[i]} and {map.Starts[j]} violate a possible pair of starting-colony turret/production envelopes by {-margin} native cells."));
 				}
 
-			if (profile.GeneratorVersion is 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21)
+			if (profile.GeneratorVersion is 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22)
 			{
 				report.Metrics["neutral_overlapping_pairs"] = overlappingPairs;
 				report.Metrics["maximum_neutral_overlap_native"] = maximumOverlap;

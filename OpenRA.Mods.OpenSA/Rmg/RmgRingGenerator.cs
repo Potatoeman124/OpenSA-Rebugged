@@ -30,7 +30,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			}
 
 			plan.Report["topology"] = RingTopology.Validate(terrain.Map, settings, plan.Report);
-			var result = CompleteMirroredRegions(profile, settings, terrain, null, plan);
+			var result = CompleteRegionsWithPlan(profile, settings, terrain, null, plan);
 			var report = result.Map.RegionsReport;
 			report["experiment_id"] = "ring-v20"; report["identity"] = settings.Canonical(profile);
 			report["accessibility_requirement"] = "STARTS_AND_COLONIES_CONNECTED";

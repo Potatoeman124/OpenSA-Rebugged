@@ -3,8 +3,7 @@
 ## Status
 
 Implemented on `codex/rmg-divided-lands` from accepted Ring revision `ae6512c` (2026-09-10).
-Divided Lands uses **generator V21 / configuration 2 / player-settings schema 15**. In-game review
-is pending. Ordinary Natural Landscape V16 remains the default. Selecting Divided Lands initially
+Divided Lands uses **generator V21 / configuration 2 / player-settings schema 15**. The user accepted revision `91f1594` in-game on 2026-09-10. Ordinary Natural Landscape V16 remains the default. Selecting Divided Lands initially
 uses **One per border / Standard**. No merge or push is part of this step.
 
 ## Layout contract

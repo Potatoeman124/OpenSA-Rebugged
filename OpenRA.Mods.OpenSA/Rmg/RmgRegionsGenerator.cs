@@ -45,7 +45,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var terrain = TerrainComparison.Generate(Game.ModData, terrainSettings, reference);
 			if (settings.GeneratorVersion == 12 && reference == null)
 				reference = terrain.Map;
-			return settings.GeneratorVersion == 17 ? CompleteMirroredRegions(profile, settings, terrain, reference) :
+			return settings.GeneratorVersion == 17 ? CompleteRegionsWithPlan(profile, settings, terrain, reference) :
 				CompleteRegions(profile, settings, terrain, reference);
 		}
 

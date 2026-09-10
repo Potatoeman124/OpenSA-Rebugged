@@ -32,7 +32,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			for (var i = 0; i < plan.Land.Length; i++)
 				if (plan.Land[i] && TerrainComparison.Native(terrain.Map, i % settings.MapSize, i / settings.MapSize) == RmgNativeTerrainIntent.Water)
 					throw new InvalidOperationException("Battlefield materialization blocked a planned ground route.");
-			var result = CompleteMirroredRegions(profile, settings, terrain, null, plan);
+			var result = CompleteRegionsWithPlan(profile, settings, terrain, null, plan);
 			result.Map.RegionsReport["characteristic_scale_native"] = plan.Report["district_pitch_native"];
 			result.Map.RegionsReport["experiment_id"] = "artificial-battlefield-v18";
 			result.Map.RegionsReport["identity"] = settings.Canonical(profile);
