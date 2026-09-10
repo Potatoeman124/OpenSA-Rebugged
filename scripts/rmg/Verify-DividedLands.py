@@ -57,6 +57,10 @@ def schedule(wide=False):
                 for level in LEVELS:
                     add(f'response-{players}-{crossing}-{level}',players=players,land_crossings=crossing,crossing_width='wide',terrain_complexity=level,
                         water_amount='ultra',gravel_moss_amount='ultra',neutral_colony_density='ultra',prevent_colony_overlapping=False,original_surface_relations=False)
+    for crossing in CROSSINGS:
+        for level in LEVELS:
+            add(f'shore-review-{crossing}-{level}',seed='825300756769842102',players=8,land_crossings=crossing,crossing_width='narrow',terrain_complexity=level,
+                water_amount='ultra',gravel_moss_amount='low',neutral_colony_density='extreme',prevent_colony_overlapping=False,original_surface_relations=False)
     cases.extend(c for c in RING.schedule() if 'baseline' in c)
     old=ROOT/'artifacts/rmg/ring/matrix-final'
     for name in ('round-medium','square-ultra','octagonal-narrow','64-p4','128-p8','512-ultra-False'):
@@ -99,8 +103,25 @@ def isolated_homes(native,n,s,targets):
     return groups
 
 
+def shore_clearances(native,n,actors):
+    import re
+    distance=[0 if v==1 else n*2 for v in native]
+    for indices,step in ((range(n*n),1),(range(n*n-1,-1,-1),-1)):
+        for i in indices:
+            x,y=i%n,i//n
+            for nx,ny in ((x-step,y),(x-step,y-step),(x,y-step),(x+step,y-step)):
+                if 0<=nx<n and 0<=ny<n:distance[i]=min(distance[i],distance[ny*n+nx]+1)
+    values=[]
+    for t,x,y in actors:
+        if not t.endswith('_colony'):continue
+        rules=(ROOT/'mods/sa/rules'/(t.removesuffix('_colony')+'-buildings.yaml')).read_text()
+        footprint=re.search(r'Footprint: ([^\n]+)',rules)[1].split()
+        values.append(min(distance[(y+dy)*n+x+dx] for dy,row in enumerate(footprint) for dx,ch in enumerate(row) if ch in 'xX+')-1)
+    return values
+
+
 def verify(folder,cases):
-    records=[];maps={};objectives={};density_groups={};continuity_groups={}
+    records=[];maps={};objectives={};density_groups={};continuity_groups={};previous_water_comparisons=0
     for case in cases:
         name=case['id'];out=folder/name;s=case['settings']
         if 'baseline' in case:
@@ -110,6 +131,7 @@ def verify(folder,cases):
         n=int(s['size'].split(',')[0]);axes={2:1,4:2,8:4}[s['players']];seed=int(s['seed'])
         assert v['accepted'] and r['performance']['repeatability_checked'] and r['package_validation']['map_yaml_lint']=='passed',name
         assert v['divided_lands_home_access'] and v['divided_lands_weighted_pool_parity'],name
+        assert all(d>=2 for d in v['divided_lands_colony_shore_clearance_native']),name
         expected=CROSSINGS.index(s['land_crossings'])
         assert v['divided_lands_all_connected']==(expected>0),name
         assert v['divided_lands_home_components']==(1 if expected else s['players']),name
@@ -118,6 +140,13 @@ def verify(folder,cases):
             assert topology['crossings_per_border']==[expected]*(1 if s['players']==2 else s['players']),name
         assert all(v[k]==0 for k in ('footprint_overlap_cells','production_exit_failures','invalid_start_cells','invalid_colony_cells')),name
         native=(out/'actual/semantic.u8').read_bytes();actors=COMMON.actors(out/'map.oramap')
+        previous=ROOT/'artifacts/rmg/divided-lands/matrix-final'/name/'actual/semantic.u8'
+        if previous.exists():
+            old=previous.read_bytes();assert bytes(v==1 for v in old)==bytes(v==1 for v in native),(name,'shore placement changed water')
+            previous_water_comparisons+=1
+            if not s['original_surface_relations']:assert old==native,(name,'shore placement changed free surfaces')
+        if name.startswith('shore-review-') or name in ('64-p4','128-p8','512-ultra-False'):
+            assert sorted(shore_clearances(native,n,actors))==sorted(v['divided_lands_colony_shore_clearance_native']),(name,'shore clearance disagreement')
         assert hashlib.sha256(native).hexdigest()==g['semantic_sha256'],name
         rows=[native[y*n:(y+1)*n] for y in range(n)]
         if axes>=2 or seed%2==0:assert rows==[r[::-1] for r in rows],name
@@ -182,7 +211,7 @@ def verify(folder,cases):
     for field,key,levels in (('water_amount','water',('low','high','extreme','ultra')),('gravel_moss_amount','surfaces',('low','high','extreme','ultra')),('neutral_colony_density','placed',('sparse','dense','extreme','ultra'))):
         values=[byid[field+'-'+level][key] for level in levels];assert values==sorted(values),(field,values)
     result=dict(status='PASS',divided_lands_maps=len(records),old_exact_replays=len(cases)-len(records),density_comparisons=density_comparisons,
-        objective_continuity_comparisons=continuity_comparisons,control_response=response,records=records)
+        objective_continuity_comparisons=continuity_comparisons,previous_water_comparisons=previous_water_comparisons,control_response=response,records=records)
     (folder/'verification.json').write_text(json.dumps(result,indent=2));print(json.dumps({k:v for k,v in result.items() if k!='records'},indent=2))
 
 if __name__=='__main__':

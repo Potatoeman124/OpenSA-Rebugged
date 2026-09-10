@@ -33,6 +33,12 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				try { result.RegionsPolicy["divided_lands_occupied_topology"] = DividedLandsTopology.ValidateGround(occupied.Passable, settings, homeCells); }
 				catch (RmgGenerationRejectedException e) { result.HardFailures.Add(new RmgValidationIssue("DIVIDED_LANDS_OCCUPIED_CROSSINGS", e.Message)); }
 
+			var waterDistances = DividedLandsGeometry.WaterDistances(TerrainOnlyGrid(source).Passable.Select(p => !p).ToArray(), settings.MapSize);
+			var shoreClearances = colonies.Select(c => c.Blocked.Min(p => waterDistances[source.Index(p)]) - 1).ToArray();
+			if (shoreClearances.Any(d => d < 2)) result.HardFailures.Add(new RmgValidationIssue("DIVIDED_LANDS_SHORE_CLEARANCE", "A colony leaves fewer than two native cells between its footprint and water."));
+			result.RegionsPolicy["divided_lands_colony_shore_clearance_native"] = new JArray(shoreClearances);
+			result.RegionsPolicy["divided_lands_minimum_shore_clearance_native"] = shoreClearances.Length == 0 ? null : new JValue(shoreClearances.Min());
+
 			var terrain = TerrainOnlyGrid(source); var profiles = new List<long[]>();
 			foreach (var start in starts)
 			{

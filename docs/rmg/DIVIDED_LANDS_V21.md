@@ -3,7 +3,7 @@
 ## Status
 
 Implemented on `codex/rmg-divided-lands` from accepted Ring revision `ae6512c` (2026-09-10).
-Divided Lands uses **generator V21 / configuration 1 / player-settings schema 15**. In-game review
+Divided Lands uses **generator V21 / configuration 2 / player-settings schema 15**. In-game review
 is pending. Ordinary Natural Landscape V16 remains the default. Selecting Divided Lands initially
 uses **One per border / Standard**. No merge or push is part of this step.
 
@@ -50,8 +50,12 @@ honest shortfall is preferable to joining territories or blocking a crossing.
 ## Geometry and validation
 
 Maximum channel half-widths are 24%, 14.5% and 6% of map size for two, four and eight players.
-Home placement uses the region beyond that envelope plus two native cells and the actual actor
-footprint/exit rules. No colony density input participates in water construction.
+Configuration 2 builds a tighter fixed potential-water mask from the union of all five complexity
+levels. Colony placement uses this mask instead of excluding a straight maximum-width strip. It
+requires two native cells between water and the **blocking** footprint; passable footprint cells and
+production exits need valid land but do not add another two-cell margin. Shore candidates use a
+one-cell search grid, with the coarser three-cell grid retained inland. Four-cell shore bands are tried
+first, using seeded ordering within each band. No colony density input participates in water construction.
 
 For two players, One crosses the center and Two cross at plus/minus 26% of map size. For four/eight,
 One lies at square radius 32%; Two at 23% and 40%. At 64, Two uses 20% and 43% so native shoreline
@@ -62,6 +66,8 @@ priority, so maximum water cannot smooth away complexity.
 The native validator checks:
 
 - Local footprints, production exits, starting combat clearances, complete reflection orbits and terrain semantics.
+- At least two native cells between every neutral colony blocking footprint and actual water, measured
+  with eight-neighbor cell distance. Passable footprint cells can form part of this movement space.
 - Equal terrain-cost profiles to typed colony pools. None allows unreachable external territories while
   requiring equal local opportunities; One and Two require finite routes to every objective.
 - Exactly the selected number of clear crossings on every native border, both before and after actors.
@@ -94,7 +100,7 @@ and maps are isolated from the user's normal settings and custom maps.
 
 Generated artifacts and images are under `artifacts/rmg/divided-lands/` and remain ignored.
 
-## Delivery verification (2026-09-10)
+## Configuration 1 verification (2026-09-10)
 
 - `matrix-final/verification.json`: **809 Divided Lands maps passed**, each generated twice, native
   exported and map linted; **33 accepted historical packages replayed exactly**, including Ring V20.
@@ -126,3 +132,43 @@ then passed the full 842-package corpus. The original five failed cases are reta
 
 This is generation, native topology and startup evidence, not a claim about long-match competitive
 balance. The user's in-game review remains the next acceptance step.
+
+## Configuration 2: tighter shore placement
+
+The user requested less unused shore space while retaining at least two cells for unit movement.
+Configuration 2 replaces the straight maximum-channel exclusion with the union of potentially wet
+native cells across all five complexity levels. It searches shore sites at native-cell resolution and
+prioritizes four-cell shore bands before filling inland sites. The same seed still fixes starts and
+colony positions/types across complexity, water, width, crossing and surface choices.
+
+The two-cell rule applies to the actor's blocking footprint. Native `=` footprint cells are passable
+and can contribute to movement space; they and production exits must still remain on land. Placement
+uses a conservative potential-water check, followed by validation against the actual emitted water.
+Every colony in the native validation corpus is checked; representative maps also compare against an
+independent pixel/footprint measurement in Python. The clearance check includes diagonal banks.
+
+For screenshot seed `825300756769842102`, 256/eight players, Ultra water/complexity, Low modifiers,
+Extreme colonies, None/Narrow crossings, free surface relations and relaxed spacing:
+
+| Measurement | Configuration 1 | Configuration 2 |
+|---|---:|---:|
+| Neutral colonies placed | 160/168 | 168/168 |
+| Average blocking-footprint-to-water gap | 9.34 cells | 7.46 cells |
+| Colonies within four cells of water | 8 | 42 |
+| Minimum gap | 3 cells | 2 cells |
+
+The complete native terrain is identical for this comparison. The tighter fixed envelope preserves
+continuity, so a coast that recedes under a lower water or complexity setting can still leave more
+than two cells of open land. Two cells is a minimum clearance, not a target distance for every colony.
+
+Evidence and native before/after previews are under `artifacts/rmg/divided-lands-shore/`:
+`shore-comparison.jpg`, `shore-layout-review.jpg`, `clearance-comparison.json` and `after-03/report.json`.
+
+Configuration 2 validation: `matrix-final/verification.json` passed **824 Divided Lands maps** and
+**33 exact older-layout replays**. It checks **94 density comparisons**, **760 objective-continuity
+comparisons**, and **809 exact water-mask comparisons against configuration 1**; free-surface cases
+also preserve all native terrain. Every colony passes the new two-cell clearance check.
+`runtime-final/verification.json` passed **13 live scenarios**, each initialized twice. Full build and
+runtime-data validation passed; the final static check retains 236 baseline warnings and the Release
+build has zero warnings/errors. The public-wrapper replay of the screenshot case is checked against
+the native matrix output. In-game acceptance of this refinement remains pending.

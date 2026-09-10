@@ -321,15 +321,17 @@ namespace OpenRA.Mods.OpenSA.Rmg
 	{
 		readonly RmgLogicalMap map;
 		readonly bool dirtOnly;
+		readonly Func<string, RmgPoint, bool> nativeSiteFilter;
 		readonly Dictionary<string, RmgPoint[]> colonies;
 		readonly RmgPoint[] starts;
 		readonly HashSet<RmgPoint> reserved = new();
 		public IEnumerable<RmgPoint> ReservedCells => reserved;
 
-		public RegionsSites(ModData modData, RmgLogicalMap map, bool dirtOnly)
+		public RegionsSites(ModData modData, RmgLogicalMap map, bool dirtOnly, Func<string, RmgPoint, bool> nativeSiteFilter = null)
 		{
 			this.map = map;
 			this.dirtOnly = dirtOnly;
+			this.nativeSiteFilter = nativeSiteFilter;
 			RmgPoint[] Coverage(string actor) => modData.DefaultRules.Actors[actor].TraitInfos<BuildingInfo>()
 				.SelectMany(info => info.Tiles(new CPos(0, 0)))
 				.Concat(modData.DefaultRules.Actors[actor].TraitInfos<ExitInfo>().Select(exit => new CPos(exit.ExitCell.X, exit.ExitCell.Y)))
@@ -353,6 +355,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 		public bool NativeOrbitFits(string actor, IReadOnlyList<RmgPoint> anchors)
 		{
+			if (nativeSiteFilter != null && anchors.Any(anchor => !nativeSiteFilter(actor, anchor))) return false;
 			var offsets = actor == null ? starts : colonies[actor];
 			var occupied = new HashSet<RmgPoint>();
 			foreach (var anchor in anchors)

@@ -4,6 +4,7 @@
 
 using System;
 using System.Linq;
+using OpenRA.Mods.OpenSA.Rmg.Reassessment;
 
 namespace OpenRA.Mods.OpenSA.Rmg
 {
@@ -44,6 +45,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public readonly double[] Angles;
 		public readonly double[] Gates;
 		public readonly int Width;
+		public double Phase => TerrainComparison.Mix(settings.Seed, 2110) % 1024 / 1024D * Math.PI;
 
 		public DividedLandsGeometry(RmgGenerationSettings settings)
 		{
@@ -54,6 +56,50 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				Enumerable.Range(0, settings.PlayerCount).Select(i => i * 2 * Math.PI / settings.PlayerCount).ToArray();
 			Gates = Centers(settings.LandCrossings);
 			Width = CrossingWidth(settings.LaneWidth);
+		}
+
+		public double Variation(double x, double y, int depth) => .80 + (.02 + depth * .04) *
+			Math.Cos(Along(x, y) / settings.MapSize * Math.PI * (3 + depth * 2) + Phase);
+
+		public int[] PotentialWaterDistances()
+		{
+			var size = settings.MapSize; var width = size / 2; var water = new bool[size * size];
+			for (var i = 0; i < width * width; i++)
+			{
+				var canonical = RmgMirroring.Canonical(i, width, settings.MirroringAxes, settings.Seed);
+				var x = 2 * (canonical % width) + .5; var y = 2 * (canonical / width) + .5;
+				var possible = Enumerable.Range(0, 5).Any(depth => Distance(x, y) <= MaxChannelHalf * Variation(x, y, depth));
+				if (!possible) continue;
+				for (var frame = 0; frame < 4; frame++) water[(2 * (i / width) + frame / 2) * size + 2 * (i % width) + frame % 2] = true;
+			}
+
+			// Union of every complexity envelope keeps colony sites fixed when terrain controls change.
+			// Shoreline normalization only removes water from these potentially wet native cells.
+			return WaterDistances(water, size);
+		}
+
+		public static int[] WaterDistances(bool[] water, int size)
+		{
+			var distance = water.Select(w => w ? 0 : size * 2).ToArray();
+			for (var i = 0; i < distance.Length; i++)
+			{
+				var x = i % size; var y = i / size;
+				if (x > 0) distance[i] = Math.Min(distance[i], distance[i - 1] + 1);
+				if (y == 0) continue;
+				for (var dx = -1; dx <= 1; dx++)
+					if (x + dx >= 0 && x + dx < size) distance[i] = Math.Min(distance[i], distance[i - size + dx] + 1);
+			}
+
+			for (var i = distance.Length - 1; i >= 0; i--)
+			{
+				var x = i % size; var y = i / size;
+				if (x < size - 1) distance[i] = Math.Min(distance[i], distance[i + 1] + 1);
+				if (y == size - 1) continue;
+				for (var dx = -1; dx <= 1; dx++)
+					if (x + dx >= 0 && x + dx < size) distance[i] = Math.Min(distance[i], distance[i + size + dx] + 1);
+			}
+
+			return distance;
 		}
 
 		public int CrossingWidth(RmgBattlefieldLaneWidth value) => settings.MapSize == 64 ? 4 + 2 * (int)value :

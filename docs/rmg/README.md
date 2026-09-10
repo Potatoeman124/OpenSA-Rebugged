@@ -13,7 +13,7 @@ The RMG must preserve that boundary: it may refer to terrain and actor identifie
 [Divided Lands V21](DIVIDED_LANDS_V21.md) is the current layout on `codex/rmg-divided-lands`,
 based on accepted [Ring V20](RING_V20.md) revision `ae6512c` (2026-09-10).
 It gives each player a home territory separated by water, with Land Crossings and Crossing Width
-controls, using generator 21 / configuration 1 / player-settings schema 15. None deliberately leaves
+controls, using generator 21 / configuration 2 / player-settings schema 15. None deliberately leaves
 separate territories; One and Two create that many crossings per neighboring border. Colony density
 cannot erase the channels. In-game acceptance is pending.
 

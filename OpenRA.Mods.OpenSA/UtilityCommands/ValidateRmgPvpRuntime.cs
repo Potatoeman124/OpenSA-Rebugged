@@ -361,6 +361,11 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				Require(rejected, "Invalid Divided Lands field/schema accepted: " + invalid.Item1);
 			}
 
+			var shoreFixture = new bool[16]; shoreFixture[0] = true;
+			var shoreDistances = DividedLandsGeometry.WaterDistances(shoreFixture, 4);
+			Require(shoreDistances[15] == 3 && shoreDistances[10] == 2 && shoreDistances[3] == 3,
+				"Shore clearance must distinguish two-cell passages from one-cell passages, including diagonal banks.");
+
 			var topologySettings = new RmgGenerationSettings { GeneratorVersion = 21, MapSize = 64, PlayerCount = 2, MirroringAxes = 1, LandCrossings = RmgLandCrossings.None };
 			var starts = new[] { new RmgPoint(10, 31), new RmgPoint(53, 31) };
 			var separated = Enumerable.Range(0, 64 * 64).Select(i => Math.Abs(i % 64 - 31.5) > 5).ToArray();
