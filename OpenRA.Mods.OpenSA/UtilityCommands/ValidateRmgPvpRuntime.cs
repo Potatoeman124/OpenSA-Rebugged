@@ -237,7 +237,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			Require(!Settings().RespectStartingSafeArea && Settings().OwnStartingStronghold && ownership.IsDisabled(), "Starting-area controls did not reach settings or disable overridden sliders.");
 			Choose("RMG_SIZE", "256 x 256");
 			Draw(output, "starting-area-strongholds-options");
-			foreach (var family in new[] { "Natural Landscape (Regions)", "Natural Landscape PVP", "Artificial Battlefield", "Crossroads", "Ring", "Divided Lands" })
+			foreach (var family in new[] { "Natural Landscape (Regions)", "Natural Landscape PVP", "Artificial Battlefield", "Crossroads", "Ring", "Divided Lands", "Labyrinth" })
 			{
 				Choose("RMG_LAYOUT_FAMILY", family);
 				Require(safeArea.IsVisible() && !Settings().RespectStartingSafeArea && !ownFort.IsVisible() && !Settings().OwnStartingStronghold && !ownership.IsDisabled(), "Starting-area options leaked or reset while switching family.");
@@ -268,6 +268,49 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			Require(RmgColonyOwnership.AssignStrongholds(new[] { 1, 0, 2, 3, 1 }, new[] { 3, 0, 1 }).SequenceEqual(new[] { 2, -1, -1, 0, 2 }), "Stronghold ownership redistributed absent forts or castles.");
 			Require(RmgColonyOwnership.AssignStrongholds(Array.Empty<int>(), new[] { 1 }).Length == 0, "Empty stronghold pool failed.");
 			Console.WriteLine("PASS: both starting-area controls, defaults, all seven layouts, override visibility, serialization and restoration.");
+			Choose("RMG_LAYOUT_FAMILY", "Labyrinth");
+			Require(Settings().GeneratorVersion == 23 && Settings().MirroringAxes == 0 && lobby.Get("RMG_PASSAGE_WIDTH").IsVisible() && !ownFort.IsVisible(), "Labyrinth UI did not activate correctly.");
+			Choose("RMG_PASSAGE_WIDTH", "Narrow"); Choose("RMG_EXTRA_ROUTES", "Many");
+			Choose("RMG_SIZE", "512 x 512");
+			for (var count = 1; count <= 8; count++) { slider.UpdateValue(count); Require(Settings().PlayerCount == count, "Labyrinth lost player count."); }
+			Require(Settings().LaneWidth == RmgBattlefieldLaneWidth.Narrow && Settings().ExtraRoutes == RmgLabyrinthRoutes.Many, "Labyrinth options did not reach settings.");
+			Choose("RMG_PRESET", "Balanced"); Require(Settings().GeneratorVersion == 23, "Preset exited Labyrinth.");
+			Draw(output, "labyrinth-512-options");
+			ownership.OnClick(); Require(Ui.CurrentWindow().Get<ScrollPanelWidget>("SETTINGS").Children.Count == 8, "Labyrinth ownership rows disagree.");
+			Ui.CurrentWindow().Get<ButtonWidget>("CANCEL").OnClick();
+			Choose("RMG_SIZE", "64 x 64"); Require(Settings().PlayerCount == 4 && slider.MaximumValue == 4, "Labyrinth small-map player cap failed.");
+			Choose("RMG_LAYOUT_FAMILY", "Natural Landscape (Regions)");
+			Require(Settings().GeneratorVersion == 16 && !lobby.Get("RMG_EXTRA_ROUTES").IsVisible(), "Labyrinth altered Natural settings.");
+			Choose("RMG_LAYOUT_FAMILY", "Labyrinth");
+			Require(Settings().LaneWidth == RmgBattlefieldLaneWidth.Narrow && Settings().ExtraRoutes == RmgLabyrinthRoutes.Many, "Stored Labyrinth options lost.");
+			Draw(output, "labyrinth-64-options");
+			foreach (var mapSize in new[] { 64, 128, 256, 512 })
+				for (var count = 1; count <= (mapSize == 64 ? 4 : 8); count++)
+					foreach (var width in Enum.GetValues<RmgBattlefieldLaneWidth>())
+						foreach (var routes in Enum.GetValues<RmgLabyrinthRoutes>())
+						{
+							var request = new RmgPlayerSettings { SchemaVersion = 18, LayoutFamily = RmgPlayerLayoutFamily.Labyrinth, MapSize = mapSize, PlayerCount = count, LaneWidth = width, ExtraRoutes = routes, RespectStartingSafeArea = false };
+							var parsed = RmgPlayerSettingsContract.Resolve(RmgPlayerSettingsContract.Parse(request.ToJson())).Normalized;
+							Require(parsed.GeneratorVersion == 23 && parsed.LaneWidth == width && parsed.ExtraRoutes == routes && !parsed.RespectStartingSafeArea, "Labyrinth settings roundtrip failed.");
+						}
+
+			foreach (var invalid in new[] { "schema", "family", "width", "routes", "castles", "fort-ownership", "axes", "players" })
+			{
+				var json = new RmgPlayerSettings { SchemaVersion = 18, LayoutFamily = RmgPlayerLayoutFamily.Labyrinth }.ToJson();
+				if (invalid == "schema") json["schema_version"] = 17;
+				if (invalid == "family") json["layout_family"] = "natural-landscape";
+				if (invalid == "width") json["passage_width"] = "bad";
+				if (invalid == "routes") json["extra_routes"] = "bad";
+				if (invalid == "castles") json["generate_castles"] = false;
+				if (invalid == "fort-ownership") json["own_starting_stronghold"] = true;
+				if (invalid == "axes") json["mirroring_axes"] = 1;
+				if (invalid == "players") { json["players"] = 5; json["size"] = "64,64"; }
+				var rejected = false;
+				try { RmgPlayerSettingsContract.Resolve(RmgPlayerSettingsContract.Parse(json)); } catch (ArgumentException) { rejected = true; }
+				Require(rejected, $"Labyrinth accepted invalid {invalid}.");
+			}
+
+			Console.WriteLine("PASS: Labyrinth live widgets, 252 settings roundtrips, invalid inputs, stored options and all eight layouts.");
 			var battlefieldValid = 0;
 			foreach (var size in new[] { 64, 128, 256, 512 })
 				for (var players = 1; players <= 8; players++)

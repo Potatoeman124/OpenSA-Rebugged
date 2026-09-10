@@ -4,11 +4,14 @@ Implemented on `codex/rmg-starting-area-options`, based on accepted Strongholds 
 (2026-09-10). These are opt-in changes to current generators V16-V22, using player-settings
 schema 17. Generator/configuration versions and default map identities remain unchanged.
 
+Labyrinth V23 also supports Respect Starting Safe Area through schema 18. Its
+terrain remains unchanged when the toggle changes; see [Labyrinth](LABYRINTH_V23.md).
+
 ## Player controls
 
 | Option | Scope | Default | Behavior |
 |---|---|---|---|
-| Respect Starting Safe Area | All seven current layouts | On | Keeps extra colonies outside the starting colony's combat buffer. Off allows colonies within that buffer. |
+| Respect Starting Safe Area | All current layouts, including Labyrinth | On | Keeps extra colonies outside the starting colony's combat buffer. Off allows colonies within that buffer. |
 | Own Starting Stronghold | Strongholds only | Off | On assigns all additional colonies in each occupied starting fort to the player who actually spawns there. Castles and unoccupied forts stay neutral. |
 
 With whole-stronghold ownership Off, existing Starting Ownership percentages/weights and

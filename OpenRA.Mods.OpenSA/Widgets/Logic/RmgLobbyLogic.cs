@@ -75,13 +75,16 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		bool generateCastles = true;
 		bool respectStartingSafeArea = true;
 		bool ownStartingStronghold;
+		bool IsLabyrinth => layoutFamily == RmgPlayerLayoutFamily.Labyrinth;
+		RmgBattlefieldLaneWidth passageWidth = RmgBattlefieldLaneWidth.Standard;
+		RmgLabyrinthRoutes extraRoutes = RmgLabyrinthRoutes.Standard;
 		bool IsStrongholds => layoutFamily == RmgPlayerLayoutFamily.Strongholds;
 		bool IsDividedLands => layoutFamily == RmgPlayerLayoutFamily.DividedLands;
 		bool IsRing => layoutFamily == RmgPlayerLayoutFamily.Ring;
 		bool IsCrossroads => layoutFamily == RmgPlayerLayoutFamily.Crossroads;
 		bool HasFixedPlayerCounts => IsBattlefield || IsCrossroads || IsRing || IsDividedLands;
-		bool HasLayoutOptions => IsPvp || HasFixedPlayerCounts || IsStrongholds;
-		bool UsesModernTerrain => layoutFamily is RmgPlayerLayoutFamily.NaturalLandscape or RmgPlayerLayoutFamily.NaturalLandscapePvp or RmgPlayerLayoutFamily.ArtificialBattlefield or RmgPlayerLayoutFamily.Crossroads or RmgPlayerLayoutFamily.Ring or RmgPlayerLayoutFamily.DividedLands or RmgPlayerLayoutFamily.Strongholds;
+		bool HasLayoutOptions => IsPvp || HasFixedPlayerCounts || IsStrongholds || IsLabyrinth;
+		bool UsesModernTerrain => layoutFamily is RmgPlayerLayoutFamily.NaturalLandscape or RmgPlayerLayoutFamily.NaturalLandscapePvp or RmgPlayerLayoutFamily.ArtificialBattlefield or RmgPlayerLayoutFamily.Crossroads or RmgPlayerLayoutFamily.Ring or RmgPlayerLayoutFamily.DividedLands or RmgPlayerLayoutFamily.Strongholds or RmgPlayerLayoutFamily.Labyrinth;
 		static readonly int[] BattlefieldPlayerCounts = { 2, 4, 8 };
 		RmgBattlefieldBlockShape blockShape = RmgBattlefieldBlockShape.CutCorners;
 		RmgBattlefieldLaneWidth laneWidth = RmgBattlefieldLaneWidth.Standard;
@@ -246,6 +249,10 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 
 		void BindControls()
 		{
+			waterButton.GetTooltipText = () => IsLabyrinth ? "Water fills the spaces between passages. Low through Ultra use 60%, 72%, 82%, 91% and 100% of that space; tile transitions reduce final coverage." : waterButton.TooltipText;
+			tacticalTerrainButton.GetTooltipText = () => IsLabyrinth ? "Slowing surfaces shape alternative routes. Complexity increases their target coverage; narrow passages, alcoves and original surface relations can limit it." : tacticalTerrainButton.TooltipText;
+			colonyButton.GetTooltipText = () => IsLabyrinth ? "Labyrinth uses one quarter of the usual colony target, rounded up. Colonies occupy existing alcoves and never widen passages. Crowded maps can stop below the target." : colonyButton.TooltipText;
+			complexityButton.GetTooltipText = () => IsLabyrinth ? "Higher complexity tightens and bends passages, adds slowing terrain. The seed retains its main junctions and starts." : complexityButton.TooltipText;
 			presetButton.GetText = () => presetCustomized ?
 				$"Custom ({RmgPlayerSettingsContract.PresetDisplayName(preset)})" :
 				RmgPlayerSettingsContract.PresetDisplayName(preset);
@@ -289,7 +296,8 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					new Choice<RmgPlayerLayoutFamily>(RmgPlayerLayoutFamily.Crossroads, "Crossroads"),
 					new Choice<RmgPlayerLayoutFamily>(RmgPlayerLayoutFamily.Ring, "Ring"),
 					new Choice<RmgPlayerLayoutFamily>(RmgPlayerLayoutFamily.DividedLands, "Divided Lands"),
-					new Choice<RmgPlayerLayoutFamily>(RmgPlayerLayoutFamily.Strongholds, "Strongholds")
+					new Choice<RmgPlayerLayoutFamily>(RmgPlayerLayoutFamily.Strongholds, "Strongholds"),
+					new Choice<RmgPlayerLayoutFamily>(RmgPlayerLayoutFamily.Labyrinth, "Labyrinth")
 				}, () => layoutFamily, value =>
 				{
 					layoutFamily = value;
@@ -345,6 +353,16 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			foreach (var id in new[] { "RMG_APPROACH_WIDTH", "RMG_APPROACH_WIDTH_LABEL", "RMG_SIDE_CONNECTIONS", "RMG_SIDE_CONNECTIONS_LABEL" })
 				lobby.Get(id).IsVisible = () => IsCrossroads;
 
+			var passageButton = lobby.Get<DropDownButtonWidget>("RMG_PASSAGE_WIDTH");
+			passageButton.GetText = () => passageWidth.ToString();
+			BindDropDown(passageButton, Enum.GetValues<RmgBattlefieldLaneWidth>().Select(v => new Choice<RmgBattlefieldLaneWidth>(v, v.ToString())).ToArray(),
+				() => passageWidth, value => { passageWidth = value; MarkStale(); });
+			var routesButton = lobby.Get<DropDownButtonWidget>("RMG_EXTRA_ROUTES");
+			routesButton.GetText = () => extraRoutes.ToString();
+			BindDropDown(routesButton, Enum.GetValues<RmgLabyrinthRoutes>().Select(v => new Choice<RmgLabyrinthRoutes>(v, v.ToString())).ToArray(),
+				() => extraRoutes, value => { extraRoutes = value; MarkStale(); });
+			foreach (var id in new[] { "RMG_PASSAGE_WIDTH", "RMG_PASSAGE_WIDTH_LABEL", "RMG_EXTRA_ROUTES", "RMG_EXTRA_ROUTES_LABEL" })
+				lobby.Get(id).IsVisible = () => IsLabyrinth;
 			var ringShapeButton = lobby.Get<DropDownButtonWidget>("RMG_RING_SHAPE");
 			ringShapeButton.GetText = () => ringShape.ToString();
 			BindDropDown(ringShapeButton, Enum.GetValues<RmgRingShape>().Select(v => new Choice<RmgRingShape>(v, v.ToString())).ToArray(),
@@ -591,7 +609,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		{
 			preset = selected;
 			presetCustomized = false;
-			if (!IsPvp && !HasFixedPlayerCounts && !IsStrongholds) layoutFamily = RmgPlayerLayoutFamily.NaturalLandscape;
+			if (!IsPvp && !HasFixedPlayerCounts && !IsStrongholds && !IsLabyrinth) layoutFamily = RmgPlayerLayoutFamily.NaturalLandscape;
 			layout = LayoutChoice.OpenFields;
 			originalSurfaceRelations = true;
 			preventColonyOverlapping = true;
@@ -724,12 +742,13 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			GenerateCastles = !IsStrongholds || generateCastles,
 			RespectStartingSafeArea = respectStartingSafeArea,
 			OwnStartingStronghold = IsStrongholds && ownStartingStronghold,
-			SchemaVersion = !respectStartingSafeArea || (IsStrongholds && ownStartingStronghold) ? 17 : IsStrongholds ? 16 : IsDividedLands ? 15 : IsRing ? 14 : IsCrossroads ? 13 : IsBattlefield ? 12 : IsPvp ? 11 : UsesModernTerrain ? 10 : 3,
+			SchemaVersion = IsLabyrinth ? 18 : !respectStartingSafeArea || (IsStrongholds && ownStartingStronghold) ? 17 : IsStrongholds ? 16 : IsDividedLands ? 15 : IsRing ? 14 : IsCrossroads ? 13 : IsBattlefield ? 12 : IsPvp ? 11 : UsesModernTerrain ? 10 : 3,
 			MirroringAxes = IsPvp ? mirroringAxes : 0,
 			BlockShape = IsBattlefield ? blockShape : RmgBattlefieldBlockShape.CutCorners,
 			RingShape = IsRing ? ringShape : RmgRingShape.Round,
 			LandCrossings = IsDividedLands ? landCrossings : RmgLandCrossings.One,
-			LaneWidth = IsDividedLands ? crossingWidth : IsRing ? ringWidth : IsCrossroads ? approachWidth : IsBattlefield ? laneWidth : RmgBattlefieldLaneWidth.Standard,
+			ExtraRoutes = IsLabyrinth ? extraRoutes : RmgLabyrinthRoutes.Standard,
+			LaneWidth = IsLabyrinth ? passageWidth : IsDividedLands ? crossingWidth : IsRing ? ringWidth : IsCrossroads ? approachWidth : IsBattlefield ? laneWidth : RmgBattlefieldLaneWidth.Standard,
 			SideConnections = IsCrossroads ? sideConnections : RmgCrossroadsConnections.Standard,
 			MapSize = size switch { SizeChoice.Small => 64, SizeChoice.Standard => 128, SizeChoice.Large => 256, _ => 512 },
 			Preset = preset,
@@ -791,8 +810,8 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					var moss = cells.Count(cell => cell == RmgNativeTerrainIntent.Vegetation);
 					var closerColonies = (int?)result.Generation.Map.RegionsReport["neutral_colonies_fallback"] ?? 0;
 					var spacingSummary = closerColonies > 0 ? $" {closerColonies} placed with closer spacing." : string.Empty;
-					if ((HasFixedPlayerCounts || IsStrongholds) && result.Generation.Validation.Warnings.Any(w => w.Code is "BATTLEFIELD_TERRAIN_CAPACITY" or "CROSSROADS_TERRAIN_CAPACITY" or "RING_TERRAIN_CAPACITY" or "DIVIDED_LANDS_TERRAIN_CAPACITY" or "STRONGHOLDS_TERRAIN_CAPACITY"))
-						spacingSummary += " Routes/plazas/transitions limit coverage.";
+					if ((HasFixedPlayerCounts || IsStrongholds || IsLabyrinth) && result.Generation.Validation.Warnings.Any(w => w.Code is "BATTLEFIELD_TERRAIN_CAPACITY" or "CROSSROADS_TERRAIN_CAPACITY" or "RING_TERRAIN_CAPACITY" or "DIVIDED_LANDS_TERRAIN_CAPACITY" or "STRONGHOLDS_TERRAIN_CAPACITY" or "LABYRINTH_TERRAIN_CAPACITY"))
+						spacingSummary += IsLabyrinth ? " Passages/alcoves/transitions limit modifiers." : " Routes/plazas/transitions limit coverage.";
 					if (IsCrossroads && result.Generation.Validation.Warnings.Any(w => w.Code == "CROSSROADS_WATER_FLOOR"))
 						spacingSummary += " Dividers set minimum water coverage.";
 					if (IsRing && result.Generation.Validation.Warnings.Any(w => w.Code == "RING_WATER_FLOOR"))
@@ -800,7 +819,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					if (IsDividedLands && landCrossings == RmgLandCrossings.None) spacingSummary += " No land crossings.";
 					if (IsDividedLands && result.Generation.Validation.Warnings.Any(w => w.Code == "DIVIDED_LANDS_WATER_FLOOR"))
 						spacingSummary += " Channels set minimum water coverage.";
-					SetStatus($"Ready: {(IsStrongholds ? "Strongholds" : IsDividedLands ? "Divided Lands" : IsRing ? "Ring" : IsCrossroads ? "Crossroads" : IsBattlefield ? "Battlefield" : "Regions")} / {RmgPlayerSettingsContract.ComplexityDisplayName(complexity, true)} ({result.Performance.TotalMilliseconds / 1000d:0.0}s). " +
+					SetStatus($"Ready: {(IsLabyrinth ? "Labyrinth" : IsStrongholds ? "Strongholds" : IsDividedLands ? "Divided Lands" : IsRing ? "Ring" : IsCrossroads ? "Crossroads" : IsBattlefield ? "Battlefield" : "Regions")} / {RmgPlayerSettingsContract.ComplexityDisplayName(complexity, true)} ({result.Performance.TotalMilliseconds / 1000d:0.0}s). " +
 						$"Water {100D * water / cells.Length:0.0}%; {(terrain == TerrainChoice.Normal ? "gravel/moss" : "surface modifiers")} {100D * gravel / land:0.0}/{100D * moss / land:0.0}% of land; " +
 						$"colonies {placedColonies}/{settingsResolution.Normalized.EffectiveNeutralColonyCount}.{spacingSummary}",
 						result.Generation.Validation.Warnings.Count > 0 ? StatusKind.Warning : StatusKind.Success);
@@ -989,6 +1008,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			RmgPlayerLayoutFamily.Ring => "Ring",
 			RmgPlayerLayoutFamily.DividedLands => "Divided Lands",
 			RmgPlayerLayoutFamily.Strongholds => "Strongholds",
+			RmgPlayerLayoutFamily.Labyrinth => "Labyrinth",
 			_ => "Preset"
 		};
 

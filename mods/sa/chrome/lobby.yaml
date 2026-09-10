@@ -219,7 +219,7 @@ Background@SERVER_LOBBY:
 					Width: 220
 					Height: 28
 					TooltipContainer: TOOLTIP_CONTAINER
-					TooltipText: Natural Landscape uses Regions. Structured Competitive and Artificial Battlefield retain their historical generators at 128 x 128.
+					TooltipText: Choose the overall terrain design. Natural landscapes, planned battlefields, divided territories, strongholds and labyrinths have distinct placement and route rules.
 
 				Label@RMG_TERRAIN_COMPLEXITY_LABEL:
 					X: 410
@@ -389,6 +389,40 @@ Background@SERVER_LOBBY:
 					Height: 28
 					Text: Ring Shape
 					Visible: False
+				Label@RMG_PASSAGE_WIDTH_LABEL:
+					X: 20
+					Y: 350
+					Width: 155
+					Height: 25
+					Text: Passage Width
+					Visible: False
+				DropDownButton@RMG_PASSAGE_WIDTH:
+					X: 175
+					Y: 350
+					Width: 220
+					Height: 28
+					Visible: False
+					Font: Regular
+					TooltipText: Width of the winding passages. Complexity tightens and bends these routes.
+					TooltipContainer: TOOLTIP_CONTAINER
+
+				Label@RMG_EXTRA_ROUTES_LABEL:
+					X: 430
+					Y: 350
+					Width: 155
+					Height: 25
+					Text: Extra Routes
+					Visible: False
+				DropDownButton@RMG_EXTRA_ROUTES:
+					X: 590
+					Y: 350
+					Width: 220
+					Height: 28
+					Visible: False
+					Font: Regular
+					TooltipText: Additional passages for flanking and alternative approaches through the labyrinth.
+					TooltipContainer: TOOLTIP_CONTAINER
+
 				DropDownButton@RMG_RING_SHAPE:
 					X: 175
 					Y: 350

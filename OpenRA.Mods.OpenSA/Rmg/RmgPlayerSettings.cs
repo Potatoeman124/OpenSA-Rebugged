@@ -53,7 +53,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		Crossroads,
 		Ring,
 		DividedLands,
-		Strongholds
+		Strongholds,
+		Labyrinth
 	}
 
 	public enum RmgPlayerColonyDensity
@@ -86,6 +87,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public bool GenerateCastles { get; init; } = true;
 		public bool RespectStartingSafeArea { get; init; } = true;
 		public bool OwnStartingStronghold { get; init; }
+		public RmgLabyrinthRoutes ExtraRoutes { get; init; } = RmgLabyrinthRoutes.Standard;
+		public bool IsLabyrinth => SchemaVersion >= 18 && LayoutFamily == RmgPlayerLayoutFamily.Labyrinth;
 		public bool IsStrongholds => SchemaVersion >= 16 && LayoutFamily == RmgPlayerLayoutFamily.Strongholds;
 		public bool IsDividedLands => SchemaVersion >= 15 && LayoutFamily == RmgPlayerLayoutFamily.DividedLands;
 		public RmgLandCrossings LandCrossings { get; init; } = RmgLandCrossings.One;
@@ -94,7 +97,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public bool IsCrossroads => SchemaVersion >= 13 && LayoutFamily == RmgPlayerLayoutFamily.Crossroads;
 		public RmgCrossroadsConnections SideConnections { get; init; } = RmgCrossroadsConnections.Standard;
 		public bool IsPlannedBattlefield => SchemaVersion >= 12 && LayoutFamily == RmgPlayerLayoutFamily.ArtificialBattlefield;
-		public bool UsesModernTerrain => LayoutFamily is RmgPlayerLayoutFamily.NaturalLandscape or RmgPlayerLayoutFamily.NaturalLandscapePvp || IsPlannedBattlefield || IsCrossroads || IsRing || IsDividedLands || IsStrongholds;
+		public bool UsesModernTerrain => LayoutFamily is RmgPlayerLayoutFamily.NaturalLandscape or RmgPlayerLayoutFamily.NaturalLandscapePvp || IsPlannedBattlefield || IsCrossroads || IsRing || IsDividedLands || IsStrongholds || IsLabyrinth;
 		public int MapSize { get; init; } = 128;
 		public RmgPlayerPreset Preset { get; init; } = RmgPlayerPreset.Balanced;
 		public string Tileset { get; init; } = "NORMAL";
@@ -163,6 +166,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (SchemaVersion >= 17 && !RespectStartingSafeArea) json["respect_starting_safe_area"] = false;
 			if (SchemaVersion >= 17 && OwnStartingStronghold) json["own_starting_stronghold"] = true;
 
+			if (IsLabyrinth) { json["passage_width"] = RmgBattlefieldParameters.Name(LaneWidth); json["extra_routes"] = RmgLabyrinthParameters.Name(ExtraRoutes); }
 			if (IsStrongholds) json["generate_castles"] = GenerateCastles;
 
 			if (IsDividedLands) { json["land_crossings"] = RmgDividedLandsParameters.Name(LandCrossings); json["crossing_width"] = RmgBattlefieldParameters.Name(LaneWidth); }
@@ -218,26 +222,27 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			["overrides"] = new JArray(Overrides),
 			["warnings"] = new JArray()
 			};
-			if (Normalized.GeneratorVersion is 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22)
+			if (Normalized.GeneratorVersion is 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23)
 			{
 				var normalized = (JObject)json["normalized"];
 				normalized.Remove("tactical_terrain");
 				normalized.Remove("symmetry");
 				normalized.Remove("archetype");
 				normalized["gravel_moss_amount"] = RmgPlayerSettingsContract.ParameterLevelName(Normalized.TacticalTerrain);
-				normalized["terrain_complexity"] = RmgPlayerSettingsContract.ComplexityName(Normalized.TerrainComplexity, Normalized.GeneratorVersion is 13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22);
+				normalized["terrain_complexity"] = RmgPlayerSettingsContract.ComplexityName(Normalized.TerrainComplexity, Normalized.GeneratorVersion is 13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23);
 			}
-			if (Normalized.GeneratorVersion is 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22)
+			if (Normalized.GeneratorVersion is 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23)
 				json["normalized"]["prevent_colony_overlapping"] = Normalized.PreventColonyOverlapping;
-			if (Normalized.GeneratorVersion is 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22)
+			if (Normalized.GeneratorVersion is 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23)
 				json["normalized"]["neutral_colony_weights"] = Normalized.NeutralColonyWeights.ToJson();
-			if (Normalized.GeneratorVersion is 16 or 17 or 18 or 19 or 20 or 21 or 22)
+			if (Normalized.GeneratorVersion is 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23)
 				json["normalized"]["starting_colony_shares"] = new JArray(Normalized.StartingColonyShares);
-			if (Normalized.GeneratorVersion is 16 or 17 or 18 or 19 or 20 or 21 or 22 && Normalized.StartingColonyMode != RmgColonyOwnershipMode.ClosestToSpawn)
+			if (Normalized.GeneratorVersion is 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 && Normalized.StartingColonyMode != RmgColonyOwnershipMode.ClosestToSpawn)
 				json["normalized"]["starting_colony_mode"] = RmgColonyOwnership.ModeName(Normalized.StartingColonyMode);
 			if (Normalized.GeneratorVersion is 17 or 18 or 19 or 20 or 21) json["normalized"]["mirroring_axes"] = Normalized.MirroringAxes;
 			if (!Normalized.RespectStartingSafeArea) json["normalized"]["respect_starting_safe_area"] = false;
 			if (Normalized.OwnStartingStronghold) json["normalized"]["own_starting_stronghold"] = true;
+			if (Normalized.GeneratorVersion == 23) { json["normalized"]["passage_width"] = RmgBattlefieldParameters.Name(Normalized.LaneWidth); json["normalized"]["extra_routes"] = RmgLabyrinthParameters.Name(Normalized.ExtraRoutes); }
 			if (Normalized.GeneratorVersion == 22) json["normalized"]["generate_castles"] = Normalized.GenerateCastles;
 			if (Normalized.GeneratorVersion == 21) { json["normalized"]["land_crossings"] = RmgDividedLandsParameters.Name(Normalized.LandCrossings); json["normalized"]["crossing_width"] = RmgBattlefieldParameters.Name(Normalized.LaneWidth); }
 			if (Normalized.GeneratorVersion == 20) { json["normalized"]["ring_shape"] = RmgRingParameters.Name(Normalized.RingShape); json["normalized"]["ring_width"] = RmgBattlefieldParameters.Name(Normalized.LaneWidth); }
@@ -249,7 +254,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 	public static class RmgPlayerSettingsContract
 	{
-		public const int SchemaVersion = 17;
+		public const int SchemaVersion = 18;
 		public const int MinimumSchemaVersion = 1;
 
 		static readonly HashSet<string> AllowedFields = new(new[]
@@ -267,6 +272,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			"block_shape",
 			"approach_width",
 			"side_connections",
+			"passage_width",
+			"extra_routes",
 			"generate_castles",
 			"respect_starting_safe_area",
 			"own_starting_stronghold",
@@ -331,6 +338,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				throw new ArgumentException($"Unknown player settings field(s): {string.Join(", ", unknown)}.");
 
 			var schemaVersion = RequiredInt(json, "schema_version");
+			var labyrinth = schemaVersion >= 18 && OptionalText(json, "layout_family", "preset") == "labyrinth";
+			if (!labyrinth && (json.ContainsKey("passage_width") || json.ContainsKey("extra_routes"))) throw new ArgumentException("Passage Width and Extra Routes require schema 18 and Labyrinth.");
 			var strongholds = schemaVersion >= 16 && OptionalText(json, "layout_family", "preset") == "strongholds";
 			if (!strongholds && json.ContainsKey("generate_castles")) throw new ArgumentException("Generate Castles requires schema 16 and Strongholds.");
 			var divided = schemaVersion >= 15 && OptionalText(json, "layout_family", "preset") == "divided-lands";
@@ -343,7 +352,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var crossroads = schemaVersion >= 13 && OptionalText(json, "layout_family", "preset") == "crossroads";
 			if (!crossroads && (json.ContainsKey("approach_width") || json.ContainsKey("side_connections")))
 				throw new ArgumentException("Approach Width and Side Connections require schema 13 and Crossroads.");
-			var modern = strongholds || divided || ring || artificial || crossroads || OptionalText(json, "layout_family", "preset") is "natural-landscape" or "natural-landscape-pvp";
+			var modern = labyrinth || strongholds || divided || ring || artificial || crossroads || OptionalText(json, "layout_family", "preset") is "natural-landscape" or "natural-landscape-pvp";
 			if (json.ContainsKey("respect_starting_safe_area") && (schemaVersion < 17 || !modern))
 				throw new ArgumentException("respect_starting_safe_area requires schema 17 and a current layout.");
 			if (json.ContainsKey("own_starting_stronghold") && (schemaVersion < 17 || !strongholds))
@@ -416,7 +425,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				RespectStartingSafeArea = OptionalBool(json, "respect_starting_safe_area", true),
 				OwnStartingStronghold = OptionalBool(json, "own_starting_stronghold", false),
 				BlockShape = RmgBattlefieldParameters.ParseShape(OptionalText(json, "block_shape", "cut-corners")),
-				LaneWidth = RmgBattlefieldParameters.ParseLane(OptionalText(json, divided ? "crossing_width" : ring ? "ring_width" : crossroads ? "approach_width" : "lane_width", "standard")),
+				ExtraRoutes = RmgLabyrinthParameters.Parse(OptionalText(json, "extra_routes", "standard")),
+				LaneWidth = RmgBattlefieldParameters.ParseLane(OptionalText(json, labyrinth ? "passage_width" : divided ? "crossing_width" : ring ? "ring_width" : crossroads ? "approach_width" : "lane_width", "standard")),
 				LandCrossings = RmgDividedLandsParameters.Parse(OptionalText(json, "land_crossings", "one")),
 				RingShape = RmgRingParameters.Parse(OptionalText(json, "ring_shape", "round")),
 				SideConnections = RmgCrossroadsParameters.Parse(OptionalText(json, "side_connections", "standard")),
@@ -457,6 +467,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			RmgCrossroadsParameters.ValidateOptions(requested);
 			RmgRingParameters.ValidateOptions(requested);
 			RmgDividedLandsParameters.ValidateOptions(requested);
+			RmgLabyrinthParameters.ValidateOptions(requested);
 			if (requested.LayoutFamily == RmgPlayerLayoutFamily.Strongholds && !requested.IsStrongholds) throw new ArgumentException("Strongholds requires schema 16.");
 			if (!requested.IsStrongholds && !requested.GenerateCastles) throw new ArgumentException("Generate Castles applies only to Strongholds.");
 			if (!requested.RespectStartingSafeArea && (requested.SchemaVersion < 17 || !requested.UsesModernTerrain))
@@ -511,6 +522,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				colonies *= 3;
 			else if (requested.MapSize == 64)
 				colonies = (colonies + 3) / 4;
+			if (requested.IsLabyrinth) colonies = (colonies + 3) / 4;
 			var symmetry = requested.Symmetry switch
 			{
 				RmgPlayerSymmetry.Horizontal => RmgSymmetry.MirrorHorizontal,
@@ -530,18 +542,19 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				RmgLayoutFamily.Ring => 20,
 				RmgLayoutFamily.DividedLands => 21,
 				RmgLayoutFamily.Strongholds => 22,
+				RmgLayoutFamily.Labyrinth => 23,
 				RmgLayoutFamily.NaturalLandscapePvp => 17,
 				RmgLayoutFamily.NaturalLandscape => requested.SchemaVersion >= 10 ? 16 : requested.SchemaVersion >= 9 ? 15 : requested.SchemaVersion >= 8 ? 14 : requested.SchemaVersion >= 7 ? 13 : requested.SchemaVersion >= 6 ? 12 : requested.SchemaVersion >= 5 ? 11 : 10,
 				RmgLayoutFamily.StructuredCompetitive => 8,
 				_ => requested.SchemaVersion >= 2 ? 7 : 6
 			};
-			if (version is 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 && (requested.Layout != RmgPlayerLayout.Preset || requested.Symmetry != RmgPlayerSymmetry.Automatic))
+			if (version is 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 && (requested.Layout != RmgPlayerLayout.Preset || requested.Symmetry != RmgPlayerSymmetry.Automatic))
 				throw new ArgumentException("Regions has no Battlefield Plan or symmetry setting; use preset layout and automatic symmetry.");
 			if (!Enum.IsDefined(requested.TerrainComplexity) ||
-				(requested.TerrainComplexity > Reassessment.TerrainComplexity.High && version is not (13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22)))
+				(requested.TerrainComplexity > Reassessment.TerrainComplexity.High && version is not (13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23)))
 				throw new ArgumentException("Extended Terrain Complexity requires schema 7 and Natural Landscape.");
 			if (!Enum.IsDefined(requested.WaterAmount) || !Enum.IsDefined(requested.TacticalTerrain) ||
-				!Enum.IsDefined(requested.NeutralColonyDensity) || (version is not (14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22) &&
+				!Enum.IsDefined(requested.NeutralColonyDensity) || (version is not (14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23) &&
 				(requested.WaterAmount > RmgPlayerParameterLevel.High || requested.TacticalTerrain > RmgPlayerParameterLevel.High ||
 				requested.NeutralColonyDensity > RmgPlayerColonyDensity.Dense || !requested.PreventColonyOverlapping)))
 				throw new ArgumentException("Extreme/Ultra quantities and relaxed colony spacing require schema 8 and Natural Landscape.");
@@ -551,11 +564,12 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				Tileset = requested.Tileset,
 				MapSize = requested.MapSize,
 				PlayerCount = requested.PlayerCount,
-				Symmetry = version is 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 ? RmgSymmetry.MirrorHorizontal : symmetry,
-				Archetype = version is 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 ? RmgArchetype.Open : archetype,
+				Symmetry = version is 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 ? RmgSymmetry.MirrorHorizontal : symmetry,
+				Archetype = version is 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 ? RmgArchetype.Open : archetype,
 				NeutralColonyCount = colonies,
 				GeneratorVersion = version,
 				GenerateCastles = requested.GenerateCastles,
+				ExtraRoutes = requested.ExtraRoutes,
 				RespectStartingSafeArea = requested.RespectStartingSafeArea,
 				OwnStartingStronghold = requested.OwnStartingStronghold,
 				MirroringAxes = requested.IsPlannedBattlefield || requested.IsCrossroads || requested.IsRing || requested.IsDividedLands ? RmgBattlefieldParameters.Axes(requested.PlayerCount) : requested.MirroringAxes,
@@ -567,6 +581,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					20 => RmgTopologyPreset.Ring,
 					21 => RmgTopologyPreset.DividedLands,
 					22 => RmgTopologyPreset.Strongholds,
+					23 => RmgTopologyPreset.Labyrinth,
 					11 or 12 or 13 or 14 or 15 or 16 or 17 => RmgTopologyPreset.NaturalRegions,
 					10 => RmgTopologyPreset.NaturalTerrainV10,
 					9 => RmgTopologyPreset.NaturalTerrain,
@@ -598,19 +613,19 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (requested.WaterAmount != RmgPlayerParameterLevel.Preset)
 				overrides.Add("water_amount");
 			if (requested.TacticalTerrain != RmgPlayerParameterLevel.Preset)
-				overrides.Add(version is 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 ? "gravel_moss_amount" : "tactical_terrain");
+				overrides.Add(version is 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 ? "gravel_moss_amount" : "tactical_terrain");
 			if (requested.Symmetry != RmgPlayerSymmetry.Automatic)
 				overrides.Add("symmetry");
 
-			if (version is 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22)
+			if (version is 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23)
 				overrides.Add("terrain_complexity");
-			if (version is 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 && !requested.PreventColonyOverlapping)
+			if (version is 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 && !requested.PreventColonyOverlapping)
 				overrides.Add("prevent_colony_overlapping");
-			if (version is 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 && requested.NeutralColonyWeights != new RmgColonyWeights())
+			if (version is 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 && requested.NeutralColonyWeights != new RmgColonyWeights())
 				overrides.Add("neutral_colony_weights");
-			if (version is 16 or 17 or 18 or 19 or 20 or 21 or 22 && normalized.StartingColonyShares.Any(value => value != 0))
+			if (version is 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 && normalized.StartingColonyShares.Any(value => value != 0))
 				overrides.Add("starting_colony_shares");
-			if (version is 16 or 17 or 18 or 19 or 20 or 21 or 22 && requested.StartingColonyMode != RmgColonyOwnershipMode.ClosestToSpawn)
+			if (version is 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 && requested.StartingColonyMode != RmgColonyOwnershipMode.ClosestToSpawn)
 				overrides.Add("starting_colony_mode");
 			if (!requested.RespectStartingSafeArea) overrides.Add("respect_starting_safe_area");
 			if (requested.OwnStartingStronghold) overrides.Add("own_starting_stronghold");
@@ -884,6 +899,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			RmgPlayerLayoutFamily.Ring => "ring",
 			RmgPlayerLayoutFamily.DividedLands => "divided-lands",
 			RmgPlayerLayoutFamily.Strongholds => "strongholds",
+			RmgPlayerLayoutFamily.Labyrinth => "labyrinth",
 			RmgPlayerLayoutFamily.StructuredCompetitive => "structured-competitive",
 			RmgPlayerLayoutFamily.ArtificialBattlefield => "artificial-battlefield",
 			_ => throw new ArgumentOutOfRangeException(nameof(value))
@@ -897,6 +913,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			RmgLayoutFamily.Ring => "ring",
 			RmgLayoutFamily.DividedLands => "divided-lands",
 			RmgLayoutFamily.Strongholds => "strongholds",
+			RmgLayoutFamily.Labyrinth => "labyrinth",
 			RmgLayoutFamily.StructuredCompetitive => "structured-competitive",
 			RmgLayoutFamily.ArtificialBattlefield => "artificial-battlefield",
 			_ => throw new ArgumentOutOfRangeException(nameof(value))
@@ -910,6 +927,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			RmgLayoutFamily.Ring => "Ring",
 			RmgLayoutFamily.DividedLands => "Divided Lands",
 			RmgLayoutFamily.Strongholds => "Strongholds",
+			RmgLayoutFamily.Labyrinth => "Labyrinth",
 			RmgLayoutFamily.StructuredCompetitive => "Structured Competitive",
 			RmgLayoutFamily.ArtificialBattlefield => "Artificial Battlefield",
 			_ => throw new ArgumentOutOfRangeException(nameof(value))
@@ -983,9 +1001,10 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			"ring" => RmgPlayerLayoutFamily.Ring,
 			"divided-lands" => RmgPlayerLayoutFamily.DividedLands,
 			"strongholds" => RmgPlayerLayoutFamily.Strongholds,
+			"labyrinth" => RmgPlayerLayoutFamily.Labyrinth,
 			"structured-competitive" => RmgPlayerLayoutFamily.StructuredCompetitive,
 			"artificial-battlefield" => RmgPlayerLayoutFamily.ArtificialBattlefield,
-			_ => throw new ArgumentException("Player settings layout_family must be preset, natural-landscape, natural-landscape-pvp, structured-competitive, artificial-battlefield, crossroads, ring, or divided-lands.")
+			_ => throw new ArgumentException("Player settings layout_family must be preset, natural-landscape, natural-landscape-pvp, structured-competitive, artificial-battlefield, crossroads, ring, divided-lands, strongholds, or labyrinth.")
 		};
 
 		static RmgPlayerColonyDensity ParseColonyDensity(string value) => value.ToLowerInvariant() switch
@@ -1038,6 +1057,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			RmgPlayerLayoutFamily.Ring => RmgLayoutFamily.Ring,
 			RmgPlayerLayoutFamily.DividedLands => RmgLayoutFamily.DividedLands,
 			RmgPlayerLayoutFamily.Strongholds => RmgLayoutFamily.Strongholds,
+			RmgPlayerLayoutFamily.Labyrinth => RmgLayoutFamily.Labyrinth,
 			RmgPlayerLayoutFamily.StructuredCompetitive => RmgLayoutFamily.StructuredCompetitive,
 			RmgPlayerLayoutFamily.ArtificialBattlefield => RmgLayoutFamily.ArtificialBattlefield,
 			_ => throw new ArgumentOutOfRangeException(nameof(requested))

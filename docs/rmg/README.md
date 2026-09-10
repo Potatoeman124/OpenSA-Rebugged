@@ -10,19 +10,26 @@ The RMG must preserve that boundary: it may refer to terrain and actor identifie
 
 ## Current development
 
-[Starting-area options](STARTING_AREA_OPTIONS.md) are the current change on
-`codex/rmg-starting-area-options`, based on accepted Strongholds revision `af971d7` (2026-09-10).
-**Respect Starting Safe Area** applies to all seven current layouts and defaults On.
-**Own Starting Stronghold** defaults Off; when On it overrides ownership shares/mode,
-assigning each occupied starting fort to the player who actually spawns there. Castles remain neutral.
-The new options use player-settings schema 17; default settings retain their older schema and map identities.
+[Labyrinth V23](LABYRINTH_V23.md) is the current change on `codex/rmg-labyrinth`,
+based on the accepted starting-area checkpoint `55f206b` (2026-09-10). It adds an
+asymmetric maze of winding passages, slowing surfaces and sparse colony alcoves.
+Passage Width and Extra Routes are its layout controls. Terrain remains fixed when
+colony density, weights, ownership or starting safe-area rules change.
+The layout uses player-settings schema 18 and awaits in-game review.
+
+[Starting-area options](STARTING_AREA_OPTIONS.md) were accepted at `55f206b`.
+**Respect Starting Safe Area** applies to all eight current layouts and defaults On.
+**Own Starting Stronghold** remains specific to Strongholds and defaults Off.
+When On it assigns occupied starting forts to their actual players, overriding the
+ownership shares/mode; smaller castles remain neutral. Existing layout schemas and
+map identities remain unchanged.
 
 Natural Landscape PVP `15f4882`, Artificial Battlefield `17881c4`, Crossroads `cfa6f9e`, Ring
 `ae6512c` Divided Lands `91f1594`, and Strongholds `af971d7` are accepted. New layouts from Strongholds onward are
 asymmetric by user direction. Existing families retain their earlier symmetry contracts.
 Ordinary Natural Landscape remains the default; no merge or push is part of this implementation.
 Historical schemas preserve older generators. Structured Competitive remains retired from the
-lobby. Labyrinth and Chaos remain later, separately reviewed layouts.
+lobby. Chaos remains a later, separately reviewed layout.
 
 ## Current integration checkpoint
 
