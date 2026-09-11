@@ -10,6 +10,7 @@
 #endregion
 
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using OpenRA.FileSystem;
@@ -111,9 +112,31 @@ namespace OpenRA.Mods.OpenSA.Terrain
 
 			defaultWalkableTerrainIndex = GetTerrainIndex("Clear");
 
-			// Templates
-			Templates = yaml["Templates"].ToDictionary().Values
-				.Select(y => (TerrainTemplateInfo)new CustomTerrainTemplateInfo(this, y)).ToDictionary(t => t.Id);
+			// Composite tilesets can reuse catalogues and their artwork without duplicating them.
+			var templates = yaml.TryGetValue("Templates", out var ownTemplates) ? ownTemplates.ToDictionary().Values.ToList() : new List<MiniYaml>();
+			if (yaml.TryGetValue("TemplateSources", out var sources))
+				foreach (var source in sources.Nodes)
+				{
+					var offset = ushort.Parse(source.Key, CultureInfo.InvariantCulture);
+					var sourceYaml = MiniYaml.FromStream(fileSystem.Open(source.Value.Value), source.Value.Value).ToDictionary(n => n.Key, n => n.Value);
+					var colors = sourceYaml["Terrain"].Nodes.Select(n => n.Value.ToDictionary()).ToDictionary(n => n["Type"].Value, n => n["Color"].Value);
+					foreach (var sourceTemplate in sourceYaml["Templates"].Nodes)
+					{
+						var template = sourceTemplate.Value.Clone();
+						var fields = template.ToDictionary();
+						fields["Id"].Value = checked((ushort)(ushort.Parse(fields["Id"].Value, CultureInfo.InvariantCulture) + offset)).ToString(CultureInfo.InvariantCulture);
+						foreach (var tile in fields["Tiles"].Nodes)
+						{
+							var color = colors[tile.Value.Value];
+							if (!tile.Value.Nodes.Any(n => n.Key == "MinColor")) tile.Value.Nodes.Add(new MiniYamlNode("MinColor", color));
+							if (!tile.Value.Nodes.Any(n => n.Key == "MaxColor")) tile.Value.Nodes.Add(new MiniYamlNode("MaxColor", color));
+						}
+
+						templates.Add(template);
+					}
+				}
+
+			Templates = templates.Select(y => (TerrainTemplateInfo)new CustomTerrainTemplateInfo(this, y)).ToDictionary(t => t.Id);
 		}
 
 		public TerrainTypeInfo this[byte index]

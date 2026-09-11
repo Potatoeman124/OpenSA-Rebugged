@@ -237,7 +237,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			Require(!Settings().RespectStartingSafeArea && Settings().OwnStartingStronghold && ownership.IsDisabled(), "Starting-area controls did not reach settings or disable overridden sliders.");
 			Choose("RMG_SIZE", "256 x 256");
 			Draw(output, "starting-area-strongholds-options");
-			foreach (var family in new[] { "Natural Landscape (Regions)", "Natural Landscape PVP", "Artificial Battlefield", "Crossroads", "Ring", "Divided Lands", "Labyrinth", "Archipelago" })
+			foreach (var family in new[] { "Natural Landscape (Regions)", "Natural Landscape PVP", "Artificial Battlefield", "Crossroads", "Ring", "Divided Lands", "Labyrinth", "Archipelago", "Chaos" })
 			{
 				Choose("RMG_LAYOUT_FAMILY", family);
 				Require(safeArea.IsVisible() && !Settings().RespectStartingSafeArea && !ownFort.IsVisible() && !Settings().OwnStartingStronghold && !ownership.IsDisabled(), "Starting-area options leaked or reset while switching family.");
@@ -362,6 +362,57 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			}
 
 			Console.WriteLine("PASS: Archipelago live widgets, 700 settings roundtrips, invalid inputs and stored options.");
+
+			Choose("RMG_LAYOUT_FAMILY", "Chaos");
+			Require(Settings().GeneratorVersion == 25 && Settings().MirroringAxes == 0 && lobby.Get("RMG_CHAOS_SCALE").IsVisible() && !lobby.Get("RMG_ISLAND_AMOUNT").IsVisible(), "Chaos controls failed to activate.");
+			Choose("RMG_SIZE", "512 x 512");
+			for (var count = 1; count <= 8; count++) { slider.UpdateValue(count); Require(Settings().PlayerCount == count, "Chaos lost player count."); }
+			foreach (var scale in Enum.GetValues<RmgChaosScale>())
+				foreach (var biomes in Enum.GetValues<RmgChaosBiomes>())
+				{
+					Choose("RMG_CHAOS_SCALE", scale.ToString()); Choose("RMG_CHAOS_BIOMES", biomes.ToString());
+					Require(Settings().ChaosScale == scale && Settings().ChaosBiomes == biomes, "Chaos controls did not reach generation.");
+				}
+
+			Choose("RMG_PRESET", "Balanced"); Require(Settings().GeneratorVersion == 25, "Preset exited Chaos.");
+			Draw(output, "chaos-512-options");
+			ownership.OnClick(); Require(Ui.CurrentWindow().Get<ScrollPanelWidget>("SETTINGS").Children.Count == 8, "Chaos ownership rows disagree.");
+			Require(Ui.CurrentWindow().Get<LabelWidget>("HELP").GetText().Contains("Mandatory island nests"), "Chaos ownership panel omitted the island nest exception.");
+			Draw(output, "chaos-ownership-help");
+			Ui.CurrentWindow().Get<ButtonWidget>("CANCEL").OnClick();
+			Choose("RMG_SIZE", "64 x 64"); Require(Settings().PlayerCount == 4 && slider.MaximumValue == 4, "Chaos small-map cap failed.");
+			Choose("RMG_LAYOUT_FAMILY", "Natural Landscape (Regions)");
+			Require(Settings().GeneratorVersion == 16 && !lobby.Get("RMG_CHAOS_SCALE").IsVisible() && Settings().ChaosScale == RmgChaosScale.Standard && Settings().ChaosBiomes == RmgChaosBiomes.Patchwork, "Chaos options leaked into another layout.");
+			Choose("RMG_LAYOUT_FAMILY", "Chaos");
+			Require(Settings().ChaosScale == RmgChaosScale.Large && Settings().ChaosBiomes == RmgChaosBiomes.Fractured, "Stored Chaos options were lost.");
+			Draw(output, "chaos-64-options");
+			foreach (var mapSize in new[] { 64, 128, 256, 512 })
+				for (var count = 1; count <= (mapSize == 64 ? 4 : 8); count++)
+					foreach (var scale in Enum.GetValues<RmgChaosScale>())
+						foreach (var biomes in Enum.GetValues<RmgChaosBiomes>())
+						{
+							var request = new RmgPlayerSettings { SchemaVersion = 20, LayoutFamily = RmgPlayerLayoutFamily.Chaos, MapSize = mapSize, PlayerCount = count, ChaosScale = scale, ChaosBiomes = biomes, RespectStartingSafeArea = false };
+							var parsed = RmgPlayerSettingsContract.Resolve(RmgPlayerSettingsContract.Parse(request.ToJson())).Normalized;
+							Require(parsed.GeneratorVersion == 25 && parsed.ChaosScale == scale && parsed.ChaosBiomes == biomes && !parsed.RespectStartingSafeArea, "Chaos settings roundtrip failed.");
+						}
+
+			foreach (var invalid in new[] { "schema", "family", "scale", "biomes", "castles", "fort-ownership", "axes", "players" })
+			{
+				var json = new RmgPlayerSettings { SchemaVersion = 20, LayoutFamily = RmgPlayerLayoutFamily.Chaos }.ToJson();
+				if (invalid == "schema") json["schema_version"] = 19;
+				if (invalid == "family") json["layout_family"] = "archipelago";
+				if (invalid == "scale") json["chaos_scale"] = "bad";
+				if (invalid == "biomes") json["chaos_biomes"] = "bad";
+				if (invalid == "castles") json["generate_castles"] = false;
+				if (invalid == "fort-ownership") json["own_starting_stronghold"] = true;
+				if (invalid == "axes") json["mirroring_axes"] = 1;
+				if (invalid == "players") { json["players"] = 5; json["size"] = "64,64"; }
+				var rejected = false;
+				try { RmgPlayerSettingsContract.Resolve(RmgPlayerSettingsContract.Parse(json)); } catch (ArgumentException) { rejected = true; }
+				Require(rejected, $"Chaos accepted invalid {invalid}.");
+			}
+
+			Console.WriteLine("PASS: Chaos live widgets, 252 settings roundtrips, invalid inputs and stored options.");
 
 			var battlefieldValid = 0;
 			foreach (var size in new[] { 64, 128, 256, 512 })

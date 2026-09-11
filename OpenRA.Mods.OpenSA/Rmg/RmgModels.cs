@@ -48,7 +48,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		DividedLands,
 		Strongholds,
 		Labyrinth,
-		Archipelago
+		Archipelago,
+		Chaos
 	}
 
 	public enum RmgLayoutFamily
@@ -62,7 +63,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		DividedLands,
 		Strongholds,
 		Labyrinth,
-		Archipelago
+		Archipelago,
+		Chaos
 	}
 
 	public enum RmgParameterLevel
@@ -118,6 +120,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public bool GenerateCastles { get; set; } = true;
 		public bool RespectStartingSafeArea { get; set; } = true;
 		public bool OwnStartingStronghold { get; set; }
+		public RmgChaosScale ChaosScale { get; set; } = RmgChaosScale.Standard;
+		public RmgChaosBiomes ChaosBiomes { get; set; } = RmgChaosBiomes.Patchwork;
 		public RmgIslandAmount IslandAmount { get; set; } = RmgIslandAmount.Standard;
 		public RmgIslandSize IslandSize { get; set; } = RmgIslandSize.Standard;
 		public RmgLabyrinthRoutes ExtraRoutes { get; set; } = RmgLabyrinthRoutes.Standard;
@@ -127,7 +131,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public RmgLandCrossings LandCrossings { get; set; } = RmgLandCrossings.One;
 		public RmgRingShape RingShape { get; set; } = RmgRingShape.Round;
 		public RmgCrossroadsConnections SideConnections { get; set; } = RmgCrossroadsConnections.Standard;
-		public int EffectiveNeutralColonyCount => GeneratorVersion is 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24 && NeutralColonyWeights.Total == 0 ? 0 : NeutralColonyCount;
+		public int EffectiveNeutralColonyCount => GeneratorVersion is 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24 or 25 && NeutralColonyWeights.Total == 0 ? 0 : NeutralColonyCount;
 		public RmgPlayerSettingsResolution PlayerSettingsResolution { get; set; }
 
 		public string Canonical(RmgProfile profile)
@@ -143,34 +147,34 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				$"archetype={Archetype}",
 				$"colonies={NeutralColonyCount}"
 			};
-			if (GeneratorVersion is 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24)
+			if (GeneratorVersion is 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24 or 25)
 				fields.RemoveAll(field => field.StartsWith("symmetry=", StringComparison.Ordinal) || field.StartsWith("archetype=", StringComparison.Ordinal));
 			if (GeneratorVersion >= 2)
 				fields.Add($"topology={TopologyPreset}");
 			if (GeneratorVersion >= 7)
 			{
 				fields.Add($"water={RmgPlayerSettingsContract.ParameterLevelName(WaterAmount)}");
-				fields.Add($"{(GeneratorVersion is 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24 ? "gravel-moss-amount" : "tactical-terrain")}={RmgPlayerSettingsContract.ParameterLevelName(TacticalTerrain)}");
+				fields.Add($"{(GeneratorVersion is 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24 or 25 ? "gravel-moss-amount" : "tactical-terrain")}={RmgPlayerSettingsContract.ParameterLevelName(TacticalTerrain)}");
 			}
 
-			if (GeneratorVersion is 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24)
-				fields.Add($"terrain-complexity={RmgPlayerSettingsContract.ComplexityDisplayName(TerrainComplexity, GeneratorVersion is 13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24)}");
+			if (GeneratorVersion is 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24 or 25)
+				fields.Add($"terrain-complexity={RmgPlayerSettingsContract.ComplexityDisplayName(TerrainComplexity, GeneratorVersion is 13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24 or 25)}");
 
 			if (GeneratorVersion >= 8)
 				fields.Add($"layout-family={RmgPlayerSettingsContract.LayoutFamilyName(LayoutFamily)}");
 			if (GeneratorVersion >= 9)
 				fields.Add($"original-surface-relations={OriginalSurfaceRelations.ToString().ToLowerInvariant()}");
 
-			if (GeneratorVersion is 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24)
+			if (GeneratorVersion is 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24 or 25)
 				fields.Add($"prevent-colony-overlapping={PreventColonyOverlapping.ToString().ToLowerInvariant()}");
 
-			if (GeneratorVersion is 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24)
+			if (GeneratorVersion is 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24 or 25)
 				fields.Add($"neutral-colony-weights={NeutralColonyWeights.ToJson().ToString(Newtonsoft.Json.Formatting.None)}");
 
-			if (GeneratorVersion is 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24)
+			if (GeneratorVersion is 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24 or 25)
 				fields.Add($"starting-colony-shares={string.Join(",", StartingColonyShares)}");
 
-			if (GeneratorVersion is 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24 && StartingColonyMode != RmgColonyOwnershipMode.ClosestToSpawn)
+			if (GeneratorVersion is 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24 or 25 && StartingColonyMode != RmgColonyOwnershipMode.ClosestToSpawn)
 				fields.Add($"starting-colony-mode={RmgColonyOwnership.ModeName(StartingColonyMode)}");
 
 			if (GeneratorVersion is 17 or 18 or 19 or 20 or 21) fields.Add($"mirroring-axes={MirroringAxes}");
@@ -179,6 +183,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 			if (!RespectStartingSafeArea) fields.Add("respect-starting-safe-area=false");
 			if (OwnStartingStronghold) fields.Add("own-starting-stronghold=true");
+			if (GeneratorVersion == 25) { fields.Add($"chaos-scale={RmgChaosParameters.Name(ChaosScale)}"); fields.Add($"chaos-biomes={RmgChaosParameters.Name(ChaosBiomes)}"); }
 			if (GeneratorVersion == 24) { fields.Add($"island-amount={RmgArchipelagoParameters.Name(IslandAmount)}"); fields.Add($"island-size={RmgArchipelagoParameters.Name(IslandSize)}"); }
 			if (GeneratorVersion == 23) { fields.Add($"passage-width={RmgBattlefieldParameters.Name(LaneWidth)}"); fields.Add($"extra-routes={RmgLabyrinthParameters.Name(ExtraRoutes)}"); }
 			if (GeneratorVersion == 22) fields.Add($"generate-castles={GenerateCastles.ToString().ToLowerInvariant()}");
@@ -271,8 +276,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		public bool UsesParameterizedBattlefield => GeneratorVersion >= 7;
 		public bool UsesCoherentWaterMorphology => GeneratorVersion == 8;
 		public bool UsesNaturalTerrainMorphologyV10 => GeneratorVersion == 10;
-		public bool UsesRegionsTerrain => GeneratorVersion is 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24;
-		public bool UsesNaturalTerrainMorphology => GeneratorVersion is 9 or 10 or 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24;
+		public bool UsesRegionsTerrain => GeneratorVersion is 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24 or 25;
+		public bool UsesNaturalTerrainMorphology => GeneratorVersion is 9 or 10 or 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24 or 25;
 
 		public int ObstacleDensityTarget(RmgArchetype archetype, RmgParameterLevel waterAmount)
 		{
@@ -293,8 +298,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		{
 			RmgParameterLevel.Low when UsesParameterizedBattlefield => LowRockLandPercent,
 			RmgParameterLevel.High when UsesParameterizedBattlefield => HighRockLandPercent,
-			RmgParameterLevel.Extreme when GeneratorVersion is 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24 => 24,
-			RmgParameterLevel.Ultra when GeneratorVersion is 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24 => 36,
+			RmgParameterLevel.Extreme when GeneratorVersion is 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24 or 25 => 24,
+			RmgParameterLevel.Ultra when GeneratorVersion is 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24 or 25 => 36,
 			_ => RockLandPercent
 		};
 
@@ -302,8 +307,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		{
 			RmgParameterLevel.Low when UsesParameterizedBattlefield => LowVegetationLandPercent,
 			RmgParameterLevel.High when UsesParameterizedBattlefield => HighVegetationLandPercent,
-			RmgParameterLevel.Extreme when GeneratorVersion is 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24 => 16,
-			RmgParameterLevel.Ultra when GeneratorVersion is 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24 => 25,
+			RmgParameterLevel.Extreme when GeneratorVersion is 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24 or 25 => 16,
+			RmgParameterLevel.Ultra when GeneratorVersion is 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24 or 25 => 25,
 			_ => VegetationLandPercent
 		};
 
@@ -323,10 +328,10 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 		public static RmgProfile Load(ModData modData, RmgGenerationSettings settings)
 		{
-			if (settings.TopologyPreset is RmgTopologyPreset.NaturalRegions or RmgTopologyPreset.PlannedBattlefield or RmgTopologyPreset.Crossroads or RmgTopologyPreset.Ring or RmgTopologyPreset.DividedLands or RmgTopologyPreset.Strongholds or RmgTopologyPreset.Labyrinth or RmgTopologyPreset.Archipelago && (settings.MapSize is 128 or 256 || (settings.MapSize is 64 or 512 && settings.GeneratorVersion is 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24)))
+			if (settings.TopologyPreset is RmgTopologyPreset.NaturalRegions or RmgTopologyPreset.PlannedBattlefield or RmgTopologyPreset.Crossroads or RmgTopologyPreset.Ring or RmgTopologyPreset.DividedLands or RmgTopologyPreset.Strongholds or RmgTopologyPreset.Labyrinth or RmgTopologyPreset.Archipelago or RmgTopologyPreset.Chaos && (settings.MapSize is 128 or 256 || (settings.MapSize is 64 or 512 && settings.GeneratorVersion is 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24 or 25)))
 			{
-				var profile = Load(modData, $"sa|rmg/normal-{(settings.GeneratorVersion == 24 ? "archipelago" : settings.GeneratorVersion == 23 ? "labyrinth" : settings.GeneratorVersion == 22 ? "strongholds" : settings.GeneratorVersion == 21 ? "divided-lands" : settings.GeneratorVersion == 20 ? "ring" : settings.GeneratorVersion == 19 ? "crossroads" : settings.GeneratorVersion == 18 ? "artificial-battlefield" : "natural-regions")}-v{(settings.GeneratorVersion is 12 or 13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24 ? settings.GeneratorVersion : 11)}{(settings.MapSize == 128 ? string.Empty : $"-{settings.MapSize}")}.yaml");
-				if (!RmgBiome.IsSupported(settings.Tileset) || (settings.Tileset != "NORMAL" && settings.GeneratorVersion is not (16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24)))
+				var profile = Load(modData, $"sa|rmg/normal-{(settings.GeneratorVersion == 25 ? "chaos" : settings.GeneratorVersion == 24 ? "archipelago" : settings.GeneratorVersion == 23 ? "labyrinth" : settings.GeneratorVersion == 22 ? "strongholds" : settings.GeneratorVersion == 21 ? "divided-lands" : settings.GeneratorVersion == 20 ? "ring" : settings.GeneratorVersion == 19 ? "crossroads" : settings.GeneratorVersion == 18 ? "artificial-battlefield" : "natural-regions")}-v{(settings.GeneratorVersion is 12 or 13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24 or 25 ? settings.GeneratorVersion : 11)}{(settings.MapSize == 128 ? string.Empty : $"-{settings.MapSize}")}.yaml");
+				if (!RmgBiome.IsSupported(settings.Tileset) || (settings.Tileset != "NORMAL" && settings.GeneratorVersion is not (16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24 or 25)))
 					throw new ArgumentException("Additional tilesets require Regions V16.");
 				if (settings.Tileset != "NORMAL")
 				{
@@ -460,8 +465,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (UsesRegionsTerrain)
 			{
 				var suffix = PlayableWidth == 128 ? string.Empty : $"-{PlayableWidth}";
-				if (ProfileId != $"{Tileset.ToLowerInvariant()}-{(GeneratorVersion == 24 ? "archipelago" : GeneratorVersion == 23 ? "labyrinth" : GeneratorVersion == 22 ? "strongholds" : GeneratorVersion == 21 ? "divided-lands" : GeneratorVersion == 20 ? "ring" : GeneratorVersion == 19 ? "crossroads" : GeneratorVersion == 18 ? "artificial-battlefield" : "natural-regions")}-v{GeneratorVersion}" + suffix || ConfigurationVersion != (GeneratorVersion == 13 ? 4 : GeneratorVersion is 18 or 19 or 21 or 23 ? 2 : 1) ||
-					!RmgBiome.IsSupported(Tileset) || (Tileset != "NORMAL" && GeneratorVersion is not (16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24)) || (PlayableWidth is not (128 or 256) && !(PlayableWidth is 64 or 512 && GeneratorVersion is 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24)) || PlayableHeight != PlayableWidth ||
+				if (ProfileId != $"{Tileset.ToLowerInvariant()}-{(GeneratorVersion == 25 ? "chaos" : GeneratorVersion == 24 ? "archipelago" : GeneratorVersion == 23 ? "labyrinth" : GeneratorVersion == 22 ? "strongholds" : GeneratorVersion == 21 ? "divided-lands" : GeneratorVersion == 20 ? "ring" : GeneratorVersion == 19 ? "crossroads" : GeneratorVersion == 18 ? "artificial-battlefield" : "natural-regions")}-v{GeneratorVersion}" + suffix || ConfigurationVersion != (GeneratorVersion == 13 ? 4 : GeneratorVersion is 18 or 19 or 21 or 23 ? 2 : 1) ||
+					!RmgBiome.IsSupported(Tileset) || (Tileset != "NORMAL" && GeneratorVersion is not (16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24 or 25)) || (PlayableWidth is not (128 or 256) && !(PlayableWidth is 64 or 512 && GeneratorVersion is 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24 or 25)) || PlayableHeight != PlayableWidth ||
 					LogicalWidth * 2 != PlayableWidth || LogicalHeight != LogicalWidth || CordonWidth != 2 ||
 					ClearTemplateIds.Length == 0 || BlockedTemplateIds.Length == 0 || NeutralColonyActors.Length != 5 ||
 					ColonyCombatSafetyBufferNative != 1 || LandDecorationPerThousand != 3)

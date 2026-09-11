@@ -10,12 +10,17 @@ The RMG must preserve that boundary: it may refer to terrain and actor identifie
 
 ## Current development
 
-[Archipelago V24](ARCHIPELAGO_V24.md) is the current change on `codex/rmg-archipelago`,
-based on accepted Labyrinth checkpoint `20ccaa0` (2026-09-11). It adds asymmetric
-islands with Island Amount and Island Size controls, complex coastlines, and large
+[Chaos V25](CHAOS_V25.md) is the current change on `codex/rmg-chaos`, based on
+accepted Archipelago `dc6dcfc` (2026-09-11). It overlaps asymmetric terrain motifs
+and optionally mixes all four actual biome catalogues in one map. Collision Scale
+and Biome Mixing are its layout controls. Player-settings schema 20 selects
+generator 25, configuration 1. Pending user in-game review.
+
+[Archipelago V24](ARCHIPELAGO_V24.md) was accepted at `dc6dcfc`. It provides
+asymmetric islands with Island Amount and Island Size, complex coastlines and large
 landmasses. Every actual dry island has a mandatory neutral Wasps nest, independently
-of player starting factions, species weights and Starting Ownership. Player-settings
-schema 19 selects generator 24, configuration 1. Pending user in-game review.
+of starting factions, species weights and Starting Ownership. Schema 19 preserves
+this accepted generator and configuration.
 
 [Labyrinth V23](LABYRINTH_V23.md), configuration 2, was accepted at `20ccaa0`.
 Its complexity subdivides the maze into more and longer routes while retaining
@@ -23,7 +28,7 @@ starting positions and large-area connections. Passage Width and Extra Routes ar
 its layout controls; schema 18 preserves this accepted version.
 
 [Starting-area options](STARTING_AREA_OPTIONS.md) were accepted at `55f206b`.
-**Respect Starting Safe Area** applies to all nine current layouts and defaults On.
+**Respect Starting Safe Area** applies to all ten current layouts and defaults On.
 **Own Starting Stronghold** remains specific to Strongholds and defaults Off.
 When On it assigns occupied starting forts to their actual players, overriding the
 ownership shares/mode; smaller castles remain neutral. Existing layout schemas and
@@ -34,7 +39,7 @@ Natural Landscape PVP `15f4882`, Artificial Battlefield `17881c4`, Crossroads `c
 asymmetric by user direction. Existing families retain their earlier symmetry contracts.
 Ordinary Natural Landscape remains the default; no merge or push is part of this implementation.
 Historical schemas preserve older generators. Structured Competitive remains retired from the
-lobby. Chaos remains a later, separately reviewed layout.
+lobby. Chaos is now implemented as the final experimental family.
 
 ## Current integration checkpoint
 
@@ -88,7 +93,7 @@ generated-map selection initializes Explored Map On and Fog of War Off; later re
 user changes. With overlap prevention off, the generator fills neutral-colony shortfalls using the smallest
 available turret-spacing overlaps while retaining physical clearance and all player-start protections.
 
-Schema 19 adds Archipelago V24. Schema 18 adds Labyrinth V23.
+Schema 20 adds Chaos V25. Schema 19 adds Archipelago V24. Schema 18 adds Labyrinth V23.
 Schema 12 selects V18 for explicit Artificial Battlefield. Schema 13 adds Crossroads V19. Schema 14 adds Ring V20. Schema 15 adds Divided Lands V21. Schema 16 adds Strongholds V22. Schema 17 adds the optional starting safe-area and whole-stronghold ownership controls.
 Schema 11 and newer select V17 for Natural Landscape PVP and preserve V16 for ordinary Natural Landscape.
 Schema 10 selects V16; schema 9 preserves V15; schema 8 preserves V14; schema 7 preserves [accepted V13 complexity](NATURAL_REGIONS_V13_EXTENDED_OPTIONS.md);

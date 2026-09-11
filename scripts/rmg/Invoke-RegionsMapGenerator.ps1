@@ -9,6 +9,9 @@ param(
     [switch]$Strongholds,
     [switch]$Labyrinth,
     [switch]$Archipelago,
+    [switch]$Chaos,
+    [ValidateSet("small", "standard", "large")][string]$ChaosScale = "standard",
+    [ValidateSet("single", "patchwork", "fractured")][string]$ChaosBiomes = "patchwork",
     [ValidateSet("few", "standard", "many", "extreme", "ultra")][string]$IslandAmount = "standard",
     [ValidateSet("small", "standard", "large", "extreme", "ultra")][string]$IslandSize = "standard",
     [ValidateSet("narrow", "standard", "wide")][string]$PassageWidth = "standard",
@@ -55,7 +58,7 @@ if ($StartingColonyShares.Count -ne 0 -and $StartingColonyShares.Count -ne $Play
 if ($MapSize -eq 64 -and $Players -gt 4) {
     throw "64x64 supports 1 through 4 players."
 }
-if (@($Pvp, $Battlefield, $Crossroads, $Ring, $DividedLands, $Strongholds, $Labyrinth, $Archipelago).Where({ $_ }).Count -gt 1) { throw "Choose only one layout family." }
+if (@($Pvp, $Battlefield, $Crossroads, $Ring, $DividedLands, $Strongholds, $Labyrinth, $Archipelago, $Chaos).Where({ $_ }).Count -gt 1) { throw "Choose only one layout family." }
 if (($Crossroads -or $Ring -or $DividedLands) -and $PSBoundParameters.ContainsKey("BlockShape")) { throw "BlockShape applies only to Battlefield." }
 if (!$Crossroads -and $PSBoundParameters.ContainsKey("SideConnections")) { throw "SideConnections requires -Crossroads." }
 if (!$Ring -and ($PSBoundParameters.ContainsKey("RingShape") -or $PSBoundParameters.ContainsKey("RingWidth"))) { throw "RingShape and RingWidth require -Ring." }
@@ -75,7 +78,7 @@ if (!$Strongholds -and $PSBoundParameters.ContainsKey("GenerateCastles")) { thro
 if (!$Strongholds -and $PSBoundParameters.ContainsKey("OwnStartingStronghold")) { throw "OwnStartingStronghold requires -Strongholds." }
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
-    $OutputDirectory = Join-Path $root "artifacts\rmg\$(if ($Archipelago) { "archipelago-v24" } elseif ($Labyrinth) { "labyrinth-v23" } elseif ($Strongholds) { "strongholds-v22" } elseif ($DividedLands) { "divided-lands-v21" } elseif ($Ring) { "ring-v20" } elseif ($Crossroads) { "crossroads-v19" } elseif ($Battlefield) { "battlefield-v18" } elseif ($Pvp) { "regions-v17-pvp" } else { "regions-v16" })\$Seed-$MapSize-$Players-$TerrainComplexity-W$WaterAmount-G$GravelMossAmount-N$NeutralColonyDensity$(if ($Strongholds) { "-Castles$GenerateCastles" })$(if ($Archipelago) { "-$IslandAmount-$IslandSize" })$(if ($Labyrinth) { "-$PassageWidth-$ExtraRoutes" })-R$OriginalSurfaceRelations-O$PreventColonyOverlapping$(if (!$RespectStartingSafeArea) { "-NoSafeArea" })$(if ($OwnStartingStronghold) { "-OwnStronghold" })-C$AntsWeight-$BeetlesWeight-$ScorpionsWeight-$SpidersWeight-$WaspsWeight-S$($StartingColonyShares -join '-')$(if ($StartingColonyMode -eq 'random') { '-random' })$(if ($Tileset -ne 'NORMAL') { '-' + $Tileset })$(if ($Pvp) { '-axes' + $MirroringAxes })$(if ($Battlefield) { '-' + $BlockShape + '-' + $LaneWidth })$(if ($DividedLands) { '-' + $LandCrossings + '-' + $CrossingWidth })$(if ($Ring) { '-' + $RingShape + '-' + $RingWidth })$(if ($Crossroads) { '-' + $LaneWidth + '-' + $SideConnections })"
+    $OutputDirectory = Join-Path $root "artifacts\rmg\$(if ($Chaos) { "chaos-v25" } elseif ($Archipelago) { "archipelago-v24" } elseif ($Labyrinth) { "labyrinth-v23" } elseif ($Strongholds) { "strongholds-v22" } elseif ($DividedLands) { "divided-lands-v21" } elseif ($Ring) { "ring-v20" } elseif ($Crossroads) { "crossroads-v19" } elseif ($Battlefield) { "battlefield-v18" } elseif ($Pvp) { "regions-v17-pvp" } else { "regions-v16" })\$Seed-$MapSize-$Players-$TerrainComplexity-W$WaterAmount-G$GravelMossAmount-N$NeutralColonyDensity$(if ($Strongholds) { "-Castles$GenerateCastles" })$(if ($Archipelago) { "-$IslandAmount-$IslandSize" })$(if ($Chaos) { "-$ChaosScale-$ChaosBiomes" })$(if ($Labyrinth) { "-$PassageWidth-$ExtraRoutes" })-R$OriginalSurfaceRelations-O$PreventColonyOverlapping$(if (!$RespectStartingSafeArea) { "-NoSafeArea" })$(if ($OwnStartingStronghold) { "-OwnStronghold" })-C$AntsWeight-$BeetlesWeight-$ScorpionsWeight-$SpidersWeight-$WaspsWeight-S$($StartingColonyShares -join '-')$(if ($StartingColonyMode -eq 'random') { '-random' })$(if ($Tileset -ne 'NORMAL') { '-' + $Tileset })$(if ($Pvp) { '-axes' + $MirroringAxes })$(if ($Battlefield) { '-' + $BlockShape + '-' + $LaneWidth })$(if ($DividedLands) { '-' + $LandCrossings + '-' + $CrossingWidth })$(if ($Ring) { '-' + $RingShape + '-' + $RingWidth })$(if ($Crossroads) { '-' + $LaneWidth + '-' + $SideConnections })"
 }
 [IO.Directory]::CreateDirectory($OutputDirectory) | Out-Null
 $settingsPath = Join-Path $OutputDirectory "settings.json"
@@ -84,12 +87,12 @@ if ((Test-Path -LiteralPath $settingsPath) -and !$Overwrite) {
 }
 $settings = [ordered]@{
     starting_colony_shares = @(if ($StartingColonyShares.Count -eq 0) { @(0) * $Players } else { $StartingColonyShares })
-    schema_version = $(if ($Archipelago) { 19 } elseif ($Labyrinth) { 18 } elseif ($Strongholds) { 16 } elseif ($DividedLands) { 15 } elseif ($Ring) { 14 } elseif ($Crossroads) { 13 } elseif ($Battlefield) { 12 } elseif ($Pvp) { 11 } else { 10 })
+    schema_version = $(if ($Chaos) { 20 } elseif ($Archipelago) { 19 } elseif ($Labyrinth) { 18 } elseif ($Strongholds) { 16 } elseif ($DividedLands) { 15 } elseif ($Ring) { 14 } elseif ($Crossroads) { 13 } elseif ($Battlefield) { 12 } elseif ($Pvp) { 11 } else { 10 })
     preset = "balanced"
     seed = $Seed.ToString([Globalization.CultureInfo]::InvariantCulture)
     size = "$MapSize,$MapSize"
     players = $Players
-    layout_family = $(if ($Archipelago) { "archipelago" } elseif ($Labyrinth) { "labyrinth" } elseif ($Strongholds) { "strongholds" } elseif ($DividedLands) { "divided-lands" } elseif ($Ring) { "ring" } elseif ($Crossroads) { "crossroads" } elseif ($Battlefield) { "artificial-battlefield" } elseif ($Pvp) { "natural-landscape-pvp" } else { "natural-landscape" })
+    layout_family = $(if ($Chaos) { "chaos" } elseif ($Archipelago) { "archipelago" } elseif ($Labyrinth) { "labyrinth" } elseif ($Strongholds) { "strongholds" } elseif ($DividedLands) { "divided-lands" } elseif ($Ring) { "ring" } elseif ($Crossroads) { "crossroads" } elseif ($Battlefield) { "artificial-battlefield" } elseif ($Pvp) { "natural-landscape-pvp" } else { "natural-landscape" })
     neutral_colony_density = $NeutralColonyDensity
     water_amount = $WaterAmount
     gravel_moss_amount = $GravelMossAmount
@@ -98,8 +101,10 @@ $settings = [ordered]@{
     prevent_colony_overlapping = $PreventColonyOverlapping
     neutral_colony_weights = [ordered]@{ ants = $AntsWeight; beetles = $BeetlesWeight; scorpions = $ScorpionsWeight; spiders = $SpidersWeight; wasps = $WaspsWeight }
 }
-if (!$Archipelago -and !$Labyrinth -and (!$RespectStartingSafeArea -or $OwnStartingStronghold)) { $settings.schema_version = 17 }
+if (!$Chaos -and !$Archipelago -and !$Labyrinth -and (!$RespectStartingSafeArea -or $OwnStartingStronghold)) { $settings.schema_version = 17 }
 if (!$Archipelago -and ($PSBoundParameters.ContainsKey("IslandAmount") -or $PSBoundParameters.ContainsKey("IslandSize"))) { throw "IslandAmount and IslandSize require -Archipelago." }
+if (!$Chaos -and ($PSBoundParameters.ContainsKey("ChaosScale") -or $PSBoundParameters.ContainsKey("ChaosBiomes"))) { throw "ChaosScale and ChaosBiomes require -Chaos." }
+if ($Chaos) { $settings.chaos_scale = $ChaosScale.ToLowerInvariant(); $settings.chaos_biomes = $ChaosBiomes.ToLowerInvariant() }
 if ($Archipelago) { $settings.island_amount = $IslandAmount.ToLowerInvariant(); $settings.island_size = $IslandSize.ToLowerInvariant() }
 if ($Labyrinth) { $settings.passage_width = $PassageWidth.ToLowerInvariant(); $settings.extra_routes = $ExtraRoutes.ToLowerInvariant() }
 if (!$RespectStartingSafeArea) { $settings.respect_starting_safe_area = $false }

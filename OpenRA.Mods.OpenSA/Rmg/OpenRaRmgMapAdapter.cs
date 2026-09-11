@@ -201,7 +201,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (terrainInfo is not ITemplatedTerrainInfo templated)
 				throw new InvalidDataException($"Tileset {profile.Tileset} is not template-based.");
 
-			if (profile.GeneratorVersion is 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24) RmgBiome.ValidateCatalogue(modData, profile.Tileset);
+			if (profile.GeneratorVersion is 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24 or 25) RmgBiome.ValidateCatalogue(modData, profile.Tileset);
+			if (profile.GeneratorVersion == 25) RmgChaosBiomeMix.ValidateCatalogue(modData);
 
 			ValidateTemplates(profile.ClearTemplateIds, "Clear");
 			if (profile.UsesClearLandDetails)
@@ -284,7 +285,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var profile = generation.Profile;
 			var storedWidth = profile.PlayableWidth + 2 * profile.CordonWidth;
 			var storedHeight = profile.PlayableHeight + 2 * profile.CordonWidth;
-			var terrainInfo = modData.DefaultTerrainInfo[profile.Tileset];
+			var terrainInfo = modData.DefaultTerrainInfo[RmgChaosBiomeMix.MapTileset(generation.Settings)];
+			var biomePlan = RmgChaosBiomeMix.IsMixed(generation.Settings) ? RmgChaosBiomeMix.CreatePlan(generation.Settings) : null;
 			using var map = new Map(modData, terrainInfo, storedWidth, storedHeight)
 			{
 				RequiresMod = modData.Manifest.Id,
@@ -301,8 +303,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			};
 
 			if (profile.UsesRegionsTerrain)
-				map.Title = $"OpenSA Regions C-{RmgPlayerSettingsContract.ComplexityDisplayName(generation.Settings.TerrainComplexity, generation.Settings.GeneratorVersion is 13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24)} W-{generation.Settings.WaterAmount} G-{generation.Settings.TacticalTerrain} {generation.Settings.Seed}";
+				map.Title = $"OpenSA Regions C-{RmgPlayerSettingsContract.ComplexityDisplayName(generation.Settings.TerrainComplexity, generation.Settings.GeneratorVersion is 13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24 or 25)} W-{generation.Settings.WaterAmount} G-{generation.Settings.TacticalTerrain} {generation.Settings.Seed}";
 			if (generation.Settings.GeneratorVersion == 17) map.Title = $"OpenSA Natural PVP {generation.Settings.MirroringAxes} {(generation.Settings.MirroringAxes == 1 ? "axis" : "axes")} C-{RmgPlayerSettingsContract.ComplexityDisplayName(generation.Settings.TerrainComplexity, true)} {generation.Settings.Seed}";
+			if (generation.Settings.GeneratorVersion == 25) map.Title = $"OpenSA Chaos {RmgPlayerSettingsContract.ComplexityDisplayName(generation.Settings.TerrainComplexity, true)} {generation.Settings.Seed}";
 			if (generation.Settings.GeneratorVersion == 24) map.Title = $"OpenSA Archipelago {RmgPlayerSettingsContract.ComplexityDisplayName(generation.Settings.TerrainComplexity, true)} {generation.Settings.Seed}";
 			if (generation.Settings.GeneratorVersion == 23) map.Title = $"OpenSA Labyrinth {RmgPlayerSettingsContract.ComplexityDisplayName(generation.Settings.TerrainComplexity, true)} {generation.Settings.Seed}";
 			if (generation.Settings.GeneratorVersion == 22) map.Title = $"OpenSA Strongholds {RmgPlayerSettingsContract.ComplexityDisplayName(generation.Settings.TerrainComplexity, true)} {generation.Settings.Seed}";
@@ -310,7 +313,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (generation.Settings.GeneratorVersion == 20) map.Title = $"OpenSA Ring {RmgRingParameters.Name(generation.Settings.RingShape)} {RmgPlayerSettingsContract.ComplexityDisplayName(generation.Settings.TerrainComplexity, true)} {generation.Settings.Seed}";
 			if (generation.Settings.GeneratorVersion == 19) map.Title = $"OpenSA Crossroads {RmgPlayerSettingsContract.ComplexityDisplayName(generation.Settings.TerrainComplexity, true)} {generation.Settings.Seed}";
 			if (generation.Settings.GeneratorVersion == 18) map.Title = $"OpenSA Artificial Battlefield {RmgBattlefieldParameters.Name(generation.Settings.BlockShape)} {generation.Settings.Seed}";
-			if (profile.Tileset != "NORMAL") map.Title = profile.Tileset + " " + map.Title;
+			if (profile.Tileset != "NORMAL" && !RmgChaosBiomeMix.IsMixed(generation.Settings)) map.Title = profile.Tileset + " " + map.Title;
 			if (generation.Settings.MapSize != 128)
 				map.Title += $" ({generation.Settings.MapSize}x{generation.Settings.MapSize})";
 
@@ -323,6 +326,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				{
 					var logical = new RmgPoint(logicalX, logicalY);
 					var template = generation.Map.TemplateIds[generation.Map.Index(logical)];
+					if (biomePlan != null) template = RmgChaosBiomeMix.TranslateTemplate(template, biomePlan[generation.Map.Index(logical)]);
 					var nativeX = profile.CordonWidth + 2 * logicalX;
 					var nativeY = profile.CordonWidth + 2 * logicalY;
 					for (var frame = 0; frame < 4; frame++)
@@ -343,7 +347,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				map.ActorDefinitions.Add(new MiniYamlNode($"Actor{map.ActorDefinitions.Count}", actor.Save()));
 			}
 
-			if (generation.Settings.GeneratorVersion is 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24)
+			if (generation.Settings.GeneratorVersion is 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24 or 25)
 			{
 				var ownership = new MiniYamlNode("RmgStartingColonyOwnership", new MiniYaml(null, new List<MiniYamlNode>
 				{
@@ -365,6 +369,8 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				map.RuleDefinitions.Nodes.Add(new MiniYamlNode("World", new MiniYaml(null, new List<MiniYamlNode> { ownership })));
 			}
 
+			if (biomePlan != null) RmgChaosBiomeMix.ApplyRules(map);
+
 			using var package = ZipFileLoader.Create(outputPath);
 			map.Save(package);
 		}
@@ -381,7 +387,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 
 			using var reloaded = new Map(modData, package);
 			var profile = generation.Profile;
-			if (reloaded.MapFormat != Map.CurrentMapFormat || reloaded.RequiresMod != modData.Manifest.Id || reloaded.Tileset != profile.Tileset)
+			if (reloaded.MapFormat != Map.CurrentMapFormat || reloaded.RequiresMod != modData.Manifest.Id || reloaded.Tileset != RmgChaosBiomeMix.MapTileset(generation.Settings))
 				throw new InvalidDataException($"Reloaded map metadata does not match the Generator Version {profile.GeneratorVersion} contract.");
 			if (reloaded.MapSize.X != profile.PlayableWidth + 2 * profile.CordonWidth || reloaded.MapSize.Y != profile.PlayableHeight + 2 * profile.CordonWidth)
 				throw new InvalidDataException("Reloaded map storage dimensions do not match the generated dimensions.");
@@ -399,6 +405,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			var plannedColonyCount = generation.Map.Actors.Count(actor => actor.Owner == profile.ColonyOwner);
 			if (colonyCount != plannedColonyCount)
 				throw new InvalidDataException("Reloaded map neutral-colony count differs from the generation plan.");
+			var biomePlan = RmgChaosBiomeMix.IsMixed(generation.Settings) ? RmgChaosBiomeMix.CreatePlan(generation.Settings) : null;
 
 			for (var logicalY = 0; logicalY < profile.LogicalHeight; logicalY++)
 				for (var logicalX = 0; logicalX < profile.LogicalWidth; logicalX++)
@@ -410,6 +417,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 						{
 							var cell = new CPos(profile.CordonWidth + 2 * logicalX + dx, profile.CordonWidth + 2 * logicalY + dy);
 							var frame = 2 * dy + dx;
+							if (biomePlan != null && (reloaded.Tiles[cell].Type !=
+								RmgChaosBiomeMix.TranslateTemplate(generation.Map.TemplateIds[logicalIndex], biomePlan[logicalIndex]) || reloaded.Tiles[cell].Index != frame))
+								throw new InvalidDataException("Reloaded Chaos tile differs from its seeded biome and native template.");
 							var expectedTerrain = profile.UsesShorelineMaterialization ?
 								generation.Map.NativeTerrainIntents[4 * logicalIndex + frame].ToString() :
 								generation.Map.Obstacles[logicalIndex] ? "Water" : "Clear";
@@ -803,6 +813,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			RmgTopologyPreset.Strongholds => "strongholds",
 			RmgTopologyPreset.Labyrinth => "labyrinth",
 			RmgTopologyPreset.Archipelago => "archipelago",
+			RmgTopologyPreset.Chaos => "chaos",
 			_ => throw new ArgumentOutOfRangeException(nameof(topology))
 		};
 	}

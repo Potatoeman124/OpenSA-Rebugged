@@ -76,22 +76,24 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				decorations.AddRange(orbit);
 			}
 
+			if (settings.GeneratorVersion == 25) RmgChaosBiomeMix.ApplyDecorations(map, settings);
+
 			if (frozen != TerrainComparison.Hash(TerrainComparison.NativeBytes(map))) throw new InvalidOperationException("Mirrored placement changed terrain.");
 			map.NaturalSurfacesFrozen = true;
 			var validation = new RmgValidationReport();
 			ValidateColonyCombatSpace(map, profile, validation, !settings.PreventColonyOverlapping, nativeCoordinates: true, respectStartingSafeArea: settings.RespectStartingSafeArea);
 			if (colonyCount < settings.EffectiveNeutralColonyCount)
-				validation.Warnings.Add(new RmgValidationIssue("NEUTRAL_CAPACITY", settings.GeneratorVersion == 24 ? $"Placed {colonyCount}/{settings.EffectiveNeutralColonyCount} colonies on the finished islands." : settings.GeneratorVersion == 23 ? $"Placed {colonyCount}/{settings.EffectiveNeutralColonyCount} colonies in the finished labyrinth." : settings.GeneratorVersion == 22 ? $"Placed {colonyCount}/{settings.EffectiveNeutralColonyCount} colonies in available fortified sites." : $"Placed {colonyCount}/{settings.EffectiveNeutralColonyCount} colonies in complete mirrored groups of {groupSize}."));
+				validation.Warnings.Add(new RmgValidationIssue("NEUTRAL_CAPACITY", settings.GeneratorVersion == 25 ? $"Placed {colonyCount}/{settings.EffectiveNeutralColonyCount} colonies on the finished Chaos terrain." : settings.GeneratorVersion == 24 ? $"Placed {colonyCount}/{settings.EffectiveNeutralColonyCount} colonies on the finished islands." : settings.GeneratorVersion == 23 ? $"Placed {colonyCount}/{settings.EffectiveNeutralColonyCount} colonies in the finished labyrinth." : settings.GeneratorVersion == 22 ? $"Placed {colonyCount}/{settings.EffectiveNeutralColonyCount} colonies in available fortified sites." : $"Placed {colonyCount}/{settings.EffectiveNeutralColonyCount} colonies in complete mirrored groups of {groupSize}."));
 			map.RegionsReport = terrain.Report;
 			var report = map.RegionsReport;
-			report["status"] = settings.GeneratorVersion == 24 ? "PLAYABLE_ARCHIPELAGO_V24" : settings.GeneratorVersion == 23 ? "PLAYABLE_LABYRINTH_V23" : settings.GeneratorVersion == 22 ? "PLAYABLE_STRONGHOLDS_V22" : settings.GeneratorVersion == 21 ? "PLAYABLE_DIVIDED_LANDS_V21" : settings.GeneratorVersion == 20 ? "PLAYABLE_RING_V20" : settings.GeneratorVersion == 19 ? "PLAYABLE_CROSSROADS_V19" : planned == null ? "PLAYABLE_REGIONS_V17" : "PLAYABLE_ARTIFICIAL_BATTLEFIELD_V18";
-			report["placement_status"] = settings.GeneratorVersion == 24 ? "ISLAND_LOCAL_SITES_VALID" : settings.GeneratorVersion == 23 ? "LABYRINTH_LOCAL_SITES_VALID" : settings.GeneratorVersion == 22 ? "FORTIFIED_LOCAL_SITES_VALID" : "MIRRORED_LOCAL_SITES_VALID";
+			report["status"] = settings.GeneratorVersion == 25 ? "PLAYABLE_CHAOS_V25" : settings.GeneratorVersion == 24 ? "PLAYABLE_ARCHIPELAGO_V24" : settings.GeneratorVersion == 23 ? "PLAYABLE_LABYRINTH_V23" : settings.GeneratorVersion == 22 ? "PLAYABLE_STRONGHOLDS_V22" : settings.GeneratorVersion == 21 ? "PLAYABLE_DIVIDED_LANDS_V21" : settings.GeneratorVersion == 20 ? "PLAYABLE_RING_V20" : settings.GeneratorVersion == 19 ? "PLAYABLE_CROSSROADS_V19" : planned == null ? "PLAYABLE_REGIONS_V17" : "PLAYABLE_ARTIFICIAL_BATTLEFIELD_V18";
+			report["placement_status"] = settings.GeneratorVersion == 25 ? "CHAOS_LOCAL_SITES_VALID" : settings.GeneratorVersion == 24 ? "ISLAND_LOCAL_SITES_VALID" : settings.GeneratorVersion == 23 ? "LABYRINTH_LOCAL_SITES_VALID" : settings.GeneratorVersion == 22 ? "FORTIFIED_LOCAL_SITES_VALID" : "MIRRORED_LOCAL_SITES_VALID";
 			report["terrain_repainted_for_placement"] = false;
 			report["placement_ms"] = placementMs;
 			report["doodads_ms"] = timer.Elapsed.TotalMilliseconds;
 			report["mirroring_axes"] = settings.MirroringAxes;
 			report["mirror_orientation"] = settings.MirroringAxes != 1 ? "horizontal-vertical" + (settings.MirroringAxes == 4 ? "-diagonals" : "") : (settings.Seed & 1) == 0 ? "vertical" : "horizontal";
-			report["symmetry_requirement"] = settings.GeneratorVersion is 22 or 23 or 24 ? "NOT_REQUIRED" : "NATIVE_TERRAIN_STARTS_AND_TYPED_COLONIES";
+			report["symmetry_requirement"] = settings.GeneratorVersion is 22 or 23 or 24 or 25 ? "NOT_REQUIRED" : "NATIVE_TERRAIN_STARTS_AND_TYPED_COLONIES";
 			report["strategic_routes_requirement"] = settings.GeneratorVersion == 21 ? (settings.LandCrossings == RmgLandCrossings.None ? "DISCONNECTED_TERRITORIES" : "EXACT_BORDER_CROSSINGS") : planned == null ? "NOT_REQUIRED" : "CONNECTED_GROUND_LANE_NETWORK";
 			report["neutral_colonies_requested"] = settings.EffectiveNeutralColonyCount;
 			report["neutral_colonies_density_target"] = settings.NeutralColonyCount;
@@ -117,10 +119,10 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			report["doodads_requested"] = target;
 			report["doodads_placed"] = decorations.Count;
 			report["placement_candidates"] = candidates.Length;
-			report["geography_contract"] = settings.GeneratorVersion == 24 ? "seeded-asymmetric-islands-v24" : settings.GeneratorVersion == 23 ? "fixed-asymmetric-labyrinth-v23" : settings.GeneratorVersion == 22 ? "fixed-asymmetric-fortresses-v22" : settings.GeneratorVersion == 21 ? "separate-home-territories-v21" : settings.GeneratorVersion == 20 ? "continuous-ring-central-lake-v20" : settings.GeneratorVersion == 19 ? "central-junction-approaches-v19" : planned == null ? "mirrored-fixed-regions-extended-detail-v17" : "planned-geometric-battlefield-v18";
+			report["geography_contract"] = settings.GeneratorVersion == 25 ? "overlapping-asymmetric-collisions-v25" : settings.GeneratorVersion == 24 ? "seeded-asymmetric-islands-v24" : settings.GeneratorVersion == 23 ? "fixed-asymmetric-labyrinth-v23" : settings.GeneratorVersion == 22 ? "fixed-asymmetric-fortresses-v22" : settings.GeneratorVersion == 21 ? "separate-home-territories-v21" : settings.GeneratorVersion == 20 ? "continuous-ring-central-lake-v20" : settings.GeneratorVersion == 19 ? "central-junction-approaches-v19" : planned == null ? "mirrored-fixed-regions-extended-detail-v17" : "planned-geometric-battlefield-v18";
 			report["preferred_start_reference"] = planned == null ? "same-axes-v12-low-complexity" : "fixed-planned-player-plazas";
-			if (planned != null) report[settings.GeneratorVersion == 24 ? "archipelago_plan" : settings.GeneratorVersion == 23 ? "labyrinth_plan" : settings.GeneratorVersion == 22 ? "strongholds_plan" : settings.GeneratorVersion == 21 ? "divided_lands_plan" : settings.GeneratorVersion == 20 ? "ring_plan" : settings.GeneratorVersion == 19 ? "crossroads_plan" : "battlefield_plan"] = planned.Report;
-			if (settings.GeneratorVersion is 22 or 23 or 24) report.Remove("mirror_orientation");
+			if (planned != null) report[settings.GeneratorVersion == 25 ? "chaos_plan" : settings.GeneratorVersion == 24 ? "archipelago_plan" : settings.GeneratorVersion == 23 ? "labyrinth_plan" : settings.GeneratorVersion == 22 ? "strongholds_plan" : settings.GeneratorVersion == 21 ? "divided_lands_plan" : settings.GeneratorVersion == 20 ? "ring_plan" : settings.GeneratorVersion == 19 ? "crossroads_plan" : "battlefield_plan"] = planned.Report;
+			if (settings.GeneratorVersion is 22 or 23 or 24 or 25) report.Remove("mirror_orientation");
 			report["start_displacement_native"] = new JArray(starts.Select((p, i) => i < preferred.Count ? Math.Sqrt(RegionDistanceSquared(p, preferred[i])) : (double?)null));
 			return new RmgGenerationResult
 			{

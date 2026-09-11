@@ -1,0 +1,34 @@
+General:
+	Name: Chaos (mixed biomes)
+	Id: CHAOS
+	EditorTemplateOrder: Terrain
+	IgnoreTileSpriteOffsets: True
+
+Terrain:
+	TerrainType@Clear:
+		Type: Clear
+		TargetTypes: Ground
+		Color: 865F45
+	TerrainType@Water:
+		Type: Water
+		TargetTypes: Water
+		Color: 455F86
+	TerrainType@Rock:
+		Type: Rock
+		TargetTypes: Ground
+		Color: 767676
+	TerrainType@Vegetation:
+		Type: Vegetation
+		TargetTypes: Ground
+		Color: 45864B
+	TerrainType@Air:
+		Type: Air
+		Color: FFFFFF
+
+# Import complete source catalogues at disjoint template-ID offsets. Artwork stays
+# in the existing game assets. Each source tile keeps its own preview colors.
+TemplateSources:
+	0: sa|tilesets/normal.yaml
+	256: sa|tilesets/desert.yaml
+	512: sa|tilesets/swamp.yaml
+	768: sa|tilesets/candy.yaml

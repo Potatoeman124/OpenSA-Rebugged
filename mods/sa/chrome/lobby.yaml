@@ -389,6 +389,40 @@ Background@SERVER_LOBBY:
 					Height: 28
 					Text: Ring Shape
 					Visible: False
+				Label@RMG_CHAOS_SCALE_LABEL:
+					X: 20
+					Y: 350
+					Width: 155
+					Height: 25
+					Text: Collision Scale
+					Visible: False
+				DropDownButton@RMG_CHAOS_SCALE:
+					X: 175
+					Y: 350
+					Width: 220
+					Height: 28
+					Visible: False
+					Font: Regular
+					TooltipText: Scale of the competing islands, rings, mazes and fort-like shapes. Small packs in tighter collisions; Large makes broader structures. The seed retains their anchors.
+					TooltipContainer: TOOLTIP_CONTAINER
+
+				Label@RMG_CHAOS_BIOMES_LABEL:
+					X: 430
+					Y: 350
+					Width: 155
+					Height: 25
+					Text: Biome Mixing
+					Visible: False
+				DropDownButton@RMG_CHAOS_BIOMES:
+					X: 590
+					Y: 350
+					Width: 220
+					Height: 28
+					Visible: False
+					Font: Regular
+					TooltipText: Single uses the selected terrain. Patchwork combines the four biomes in broad regions; Fractured breaks them into smaller fragments. Surface movement rules remain consistent.
+					TooltipContainer: TOOLTIP_CONTAINER
+
 				Label@RMG_ISLAND_AMOUNT_LABEL:
 					X: 20
 					Y: 350

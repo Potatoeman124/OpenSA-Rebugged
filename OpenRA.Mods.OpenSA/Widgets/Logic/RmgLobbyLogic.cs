@@ -75,6 +75,9 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		bool generateCastles = true;
 		bool respectStartingSafeArea = true;
 		bool ownStartingStronghold;
+		bool IsChaos => layoutFamily == RmgPlayerLayoutFamily.Chaos;
+		RmgChaosScale chaosScale = RmgChaosScale.Standard;
+		RmgChaosBiomes chaosBiomes = RmgChaosBiomes.Patchwork;
 		bool IsArchipelago => layoutFamily == RmgPlayerLayoutFamily.Archipelago;
 		RmgIslandAmount islandAmount = RmgIslandAmount.Standard;
 		RmgIslandSize islandSize = RmgIslandSize.Standard;
@@ -86,8 +89,8 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		bool IsRing => layoutFamily == RmgPlayerLayoutFamily.Ring;
 		bool IsCrossroads => layoutFamily == RmgPlayerLayoutFamily.Crossroads;
 		bool HasFixedPlayerCounts => IsBattlefield || IsCrossroads || IsRing || IsDividedLands;
-		bool HasLayoutOptions => IsPvp || HasFixedPlayerCounts || IsStrongholds || IsLabyrinth || IsArchipelago;
-		bool UsesModernTerrain => layoutFamily is RmgPlayerLayoutFamily.NaturalLandscape or RmgPlayerLayoutFamily.NaturalLandscapePvp or RmgPlayerLayoutFamily.ArtificialBattlefield or RmgPlayerLayoutFamily.Crossroads or RmgPlayerLayoutFamily.Ring or RmgPlayerLayoutFamily.DividedLands or RmgPlayerLayoutFamily.Strongholds or RmgPlayerLayoutFamily.Labyrinth or RmgPlayerLayoutFamily.Archipelago;
+		bool HasLayoutOptions => IsPvp || HasFixedPlayerCounts || IsStrongholds || IsLabyrinth || IsArchipelago || IsChaos;
+		bool UsesModernTerrain => layoutFamily is RmgPlayerLayoutFamily.NaturalLandscape or RmgPlayerLayoutFamily.NaturalLandscapePvp or RmgPlayerLayoutFamily.ArtificialBattlefield or RmgPlayerLayoutFamily.Crossroads or RmgPlayerLayoutFamily.Ring or RmgPlayerLayoutFamily.DividedLands or RmgPlayerLayoutFamily.Strongholds or RmgPlayerLayoutFamily.Labyrinth or RmgPlayerLayoutFamily.Archipelago or RmgPlayerLayoutFamily.Chaos;
 		static readonly int[] BattlefieldPlayerCounts = { 2, 4, 8 };
 		RmgBattlefieldBlockShape blockShape = RmgBattlefieldBlockShape.CutCorners;
 		RmgBattlefieldLaneWidth laneWidth = RmgBattlefieldLaneWidth.Standard;
@@ -252,10 +255,10 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 
 		void BindControls()
 		{
-			waterButton.GetTooltipText = () => IsArchipelago ? "More water erodes the islands into smaller landmasses and wider seas. Minimum land around player starts and mandatory nests is retained." : IsLabyrinth ? "Water fills the spaces between passages. Low through Ultra use 60%, 72%, 82%, 91% and 100% of that space; maze walls set a minimum, and tile transitions affect final coverage." : waterButton.TooltipText;
+			waterButton.GetTooltipText = () => IsChaos ? "Raises the pressure of seas, flooded mazes and broken geometric barriers. Collision Scale controls the size of the competing structures; necessary colony sites remain usable." : IsArchipelago ? "More water erodes the islands into smaller landmasses and wider seas. Minimum land around player starts and mandatory nests is retained." : IsLabyrinth ? "Water fills the spaces between passages. Low through Ultra use 60%, 72%, 82%, 91% and 100% of that space; maze walls set a minimum, and tile transitions affect final coverage." : waterButton.TooltipText;
 			tacticalTerrainButton.GetTooltipText = () => IsLabyrinth ? "Slowing surfaces shape alternative routes. Complexity increases their target coverage; narrow passages, alcoves and original surface relations can limit it." : tacticalTerrainButton.TooltipText;
-			colonyButton.GetTooltipText = () => IsArchipelago ? "One mandatory neutral Wasps nest per island counts toward the target and overrides a zero Wasps weight. Other colonies follow density and ownership settings; terrain is never enlarged to fit them." : IsLabyrinth ? "Labyrinth uses one quarter of the usual colony target, rounded up. Colonies occupy existing alcoves and never widen passages. Crowded maps can stop below the target." : colonyButton.TooltipText;
-			complexityButton.GetTooltipText = () => IsArchipelago ? "Adds bays, peninsulas, coastal detail and more varied slowing surfaces. Island anchors and player starts remain tied to the seed." : IsLabyrinth ? "Higher complexity subdivides the maze into more, longer and narrower routes. The seed retains its starting positions and large-scale connections." : complexityButton.TooltipText;
+			colonyButton.GetTooltipText = () => IsChaos ? "Colonies occupy the resulting terrain without enlarging it. Mandatory neutral Wasps nests keep isolated inhabited land playable and count toward the target, regardless of weights or ownership." : IsArchipelago ? "One mandatory neutral Wasps nest per island counts toward the target and overrides a zero Wasps weight. Other colonies follow density and ownership settings; terrain is never enlarged to fit them." : IsLabyrinth ? "Labyrinth uses one quarter of the usual colony target, rounded up. Colonies occupy existing alcoves and never widen passages. Crowded maps can stop below the target." : colonyButton.TooltipText;
+			complexityButton.GetTooltipText = () => IsChaos ? "Intensifies the collision of natural islands, mazes, rings and fort-like geometry. Higher settings add smaller interruptions while the seed retains the broad composition. Chaos is deliberately asymmetric and unfair." : IsArchipelago ? "Adds bays, peninsulas, coastal detail and more varied slowing surfaces. Island anchors and player starts remain tied to the seed." : IsLabyrinth ? "Higher complexity subdivides the maze into more, longer and narrower routes. The seed retains its starting positions and large-scale connections." : complexityButton.TooltipText;
 			presetButton.GetText = () => presetCustomized ?
 				$"Custom ({RmgPlayerSettingsContract.PresetDisplayName(preset)})" :
 				RmgPlayerSettingsContract.PresetDisplayName(preset);
@@ -301,7 +304,8 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					new Choice<RmgPlayerLayoutFamily>(RmgPlayerLayoutFamily.DividedLands, "Divided Lands"),
 					new Choice<RmgPlayerLayoutFamily>(RmgPlayerLayoutFamily.Strongholds, "Strongholds"),
 					new Choice<RmgPlayerLayoutFamily>(RmgPlayerLayoutFamily.Labyrinth, "Labyrinth"),
-					new Choice<RmgPlayerLayoutFamily>(RmgPlayerLayoutFamily.Archipelago, "Archipelago")
+					new Choice<RmgPlayerLayoutFamily>(RmgPlayerLayoutFamily.Archipelago, "Archipelago"),
+					new Choice<RmgPlayerLayoutFamily>(RmgPlayerLayoutFamily.Chaos, "Chaos")
 				}, () => layoutFamily, value =>
 				{
 					layoutFamily = value;
@@ -356,6 +360,17 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			}, () => sideConnections, value => { sideConnections = value; MarkStale(); });
 			foreach (var id in new[] { "RMG_APPROACH_WIDTH", "RMG_APPROACH_WIDTH_LABEL", "RMG_SIDE_CONNECTIONS", "RMG_SIDE_CONNECTIONS_LABEL" })
 				lobby.Get(id).IsVisible = () => IsCrossroads;
+
+			var chaosScaleButton = lobby.Get<DropDownButtonWidget>("RMG_CHAOS_SCALE");
+			chaosScaleButton.GetText = () => chaosScale.ToString();
+			BindDropDown(chaosScaleButton, Enum.GetValues<RmgChaosScale>().Select(v => new Choice<RmgChaosScale>(v, v.ToString())).ToArray(),
+				() => chaosScale, value => { chaosScale = value; MarkStale(); });
+			var chaosBiomesButton = lobby.Get<DropDownButtonWidget>("RMG_CHAOS_BIOMES");
+			chaosBiomesButton.GetText = () => chaosBiomes.ToString();
+			BindDropDown(chaosBiomesButton, Enum.GetValues<RmgChaosBiomes>().Select(v => new Choice<RmgChaosBiomes>(v, v.ToString())).ToArray(),
+				() => chaosBiomes, value => { chaosBiomes = value; MarkStale(); });
+			foreach (var id in new[] { "RMG_CHAOS_SCALE", "RMG_CHAOS_SCALE_LABEL", "RMG_CHAOS_BIOMES", "RMG_CHAOS_BIOMES_LABEL" })
+				lobby.Get(id).IsVisible = () => IsChaos;
 
 			var islandAmountButton = lobby.Get<DropDownButtonWidget>("RMG_ISLAND_AMOUNT");
 			islandAmountButton.GetText = () => size == SizeChoice.Small ? "2 islands (size limit)" : islandAmount.ToString();
@@ -524,7 +539,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			weightsButton.OnClick = () => Ui.OpenWindow("RMG_COLONY_WEIGHTS_PANEL", new WidgetArgs
 			{
 				{ "initialWeights", colonyWeights },
-				{ "mandatoryIslandNests", IsArchipelago },
+				{ "mandatoryIslandNests", IsArchipelago || IsChaos },
 				{ "configurationDisabled", (Func<bool>)(() => !CanConfigure()) },
 				{ "onApply", (Action<RmgColonyWeights>)(weights =>
 				{
@@ -540,7 +555,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			ownershipButton.OnClick = () => Ui.OpenWindow("RMG_COLONY_OWNERSHIP_PANEL", new WidgetArgs
 			{
 				{ "initialShares", ownershipShares.Take(playerCount).ToArray() },
-				{ "mandatoryIslandNests", IsArchipelago },
+				{ "mandatoryIslandNests", IsArchipelago || IsChaos },
 				{ "initialMode", ownershipMode },
 				{ "configurationDisabled", (Func<bool>)(() => !CanConfigure()) },
 				{ "onApply", (Action<int[], RmgColonyOwnershipMode>)((shares, mode) =>
@@ -627,7 +642,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		{
 			preset = selected;
 			presetCustomized = false;
-			if (!IsPvp && !HasFixedPlayerCounts && !IsStrongholds && !IsLabyrinth && !IsArchipelago) layoutFamily = RmgPlayerLayoutFamily.NaturalLandscape;
+			if (!IsPvp && !HasFixedPlayerCounts && !IsStrongholds && !IsLabyrinth && !IsArchipelago && !IsChaos) layoutFamily = RmgPlayerLayoutFamily.NaturalLandscape;
 			layout = LayoutChoice.OpenFields;
 			originalSurfaceRelations = true;
 			preventColonyOverlapping = true;
@@ -760,11 +775,13 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			GenerateCastles = !IsStrongholds || generateCastles,
 			RespectStartingSafeArea = respectStartingSafeArea,
 			OwnStartingStronghold = IsStrongholds && ownStartingStronghold,
-			SchemaVersion = IsArchipelago ? 19 : IsLabyrinth ? 18 : !respectStartingSafeArea || (IsStrongholds && ownStartingStronghold) ? 17 : IsStrongholds ? 16 : IsDividedLands ? 15 : IsRing ? 14 : IsCrossroads ? 13 : IsBattlefield ? 12 : IsPvp ? 11 : UsesModernTerrain ? 10 : 3,
+			SchemaVersion = IsChaos ? 20 : IsArchipelago ? 19 : IsLabyrinth ? 18 : !respectStartingSafeArea || (IsStrongholds && ownStartingStronghold) ? 17 : IsStrongholds ? 16 : IsDividedLands ? 15 : IsRing ? 14 : IsCrossroads ? 13 : IsBattlefield ? 12 : IsPvp ? 11 : UsesModernTerrain ? 10 : 3,
 			MirroringAxes = IsPvp ? mirroringAxes : 0,
 			BlockShape = IsBattlefield ? blockShape : RmgBattlefieldBlockShape.CutCorners,
 			RingShape = IsRing ? ringShape : RmgRingShape.Round,
 			LandCrossings = IsDividedLands ? landCrossings : RmgLandCrossings.One,
+			ChaosScale = IsChaos ? chaosScale : RmgChaosScale.Standard,
+			ChaosBiomes = IsChaos ? chaosBiomes : RmgChaosBiomes.Patchwork,
 			IslandAmount = IsArchipelago ? islandAmount : RmgIslandAmount.Standard,
 			IslandSize = IsArchipelago ? islandSize : RmgIslandSize.Standard,
 			ExtraRoutes = IsLabyrinth ? extraRoutes : RmgLabyrinthRoutes.Standard,
@@ -832,6 +849,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					var spacingSummary = closerColonies > 0 ? $" {closerColonies} placed with closer spacing." : string.Empty;
 					if ((HasFixedPlayerCounts || IsStrongholds || IsLabyrinth) && result.Generation.Validation.Warnings.Any(w => w.Code is "BATTLEFIELD_TERRAIN_CAPACITY" or "CROSSROADS_TERRAIN_CAPACITY" or "RING_TERRAIN_CAPACITY" or "DIVIDED_LANDS_TERRAIN_CAPACITY" or "STRONGHOLDS_TERRAIN_CAPACITY" or "LABYRINTH_TERRAIN_CAPACITY"))
 						spacingSummary += IsLabyrinth ? " Passages/alcoves/transitions limit modifiers." : " Routes/plazas/transitions limit coverage.";
+					if (IsChaos) spacingSummary += $" {result.Generation.Map.RegionsReport["mandatory_neutral_nests"]} neutral Wasps refuges.";
 					if (IsArchipelago) spacingSummary += $" {result.Generation.Map.RegionsReport["mandatory_neutral_nests"]} islands; one neutral Wasps nest each.";
 					if (IsLabyrinth && result.Generation.Validation.Warnings.Any(w => w.Code == "LABYRINTH_WATER_FLOOR"))
 						spacingSummary += " Maze walls set minimum water coverage.";
@@ -842,9 +860,9 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					if (IsDividedLands && landCrossings == RmgLandCrossings.None) spacingSummary += " No land crossings.";
 					if (IsDividedLands && result.Generation.Validation.Warnings.Any(w => w.Code == "DIVIDED_LANDS_WATER_FLOOR"))
 						spacingSummary += " Channels set minimum water coverage.";
-					var displayedTarget = IsArchipelago ? (int)result.Generation.Map.RegionsReport["neutral_colonies_requested"] : settingsResolution.Normalized.EffectiveNeutralColonyCount;
-					SetStatus($"Ready: {(IsArchipelago ? "Archipelago" : IsLabyrinth ? "Labyrinth" : IsStrongholds ? "Strongholds" : IsDividedLands ? "Divided Lands" : IsRing ? "Ring" : IsCrossroads ? "Crossroads" : IsBattlefield ? "Battlefield" : "Regions")} / {RmgPlayerSettingsContract.ComplexityDisplayName(complexity, true)} ({result.Performance.TotalMilliseconds / 1000d:0.0}s). " +
-						$"Water {100D * water / cells.Length:0.0}%; {(terrain == TerrainChoice.Normal ? "gravel/moss" : "surface modifiers")} {100D * gravel / land:0.0}/{100D * moss / land:0.0}% of land; " +
+					var displayedTarget = IsArchipelago || IsChaos ? (int)result.Generation.Map.RegionsReport["neutral_colonies_requested"] : settingsResolution.Normalized.EffectiveNeutralColonyCount;
+					SetStatus($"Ready: {(IsChaos ? "Chaos" : IsArchipelago ? "Archipelago" : IsLabyrinth ? "Labyrinth" : IsStrongholds ? "Strongholds" : IsDividedLands ? "Divided Lands" : IsRing ? "Ring" : IsCrossroads ? "Crossroads" : IsBattlefield ? "Battlefield" : "Regions")} / {RmgPlayerSettingsContract.ComplexityDisplayName(complexity, true)} ({result.Performance.TotalMilliseconds / 1000d:0.0}s). " +
+						$"Water {100D * water / cells.Length:0.0}%; {(terrain == TerrainChoice.Normal && !(IsChaos && chaosBiomes != RmgChaosBiomes.Single) ? "gravel/moss" : "surface modifiers")} {100D * gravel / land:0.0}/{100D * moss / land:0.0}% of land; " +
 						$"colonies {placedColonies}/{displayedTarget}.{spacingSummary}",
 						result.Generation.Validation.Warnings.Count > 0 ? StatusKind.Warning : StatusKind.Success);
 				}
@@ -1034,6 +1052,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			RmgPlayerLayoutFamily.Strongholds => "Strongholds",
 			RmgPlayerLayoutFamily.Labyrinth => "Labyrinth",
 			RmgPlayerLayoutFamily.Archipelago => "Archipelago",
+			RmgPlayerLayoutFamily.Chaos => "Chaos",
 			_ => "Preset"
 		};
 

@@ -31,9 +31,9 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 	public sealed partial class ValidateRmgOwnershipRuntimeCommand : IUtilityCommand
 	{
 		string IUtilityCommand.Name => "--validate-sa-rmg-runtime";
-		bool IUtilityCommand.ValidateArguments(string[] args) => args.Length >= 2 && args.Length <= 4 && args.Skip(2).All(a => a is "--wide" or "--512" or "--save" or "--pvp" or "--battlefield" or "--crossroads" or "--ring" or "--divided-lands" or "--strongholds" or "--starting-area" or "--labyrinth" or "--archipelago" or "--ui-only");
+		bool IUtilityCommand.ValidateArguments(string[] args) => args.Length >= 2 && args.Length <= 4 && args.Skip(2).All(a => a is "--wide" or "--512" or "--save" or "--pvp" or "--battlefield" or "--crossroads" or "--ring" or "--divided-lands" or "--strongholds" or "--starting-area" or "--labyrinth" or "--archipelago" or "--chaos" or "--ui-only");
 
-		[Desc("OUTPUT-DIRECTORY [--wide] [--ui-only|--512|--save|--pvp|--battlefield|--crossroads|--ring|--divided-lands|--strongholds|--starting-area|--labyrinth|--archipelago]", "Exercise colony ownership, live previews and skirmish startup; --512 checks large maps, --save checks saved copies, --pvp checks mirrored Regions.")]
+		[Desc("OUTPUT-DIRECTORY [--wide] [--ui-only|--512|--save|--pvp|--battlefield|--crossroads|--ring|--divided-lands|--strongholds|--starting-area|--labyrinth|--archipelago|--chaos]", "Exercise colony ownership, live previews and skirmish startup; --512 checks large maps, --save checks saved copies, --pvp checks mirrored Regions.")]
 		void IUtilityCommand.Run(Utility utility, string[] args)
 		{
 			var output = Path.GetFullPath(args[1]);
@@ -71,10 +71,11 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				return;
 			}
 
-			if (args.Contains("--pvp") || args.Contains("--battlefield") || args.Contains("--crossroads") || args.Contains("--ring") || args.Contains("--divided-lands") || args.Contains("--strongholds") || args.Contains("--starting-area") || args.Contains("--labyrinth") || args.Contains("--archipelago")) CheckPvpWidgets(utility, output);
+			if (args.Contains("--pvp") || args.Contains("--battlefield") || args.Contains("--crossroads") || args.Contains("--ring") || args.Contains("--divided-lands") || args.Contains("--strongholds") || args.Contains("--starting-area") || args.Contains("--labyrinth") || args.Contains("--archipelago") || args.Contains("--chaos")) CheckPvpWidgets(utility, output);
 			else { CheckWidgets(output); CheckLobby(utility, output); }
 			var results = new JArray();
 			var battlefield = args.Contains("--battlefield");
+			var chaos = args.Contains("--chaos");
 			var archipelago = args.Contains("--archipelago");
 			var labyrinth = args.Contains("--labyrinth");
 			var strongholds = args.Contains("--strongholds");
@@ -83,8 +84,8 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			var crossroads = args.Contains("--crossroads");
 			void Run(string id, int size, int[] shares, int[] spawns, int absent = -1, bool empty = false, bool bots = false, ulong seed = 397716241463670640, bool crowded = false, RmgColonyOwnershipMode mode = RmgColonyOwnershipMode.ClosestToSpawn, string tileset = "NORMAL", bool hostiles = false, int axes = 0, RmgPlayerSettings options = null)
 			{
-				var requested = options ?? new RmgPlayerSettings { SchemaVersion = archipelago ? 19 : labyrinth ? 18 : strongholds ? 16 : divided ? 15 : ring ? 14 : crossroads ? 13 : battlefield ? 12 : axes == 0 ? 10 : 11, MirroringAxes = axes, MapSize = size, PlayerCount = shares.Length,
-					Seed = seed, Tileset = tileset, NeutralColonyDensity = crowded ? RmgPlayerColonyDensity.Ultra : RmgPlayerColonyDensity.Standard, LayoutFamily = archipelago ? RmgPlayerLayoutFamily.Archipelago : labyrinth ? RmgPlayerLayoutFamily.Labyrinth : strongholds ? RmgPlayerLayoutFamily.Strongholds : divided ? RmgPlayerLayoutFamily.DividedLands : ring ? RmgPlayerLayoutFamily.Ring : crossroads ? RmgPlayerLayoutFamily.Crossroads : battlefield ? RmgPlayerLayoutFamily.ArtificialBattlefield : axes == 0 ? RmgPlayerLayoutFamily.NaturalLandscape : RmgPlayerLayoutFamily.NaturalLandscapePvp,
+				var requested = options ?? new RmgPlayerSettings { SchemaVersion = chaos ? 20 : archipelago ? 19 : labyrinth ? 18 : strongholds ? 16 : divided ? 15 : ring ? 14 : crossroads ? 13 : battlefield ? 12 : axes == 0 ? 10 : 11, MirroringAxes = axes, MapSize = size, PlayerCount = shares.Length,
+					Seed = seed, Tileset = tileset, NeutralColonyDensity = crowded ? RmgPlayerColonyDensity.Ultra : RmgPlayerColonyDensity.Standard, LayoutFamily = chaos ? RmgPlayerLayoutFamily.Chaos : archipelago ? RmgPlayerLayoutFamily.Archipelago : labyrinth ? RmgPlayerLayoutFamily.Labyrinth : strongholds ? RmgPlayerLayoutFamily.Strongholds : divided ? RmgPlayerLayoutFamily.DividedLands : ring ? RmgPlayerLayoutFamily.Ring : crossroads ? RmgPlayerLayoutFamily.Crossroads : battlefield ? RmgPlayerLayoutFamily.ArtificialBattlefield : axes == 0 ? RmgPlayerLayoutFamily.NaturalLandscape : RmgPlayerLayoutFamily.NaturalLandscapePvp,
 					StartingColonyShares = shares, StartingColonyMode = mode, NeutralColonyWeights = empty ? new(0, 0, 0, 0, 0) : new() };
 				var settings = RmgPlayerSettingsContract.Resolve(requested).Normalized;
 				var package = OpenRaRmgMapAdapter.GenerateAndSave(utility.ModData, RmgProfile.Load(utility.ModData, settings),
@@ -93,7 +94,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				using var directory = new OpenRA.FileSystem.Folder(output);
 				utility.ModData.MapCache.LoadMap(id + ".oramap", directory, MapClassification.User, utility.ModData.Manifest.Get<MapGrid>(), null);
 				var map = utility.ModData.MapCache[package.EngineUid];
-				if (axes != 0 || battlefield || crossroads || ring || divided || strongholds || labyrinth || archipelago || args.Contains("--starting-area")) map = SavePvpRuntimeCopy(utility, map, directory, id);
+				if (axes != 0 || battlefield || crossroads || ring || divided || strongholds || labyrinth || archipelago || chaos || args.Contains("--starting-area")) map = SavePvpRuntimeCopy(utility, map, directory, id);
 				if (bots && crowded) CheckServer(utility, map);
 				var first = CheckWorld(utility, map, shares, spawns, absent, bots, Path.Combine(output, id), hostiles);
 				var second = CheckWorld(utility, map, shares, spawns, absent, bots, null, hostiles);
@@ -103,7 +104,29 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				Console.WriteLine($"PASS: {id}, pool {first["pool"]}, assigned {first["counts"]}, repeat world identical.");
 			}
 
-			if (archipelago)
+			if (chaos)
+			{
+				Run("chaos-solo", 64, new[] { 100 }, new int[1]);
+				Run("chaos-small", 64, new[] { 100, 100, 100, 100 }, new[] { 4, 3, 2, 1 });
+				Run("chaos-desert", 128, new[] { 0, 10, 20 }, new int[3], bots: true, tileset: "DESERT", hostiles: true);
+				Run("chaos-swamp", 256, new[] { 0, 20, 40, 60, 80 }, new int[5], bots: true, mode: RmgColonyOwnershipMode.Random, tileset: "SWAMP");
+				Run("chaos-candy", 512, Enumerable.Repeat(100, 8).ToArray(), new int[8], bots: true, mode: RmgColonyOwnershipMode.Random, tileset: "CANDY");
+				Run("chaos-empty", 128, new[] { 100, 100 }, new[] { 2, 1 }, empty: true);
+				Run("chaos-absent", 256, new[] { 100, 100, 100, 100 }, new[] { 4, 3, 2, 1 }, absent: 1, mode: RmgColonyOwnershipMode.Random);
+				foreach (var compact in new[] { (64, 4), (128, 8), (256, 5), (512, 8) })
+					foreach (var biomes in Enum.GetValues<RmgChaosBiomes>())
+						Run($"chaos-extremes-{compact.Item1}-{biomes}", compact.Item1, Enumerable.Repeat(100, compact.Item2).ToArray(), new int[compact.Item2], bots: true, options: new RmgPlayerSettings
+						{
+							SchemaVersion = 20, LayoutFamily = RmgPlayerLayoutFamily.Chaos, Seed = 1,
+							MapSize = compact.Item1, PlayerCount = compact.Item2, StartingColonyShares = Enumerable.Repeat(100, compact.Item2).ToArray(),
+							ChaosScale = (RmgChaosScale)(int)biomes, ChaosBiomes = biomes, Tileset = "CANDY",
+							TerrainComplexity = Rmg.Reassessment.TerrainComplexity.Ultra, WaterAmount = RmgPlayerParameterLevel.Ultra,
+							TacticalTerrain = RmgPlayerParameterLevel.Ultra, NeutralColonyDensity = RmgPlayerColonyDensity.Ultra,
+							NeutralColonyWeights = new(100, 100, 100, 100, 0), StartingColonyMode = RmgColonyOwnershipMode.Random,
+							PreventColonyOverlapping = false, OriginalSurfaceRelations = false, RespectStartingSafeArea = false
+						});
+			}
+			else if (archipelago)
 			{
 				Run("islands-solo", 64, new[] { 100 }, new int[1]);
 				Run("islands-small", 64, new[] { 100, 100, 100, 100 }, new[] { 4, 3, 2, 1 });
@@ -438,24 +461,61 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			if (hostiles)
 			{
 				for (var i = 0; i < 1600; i++) Tick();
-				var theme = Array.IndexOf(RmgBiome.Tilesets, world.Map.Tileset);
-				var expectedPlant = new[] { "popcorn", "thorn", "puff", "freckle" } [theme];
-				var expectedFlier = new[] { "dragonfly", "fly", "moth", "flying_machine" } [theme];
-				Require(firstPlant == expectedPlant && firstFlier == expectedFlier, $"{world.Map.Tileset} default hostiles mismatch: {firstPlant}/{firstFlier}.");
 				var plantWeights = HostileOptions.Weights(manager.LobbyInfo.GlobalSettings, "plant", world.Map.Tileset);
-				Require(plantWeights.Count(w => w > 0) == 1 && plantWeights[Array.IndexOf(HostileOptions.Plants, expectedPlant)] == 100, "Default biome plant weights changed.");
+				if (world.Map.Tileset == "CHAOS")
+				{
+					Require(HostileOptions.Plants.Contains(firstPlant) && HostileOptions.Fliers.Contains(firstFlier), "Chaos did not spawn its mixed default hostiles.");
+					Require(plantWeights.All(w => w == 100) && HostileOptions.Weights(manager.LobbyInfo.GlobalSettings, "flier", "CHAOS").All(w => w == 100), "Chaos did not enable every default hostile species.");
+				}
+				else
+				{
+					var theme = Array.IndexOf(RmgBiome.Tilesets, world.Map.Tileset);
+					var expectedPlant = new[] { "popcorn", "thorn", "puff", "freckle" } [theme];
+					var expectedFlier = new[] { "dragonfly", "fly", "moth", "flying_machine" } [theme];
+					Require(firstPlant == expectedPlant && firstFlier == expectedFlier, $"{world.Map.Tileset} default hostiles mismatch: {firstPlant}/{firstFlier}.");
+					Require(plantWeights.Count(w => w > 0) == 1 && plantWeights[Array.IndexOf(HostileOptions.Plants, expectedPlant)] == 100, "Default biome plant weights changed.");
+				}
+
 				Set("h-plant-0", "77");
 				Set("h-flier-0", "33");
-				Require(RmgBiome.Tilesets.All(t => HostileOptions.Weights(manager.LobbyInfo.GlobalSettings, "plant", t)[0] == 77 && HostileOptions.Weights(manager.LobbyInfo.GlobalSettings, "flier", t)[0] == 33), "Changing biome discarded explicit hostile weights.");
+				Require(RmgBiome.Tilesets.Append("CHAOS").All(t => HostileOptions.Weights(manager.LobbyInfo.GlobalSettings, "plant", t)[0] == 77 && HostileOptions.Weights(manager.LobbyInfo.GlobalSettings, "flier", t)[0] == 33), "Changing biome discarded explicit hostile weights.");
 				result["default_plant"] = firstPlant; result["default_flier"] = firstFlier;
 				Require(terrain.SequenceEqual(world.Map.AllCells.Select(c => world.Map.Tiles[c])), "Hostiles changed generated terrain.");
 			}
+
+			if (world.Map.Tileset == "CHAOS" && world.Map.Bounds.Width is 128 or 256 && screenshot != null)
+				CheckMixedWorldRendering(renderer, screenshot);
 
 			if (world.Map.Bounds.Width == 512 && screenshot != null)
 				CheckLargeWorldRendering(renderer, screenshot);
 
 			Ui.ResetAll();
 			return result;
+		}
+
+		static void CheckMixedWorldRendering(WorldRenderer renderer, string path)
+		{
+			var map = renderer.World.Map;
+			for (var biome = 0; biome < 4; biome++)
+			{
+				var candidates = map.AllCells.Where(c => map.Contains(c) && map.Tiles[c].Type / 256 == biome).ToArray();
+				Require(candidates.Length > 0, "A mixed biome has no visible terrain.");
+				var chosen = candidates.OrderBy(c => map.GetTerrainInfo(c).Type == "Water").ThenBy(c => Math.Abs(c.X - map.Bounds.Width / 2) + Math.Abs(c.Y - map.Bounds.Height / 2)).First();
+				renderer.Viewport.Center(map.CenterOfCell(chosen));
+				for (var frame = 0; frame < 3; frame++)
+				{
+					renderer.PrepareRenderables();
+					Game.Renderer.BeginWorld(renderer.Viewport.Rectangle);
+					renderer.Draw();
+					Game.Renderer.BeginUI();
+					Game.Renderer.EndFrame(new IgnoreInput());
+				}
+
+				var file = path + "-world-biome-" + RmgBiome.Tilesets[biome] + ".png";
+				Game.Renderer.SaveScreenshot(file);
+				for (var i = 0; i < 100 && !File.Exists(file); i++) Thread.Sleep(20);
+				Require(File.Exists(file), "Mixed world screenshot was not saved.");
+			}
 		}
 
 		static void CheckLargeWorldRendering(WorldRenderer renderer, string path)

@@ -88,6 +88,7 @@ namespace OpenRA.Mods.OpenSA.Traits.World
 		{
 			if (group == "initial" || group == "pirate")
 				return new[] { 45, 45, 10 }[index];
+			if (tileset == "CHAOS") return 100;
 			var theme = tileset switch { "DESERT" => 1, "SWAMP" => 2, "CANDY" => 3, _ => 0 };
 			return index == (group == "plant" ? new[] { 0, 2, 4, 6 }[theme] : theme) ? 100 : 0;
 		}

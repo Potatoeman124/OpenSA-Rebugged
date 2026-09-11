@@ -90,6 +90,7 @@ TileSets:
 	sa|tilesets/desert.yaml
 	sa|tilesets/swamp.yaml
 	sa|tilesets/normal.yaml
+	sa|tilesets/chaos.yaml
 
 Cursors:
 	sa|cursors.yaml

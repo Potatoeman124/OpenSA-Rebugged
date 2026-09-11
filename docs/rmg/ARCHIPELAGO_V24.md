@@ -1,7 +1,7 @@
 # Archipelago V24
 
-Status: implemented on `codex/rmg-archipelago`, based on accepted Labyrinth
-checkpoint `20ccaa0`. Pending user in-game review. No merge or push is included.
+Status: accepted in-game at `dc6dcfc` on `codex/rmg-archipelago` (2026-09-11),
+based on accepted Labyrinth checkpoint `20ccaa0`. No merge or push is included.
 Player-settings schema 19; generator version 24; configuration 1.
 
 ## Gameplay contract
