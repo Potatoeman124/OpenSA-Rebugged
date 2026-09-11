@@ -1,7 +1,8 @@
 # Labyrinth V23
 
 Status: implemented on `codex/rmg-labyrinth`, based on the accepted starting-area
-checkpoint `55f206b`. Pending user in-game review. No merge or push is included.
+checkpoint `55f206b`. Configuration 2 was accepted by the user at `20ccaa0` on
+2026-09-11. No merge or push is included.
 Player-settings schema 18; generator version 23; configuration 2.
 
 ## Gameplay intent

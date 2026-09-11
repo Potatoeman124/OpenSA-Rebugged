@@ -18,10 +18,11 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		readonly List<Action> refresh = new();
 
 		[ObjectCreator.UseCtor]
-		public RmgColonyWeightsLogic(Widget widget, RmgColonyWeights initialWeights, Func<bool> configurationDisabled, Action<RmgColonyWeights> onApply)
+		public RmgColonyWeightsLogic(Widget widget, RmgColonyWeights initialWeights, Func<bool> configurationDisabled, Action<RmgColonyWeights> onApply, bool mandatoryIslandNests = false)
 		{
 			Configure(widget, initialWeights.Values, RmgColonyWeights.Keys.Select(name => char.ToUpperInvariant(name[0]) + name[1..]).ToArray(),
 				100, false, configurationDisabled, values => onApply(new RmgColonyWeights(values[0], values[1], values[2], values[3], values[4])));
+			if (mandatoryIslandNests) widget.Get<LabelWidget>("HELP").GetText = () => "Weights (0-100) apply to extra colonies. One neutral Wasps nest per island is always required.";
 		}
 
 		internal RmgColonyWeightsLogic() { }

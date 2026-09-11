@@ -237,7 +237,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			Require(!Settings().RespectStartingSafeArea && Settings().OwnStartingStronghold && ownership.IsDisabled(), "Starting-area controls did not reach settings or disable overridden sliders.");
 			Choose("RMG_SIZE", "256 x 256");
 			Draw(output, "starting-area-strongholds-options");
-			foreach (var family in new[] { "Natural Landscape (Regions)", "Natural Landscape PVP", "Artificial Battlefield", "Crossroads", "Ring", "Divided Lands", "Labyrinth" })
+			foreach (var family in new[] { "Natural Landscape (Regions)", "Natural Landscape PVP", "Artificial Battlefield", "Crossroads", "Ring", "Divided Lands", "Labyrinth", "Archipelago" })
 			{
 				Choose("RMG_LAYOUT_FAMILY", family);
 				Require(safeArea.IsVisible() && !Settings().RespectStartingSafeArea && !ownFort.IsVisible() && !Settings().OwnStartingStronghold && !ownership.IsDisabled(), "Starting-area options leaked or reset while switching family.");
@@ -311,6 +311,58 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			}
 
 			Console.WriteLine("PASS: Labyrinth live widgets, 252 settings roundtrips, invalid inputs, stored options and all eight layouts.");
+			Choose("RMG_LAYOUT_FAMILY", "Archipelago");
+			Require(Settings().GeneratorVersion == 24 && Settings().MirroringAxes == 0 && lobby.Get("RMG_ISLAND_AMOUNT").IsVisible() && !lobby.Get("RMG_PASSAGE_WIDTH").IsVisible(), "Archipelago controls failed to activate.");
+			Choose("RMG_SIZE", "512 x 512");
+			for (var count = 1; count <= 8; count++) { slider.UpdateValue(count); Require(Settings().PlayerCount == count, "Archipelago lost player count."); }
+			foreach (var amount in Enum.GetValues<RmgIslandAmount>())
+				foreach (var islandSize in Enum.GetValues<RmgIslandSize>())
+				{
+					Choose("RMG_ISLAND_AMOUNT", amount.ToString()); Choose("RMG_ISLAND_SIZE", islandSize.ToString());
+					Require(Settings().IslandAmount == amount && Settings().IslandSize == islandSize, "Island controls did not reach generation.");
+				}
+
+			Choose("RMG_PRESET", "Balanced"); Require(Settings().GeneratorVersion == 24, "Preset exited Archipelago.");
+			Draw(output, "archipelago-512-options");
+			ownership.OnClick(); Require(Ui.CurrentWindow().Get<ScrollPanelWidget>("SETTINGS").Children.Count == 8, "Archipelago ownership rows disagree.");
+			Require(Ui.CurrentWindow().Get<LabelWidget>("HELP").GetText().Contains("Mandatory island nests"), "Ownership panel omitted the island nest exception.");
+			Draw(output, "archipelago-ownership-help");
+			Ui.CurrentWindow().Get<ButtonWidget>("CANCEL").OnClick();
+			Choose("RMG_SIZE", "64 x 64"); Require(Settings().PlayerCount == 4 && slider.MaximumValue == 4, "Archipelago small-map cap failed.");
+			Require(lobby.Get<DropDownButtonWidget>("RMG_ISLAND_AMOUNT").IsDisabled() && lobby.Get<DropDownButtonWidget>("RMG_ISLAND_AMOUNT").GetText() == "2 islands (size limit)", "Small-map island limit is not visible.");
+			Choose("RMG_LAYOUT_FAMILY", "Natural Landscape (Regions)");
+			Require(Settings().GeneratorVersion == 16 && !lobby.Get("RMG_ISLAND_AMOUNT").IsVisible() && Settings().IslandAmount == RmgIslandAmount.Standard, "Island options leaked into another layout.");
+			Choose("RMG_LAYOUT_FAMILY", "Archipelago");
+			Require(Settings().IslandAmount == RmgIslandAmount.Ultra && Settings().IslandSize == RmgIslandSize.Ultra, "Stored island options were lost.");
+			Draw(output, "archipelago-64-options");
+			foreach (var mapSize in new[] { 64, 128, 256, 512 })
+				for (var count = 1; count <= (mapSize == 64 ? 4 : 8); count++)
+					foreach (var amount in Enum.GetValues<RmgIslandAmount>())
+						foreach (var islandSize in Enum.GetValues<RmgIslandSize>())
+						{
+							var request = new RmgPlayerSettings { SchemaVersion = 19, LayoutFamily = RmgPlayerLayoutFamily.Archipelago, MapSize = mapSize, PlayerCount = count, IslandAmount = amount, IslandSize = islandSize, RespectStartingSafeArea = false };
+							var parsed = RmgPlayerSettingsContract.Resolve(RmgPlayerSettingsContract.Parse(request.ToJson())).Normalized;
+							Require(parsed.GeneratorVersion == 24 && parsed.IslandAmount == amount && parsed.IslandSize == islandSize && !parsed.RespectStartingSafeArea, "Archipelago settings roundtrip failed.");
+						}
+
+			foreach (var invalid in new[] { "schema", "family", "amount", "size", "castles", "fort-ownership", "axes", "players" })
+			{
+				var json = new RmgPlayerSettings { SchemaVersion = 19, LayoutFamily = RmgPlayerLayoutFamily.Archipelago }.ToJson();
+				if (invalid == "schema") json["schema_version"] = 18;
+				if (invalid == "family") json["layout_family"] = "labyrinth";
+				if (invalid == "amount") json["island_amount"] = "bad";
+				if (invalid == "size") json["island_size"] = "bad";
+				if (invalid == "castles") json["generate_castles"] = false;
+				if (invalid == "fort-ownership") json["own_starting_stronghold"] = true;
+				if (invalid == "axes") json["mirroring_axes"] = 1;
+				if (invalid == "players") { json["players"] = 5; json["size"] = "64,64"; }
+				var rejected = false;
+				try { RmgPlayerSettingsContract.Resolve(RmgPlayerSettingsContract.Parse(json)); } catch (ArgumentException) { rejected = true; }
+				Require(rejected, $"Archipelago accepted invalid {invalid}.");
+			}
+
+			Console.WriteLine("PASS: Archipelago live widgets, 700 settings roundtrips, invalid inputs and stored options.");
+
 			var battlefieldValid = 0;
 			foreach (var size in new[] { 64, 128, 256, 512 })
 				for (var players = 1; players <= 8; players++)

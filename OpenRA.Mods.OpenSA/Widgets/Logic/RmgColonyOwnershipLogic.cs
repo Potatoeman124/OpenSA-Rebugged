@@ -15,12 +15,13 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		readonly RmgColonyWeightsLogic editor = new();
 		[ObjectCreator.UseCtor]
 		public RmgColonyOwnershipLogic(Widget widget, int[] initialShares, RmgColonyOwnershipMode initialMode,
-			Func<bool> configurationDisabled, Action<int[], RmgColonyOwnershipMode> onApply)
+			Func<bool> configurationDisabled, Action<int[], RmgColonyOwnershipMode> onApply, bool mandatoryIslandNests = false)
 		{
 			var mode = initialMode;
 			editor.Configure(widget, (int[])initialShares.Clone(), Enumerable.Range(1, initialShares.Length).Select(i => $"Player {i} (lobby slot {i})").ToArray(),
 				0, true, configurationDisabled, shares => onApply(shares, mode),
 				() => mode == RmgColonyOwnershipMode.Random ? "randomly selected colonies" : "nearby colonies");
+			if (mandatoryIslandNests) widget.Get<LabelWidget>("HELP").GetText = () => "Below 100: percentages; 100+: relative shares. Mandatory island nests are excluded and stay neutral.";
 			var panel = widget.Get<ScrollPanelWidget>("SETTINGS");
 			panel.Bounds.Y += 40;
 			panel.Bounds.Height -= 40;

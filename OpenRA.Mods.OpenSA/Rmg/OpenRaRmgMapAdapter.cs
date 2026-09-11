@@ -201,7 +201,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			if (terrainInfo is not ITemplatedTerrainInfo templated)
 				throw new InvalidDataException($"Tileset {profile.Tileset} is not template-based.");
 
-			if (profile.GeneratorVersion is 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23) RmgBiome.ValidateCatalogue(modData, profile.Tileset);
+			if (profile.GeneratorVersion is 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24) RmgBiome.ValidateCatalogue(modData, profile.Tileset);
 
 			ValidateTemplates(profile.ClearTemplateIds, "Clear");
 			if (profile.UsesClearLandDetails)
@@ -301,8 +301,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			};
 
 			if (profile.UsesRegionsTerrain)
-				map.Title = $"OpenSA Regions C-{RmgPlayerSettingsContract.ComplexityDisplayName(generation.Settings.TerrainComplexity, generation.Settings.GeneratorVersion is 13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23)} W-{generation.Settings.WaterAmount} G-{generation.Settings.TacticalTerrain} {generation.Settings.Seed}";
+				map.Title = $"OpenSA Regions C-{RmgPlayerSettingsContract.ComplexityDisplayName(generation.Settings.TerrainComplexity, generation.Settings.GeneratorVersion is 13 or 14 or 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24)} W-{generation.Settings.WaterAmount} G-{generation.Settings.TacticalTerrain} {generation.Settings.Seed}";
 			if (generation.Settings.GeneratorVersion == 17) map.Title = $"OpenSA Natural PVP {generation.Settings.MirroringAxes} {(generation.Settings.MirroringAxes == 1 ? "axis" : "axes")} C-{RmgPlayerSettingsContract.ComplexityDisplayName(generation.Settings.TerrainComplexity, true)} {generation.Settings.Seed}";
+			if (generation.Settings.GeneratorVersion == 24) map.Title = $"OpenSA Archipelago {RmgPlayerSettingsContract.ComplexityDisplayName(generation.Settings.TerrainComplexity, true)} {generation.Settings.Seed}";
 			if (generation.Settings.GeneratorVersion == 23) map.Title = $"OpenSA Labyrinth {RmgPlayerSettingsContract.ComplexityDisplayName(generation.Settings.TerrainComplexity, true)} {generation.Settings.Seed}";
 			if (generation.Settings.GeneratorVersion == 22) map.Title = $"OpenSA Strongholds {RmgPlayerSettingsContract.ComplexityDisplayName(generation.Settings.TerrainComplexity, true)} {generation.Settings.Seed}";
 			if (generation.Settings.GeneratorVersion == 21) map.Title = $"OpenSA Divided Lands {RmgPlayerSettingsContract.ComplexityDisplayName(generation.Settings.TerrainComplexity, true)} {generation.Settings.Seed}";
@@ -342,13 +343,13 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				map.ActorDefinitions.Add(new MiniYamlNode($"Actor{map.ActorDefinitions.Count}", actor.Save()));
 			}
 
-			if (generation.Settings.GeneratorVersion is 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23)
+			if (generation.Settings.GeneratorVersion is 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24)
 			{
 				var ownership = new MiniYamlNode("RmgStartingColonyOwnership", new MiniYaml(null, new List<MiniYamlNode>
 				{
 					new MiniYamlNode("PlayerShares", string.Join(", ", generation.Settings.StartingColonyShares)),
 					new MiniYamlNode("ColonyActorNames", string.Join(", ", generation.Map.Actors.Select((actor, index) => (actor, index))
-						.Where(pair => pair.actor.Role == "neutral-colony").Select(pair => "Actor" + pair.index)))
+						.Where(pair => pair.actor.Role == "neutral-colony" && !pair.actor.MandatoryNeutral).Select(pair => "Actor" + pair.index)))
 				}));
 				if (generation.Settings.OwnStartingStronghold)
 				{
@@ -801,6 +802,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			RmgTopologyPreset.DividedLands => "divided-lands",
 			RmgTopologyPreset.Strongholds => "strongholds",
 			RmgTopologyPreset.Labyrinth => "labyrinth",
+			RmgTopologyPreset.Archipelago => "archipelago",
 			_ => throw new ArgumentOutOfRangeException(nameof(topology))
 		};
 	}

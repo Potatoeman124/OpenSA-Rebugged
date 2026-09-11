@@ -10,17 +10,20 @@ The RMG must preserve that boundary: it may refer to terrain and actor identifie
 
 ## Current development
 
-[Labyrinth V23](LABYRINTH_V23.md) is the current change on `codex/rmg-labyrinth`,
-based on the accepted starting-area checkpoint `55f206b` (2026-09-10). It adds an
-asymmetric maze of winding passages, slowing surfaces and sparse colony alcoves.
-Passage Width and Extra Routes are its layout controls. Terrain remains fixed when
-colony density, weights, ownership or starting safe-area rules change.
-The layout uses player-settings schema 18, configuration 2, and awaits in-game review.
-The revision makes complexity subdivide the maze into more and longer routes,
-retaining starting positions and large-area connections while replacing the fixed local graph.
+[Archipelago V24](ARCHIPELAGO_V24.md) is the current change on `codex/rmg-archipelago`,
+based on accepted Labyrinth checkpoint `20ccaa0` (2026-09-11). It adds asymmetric
+islands with Island Amount and Island Size controls, complex coastlines, and large
+landmasses. Every actual dry island has a mandatory neutral Wasps nest, independently
+of player starting factions, species weights and Starting Ownership. Player-settings
+schema 19 selects generator 24, configuration 1. Pending user in-game review.
+
+[Labyrinth V23](LABYRINTH_V23.md), configuration 2, was accepted at `20ccaa0`.
+Its complexity subdivides the maze into more and longer routes while retaining
+starting positions and large-area connections. Passage Width and Extra Routes are
+its layout controls; schema 18 preserves this accepted version.
 
 [Starting-area options](STARTING_AREA_OPTIONS.md) were accepted at `55f206b`.
-**Respect Starting Safe Area** applies to all eight current layouts and defaults On.
+**Respect Starting Safe Area** applies to all nine current layouts and defaults On.
 **Own Starting Stronghold** remains specific to Strongholds and defaults Off.
 When On it assigns occupied starting forts to their actual players, overriding the
 ownership shares/mode; smaller castles remain neutral. Existing layout schemas and
@@ -85,6 +88,7 @@ generated-map selection initializes Explored Map On and Fog of War Off; later re
 user changes. With overlap prevention off, the generator fills neutral-colony shortfalls using the smallest
 available turret-spacing overlaps while retaining physical clearance and all player-start protections.
 
+Schema 19 adds Archipelago V24. Schema 18 adds Labyrinth V23.
 Schema 12 selects V18 for explicit Artificial Battlefield. Schema 13 adds Crossroads V19. Schema 14 adds Ring V20. Schema 15 adds Divided Lands V21. Schema 16 adds Strongholds V22. Schema 17 adds the optional starting safe-area and whole-stronghold ownership controls.
 Schema 11 and newer select V17 for Natural Landscape PVP and preserve V16 for ordinary Natural Landscape.
 Schema 10 selects V16; schema 9 preserves V15; schema 8 preserves V14; schema 7 preserves [accepted V13 complexity](NATURAL_REGIONS_V13_EXTENDED_OPTIONS.md);

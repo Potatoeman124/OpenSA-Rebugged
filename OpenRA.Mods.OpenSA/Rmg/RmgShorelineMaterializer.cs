@@ -268,7 +268,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 		}
 
 		static bool Clear(RmgLogicalMap map, int x, int y) =>
-			x < 0 || x >= map.Width || y < 0 || y >= map.Height || !map.Obstacles[map.Index(new RmgPoint(x, y))];
+			x < 0 || x >= map.Width || y < 0 || y >= map.Height ? !map.OceanOutside : !map.Obstacles[map.Index(new RmgPoint(x, y))];
 
 		static bool IsCanonical(RmgPoint point, RmgPoint partner, int width) =>
 			point.Y * width + point.X <= partner.Y * width + partner.X;

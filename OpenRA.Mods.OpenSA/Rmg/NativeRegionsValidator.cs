@@ -17,7 +17,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 	public static partial class NativeMovementValidator
 	{
 		static IEnumerable<CPos> NativeStartingPositions(RmgGenerationResult generation) =>
-			generation.Settings.GeneratorVersion is 17 or 18 or 19 or 20 or 21 or 22 or 23 ? generation.Map.Actors.Where(a => a.Role == "start").Select(a =>
+			generation.Settings.GeneratorVersion is 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24 ? generation.Map.Actors.Where(a => a.Role == "start").Select(a =>
 			{
 				var point = RmgMirroring.Native(a);
 				return new CPos(point.X + generation.Profile.CordonWidth, point.Y + generation.Profile.CordonWidth);
@@ -102,17 +102,19 @@ namespace OpenRA.Mods.OpenSA.Rmg
 					result.HardFailures.Add(new RmgValidationIssue(code, message));
 			}
 
-			if (settings.GeneratorVersion is 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23)
+			if (settings.GeneratorVersion is 15 or 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24)
 			{
 				var weights = settings.NeutralColonyWeights;
 				var allowed = RmgColonyWeights.Keys.Where((_, i) => weights.Values[i] > 0).Select(key => key + "_colony").ToHashSet();
-				Require(colonies.All(colony => allowed.Contains(colony.Type)), "COLONY_WEIGHTS", "Saved map contains an excluded neutral colony type.");
-				Require(colonies.Length <= settings.EffectiveNeutralColonyCount, "COLONY_COUNT", "Saved map exceeds the effective neutral colony target.");
+				var mandatory = generation.Map.Actors.Where(a => a.MandatoryNeutral).Select(a => RmgMirroring.Native(a))
+					.Select(p => new CPos(p.X + profile.CordonWidth, p.Y + profile.CordonWidth)).ToHashSet();
+				Require(colonies.All(colony => allowed.Contains(colony.Type) || (settings.GeneratorVersion == 24 && colony.Type == "wasps_colony" && mandatory.Contains(colony.Location))), "COLONY_WEIGHTS", "Saved map contains an excluded neutral colony type.");
+				Require(colonies.Length <= Math.Max(settings.EffectiveNeutralColonyCount, generation.Map.Actors.Count(a => a.MandatoryNeutral)), "COLONY_COUNT", "Saved map exceeds the effective neutral colony target.");
 			}
-			if (settings.GeneratorVersion is 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23)
+			if (settings.GeneratorVersion is 16 or 17 or 18 or 19 or 20 or 21 or 22 or 23 or 24)
 			{
 				var ownership = map.Rules.Actors[SystemActors.World].TraitInfoOrDefault<Traits.World.RmgStartingColonyOwnershipInfo>();
-				var colonyNames = map.ActorDefinitions.Where(node => profile.NeutralColonyActors.Contains(node.Value.Value)).Select(node => node.Key).ToArray();
+				var colonyNames = generation.Map.Actors.Select((a, i) => (a, i)).Where(p => p.a.Role == "neutral-colony" && !p.a.MandatoryNeutral).Select(p => "Actor" + p.i).ToArray();
 				Require(ownership != null && ownership.PlayerShares.SequenceEqual(settings.StartingColonyShares) &&
 					ownership.ColonyActorNames.SequenceEqual(colonyNames) && ownership.OwnStartingStronghold == settings.OwnStartingStronghold &&
 					(!settings.OwnStartingStronghold || ownership.ColonySpawnPoints.SequenceEqual(generation.Map.Actors.Where(a => a.Role == "neutral-colony").Select(a => a.StrongholdSpawn))) && ownership.ChoiceMode == settings.StartingColonyMode &&
@@ -141,6 +143,7 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			Require(semantics == 0, "NATIVE_SEMANTICS", $"{semantics} native cells differ from generated semantics or height.");
 			Require(!actorMismatch, "NATIVE_ACTORS", "Saved actors differ from the validated placement plan.");
 			Require(!settings.OriginalSurfaceRelations || contacts == 0, "ORIGINAL_SURFACE_CONTACT", $"{contacts} forbidden native surface contacts.");
+			if (settings.GeneratorVersion == 24) ValidateArchipelago(map, generation, withStarts, grid, starts, colonies, result);
 			if (settings.GeneratorVersion == 23) ValidateLabyrinth(map, generation, withStarts, grid, starts, colonies, result);
 			if (settings.GeneratorVersion == 22) ValidateStrongholds(map, generation, withStarts, grid, starts, colonies, result);
 			if (settings.GeneratorVersion == 21) ValidateDividedLands(map, generation, withStarts, grid, starts, colonies, result);
@@ -149,9 +152,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 			result.RegionsPolicy["validator"] = result.ValidatorName;
 			result.RegionsPolicy["accepted"] = result.Accepted;
 			result.RegionsPolicy["hard_failures"] = new JArray(result.HardFailures.Select(f => f.ToJson()));
-			result.RegionsPolicy["accessibility_requirement"] = settings.GeneratorVersion == 22 ? "STARTS_AND_COLONIES_CONNECTED" : settings.GeneratorVersion == 21 ? "CONNECTED_HOME_TERRITORIES" : settings.GeneratorVersion is 18 or 19 or 20 or 21 or 22 or 23 ? "STARTS_AND_COLONIES_CONNECTED" : "NOT_REQUIRED";
-			result.RegionsPolicy["strategic_routes_requirement"] = settings.GeneratorVersion == 23 ? "CONNECTED_WINDING_PASSAGES" : settings.GeneratorVersion == 22 ? "CONNECTED_FORT_ENTRANCES" : settings.GeneratorVersion == 21 ? (settings.LandCrossings == RmgLandCrossings.None ? "DISCONNECTED_TERRITORIES" : "EXACT_BORDER_CROSSINGS") : settings.GeneratorVersion is 18 or 19 or 20 or 21 or 22 or 23 ? "CONNECTED_CLEAR_LANE_NETWORK" : "NOT_REQUIRED";
-			result.RegionsPolicy["flying_unit_availability_requirement"] = "NOT_REQUIRED";
+			result.RegionsPolicy["accessibility_requirement"] = settings.GeneratorVersion == 24 ? "WASPS_ACCESS_ON_EVERY_ISLAND" : settings.GeneratorVersion == 22 ? "STARTS_AND_COLONIES_CONNECTED" : settings.GeneratorVersion == 21 ? "CONNECTED_HOME_TERRITORIES" : settings.GeneratorVersion is 18 or 19 or 20 or 21 or 22 or 23 or 24 ? "STARTS_AND_COLONIES_CONNECTED" : "NOT_REQUIRED";
+			result.RegionsPolicy["strategic_routes_requirement"] = settings.GeneratorVersion == 24 ? "DISCONNECTED_ISLANDS" : settings.GeneratorVersion == 23 ? "CONNECTED_WINDING_PASSAGES" : settings.GeneratorVersion == 22 ? "CONNECTED_FORT_ENTRANCES" : settings.GeneratorVersion == 21 ? (settings.LandCrossings == RmgLandCrossings.None ? "DISCONNECTED_TERRITORIES" : "EXACT_BORDER_CROSSINGS") : settings.GeneratorVersion is 18 or 19 or 20 or 21 or 22 or 23 or 24 ? "CONNECTED_CLEAR_LANE_NETWORK" : "NOT_REQUIRED";
+			result.RegionsPolicy["flying_unit_availability_requirement"] = settings.GeneratorVersion == 24 ? "MANDATORY_NEUTRAL_WASPS_PER_ISLAND" : "NOT_REQUIRED";
 			result.RegionsPolicy["original_surface_dirt_placement_enforced"] = settings.OriginalSurfaceRelations;
 			result.RegionsPolicy["native_semantic_mismatches"] = semantics;
 			result.RegionsPolicy["forbidden_surface_contacts"] = contacts;

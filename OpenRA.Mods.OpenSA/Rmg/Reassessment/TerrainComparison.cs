@@ -19,6 +19,7 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 
 	public sealed record TerrainComparisonSettings(ulong Seed, int Size, TerrainConstruction Method, TerrainComplexity Complexity)
 	{
+		public bool OceanOutside { get; init; }
 		public int WaterPercent { get; init; } = 20;
 		public int MirroringAxes { get; init; }
 		public int GravelPercent { get; init; } = 14;
@@ -72,7 +73,7 @@ namespace OpenRA.Mods.OpenSA.Rmg.Reassessment
 				reference = Generate(modData, settings.ContinuityReference).Map;
 			var timer = Stopwatch.StartNew();
 			var width = settings.Size / 2;
-			var map = new RmgLogicalMap(width, width);
+			var map = new RmgLogicalMap(width, width) { OceanOutside = settings.OceanOutside };
 			var waterFraction = settings.WaterPercent / 100D;
 			var geologyFraction = (settings.GravelPercent + settings.MossPercent) / 100D;
 			var mossFraction = settings.MossPercent / 100D;

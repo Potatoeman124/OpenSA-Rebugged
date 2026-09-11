@@ -31,9 +31,9 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 	public sealed partial class ValidateRmgOwnershipRuntimeCommand : IUtilityCommand
 	{
 		string IUtilityCommand.Name => "--validate-sa-rmg-runtime";
-		bool IUtilityCommand.ValidateArguments(string[] args) => args.Length >= 2 && args.Length <= 4 && args.Skip(2).All(a => a is "--wide" or "--512" or "--save" or "--pvp" or "--battlefield" or "--crossroads" or "--ring" or "--divided-lands" or "--strongholds" or "--starting-area" or "--labyrinth" or "--ui-only");
+		bool IUtilityCommand.ValidateArguments(string[] args) => args.Length >= 2 && args.Length <= 4 && args.Skip(2).All(a => a is "--wide" or "--512" or "--save" or "--pvp" or "--battlefield" or "--crossroads" or "--ring" or "--divided-lands" or "--strongholds" or "--starting-area" or "--labyrinth" or "--archipelago" or "--ui-only");
 
-		[Desc("OUTPUT-DIRECTORY [--wide] [--ui-only|--512|--save|--pvp|--battlefield|--crossroads|--ring|--divided-lands|--strongholds|--starting-area|--labyrinth]", "Exercise colony ownership, live previews and skirmish startup; --512 checks large maps, --save checks saved copies, --pvp checks mirrored Regions.")]
+		[Desc("OUTPUT-DIRECTORY [--wide] [--ui-only|--512|--save|--pvp|--battlefield|--crossroads|--ring|--divided-lands|--strongholds|--starting-area|--labyrinth|--archipelago]", "Exercise colony ownership, live previews and skirmish startup; --512 checks large maps, --save checks saved copies, --pvp checks mirrored Regions.")]
 		void IUtilityCommand.Run(Utility utility, string[] args)
 		{
 			var output = Path.GetFullPath(args[1]);
@@ -71,10 +71,11 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				return;
 			}
 
-			if (args.Contains("--pvp") || args.Contains("--battlefield") || args.Contains("--crossroads") || args.Contains("--ring") || args.Contains("--divided-lands") || args.Contains("--strongholds") || args.Contains("--starting-area") || args.Contains("--labyrinth")) CheckPvpWidgets(utility, output);
+			if (args.Contains("--pvp") || args.Contains("--battlefield") || args.Contains("--crossroads") || args.Contains("--ring") || args.Contains("--divided-lands") || args.Contains("--strongholds") || args.Contains("--starting-area") || args.Contains("--labyrinth") || args.Contains("--archipelago")) CheckPvpWidgets(utility, output);
 			else { CheckWidgets(output); CheckLobby(utility, output); }
 			var results = new JArray();
 			var battlefield = args.Contains("--battlefield");
+			var archipelago = args.Contains("--archipelago");
 			var labyrinth = args.Contains("--labyrinth");
 			var strongholds = args.Contains("--strongholds");
 			var divided = args.Contains("--divided-lands");
@@ -82,8 +83,8 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			var crossroads = args.Contains("--crossroads");
 			void Run(string id, int size, int[] shares, int[] spawns, int absent = -1, bool empty = false, bool bots = false, ulong seed = 397716241463670640, bool crowded = false, RmgColonyOwnershipMode mode = RmgColonyOwnershipMode.ClosestToSpawn, string tileset = "NORMAL", bool hostiles = false, int axes = 0, RmgPlayerSettings options = null)
 			{
-				var requested = options ?? new RmgPlayerSettings { SchemaVersion = labyrinth ? 18 : strongholds ? 16 : divided ? 15 : ring ? 14 : crossroads ? 13 : battlefield ? 12 : axes == 0 ? 10 : 11, MirroringAxes = axes, MapSize = size, PlayerCount = shares.Length,
-					Seed = seed, Tileset = tileset, NeutralColonyDensity = crowded ? RmgPlayerColonyDensity.Ultra : RmgPlayerColonyDensity.Standard, LayoutFamily = labyrinth ? RmgPlayerLayoutFamily.Labyrinth : strongholds ? RmgPlayerLayoutFamily.Strongholds : divided ? RmgPlayerLayoutFamily.DividedLands : ring ? RmgPlayerLayoutFamily.Ring : crossroads ? RmgPlayerLayoutFamily.Crossroads : battlefield ? RmgPlayerLayoutFamily.ArtificialBattlefield : axes == 0 ? RmgPlayerLayoutFamily.NaturalLandscape : RmgPlayerLayoutFamily.NaturalLandscapePvp,
+				var requested = options ?? new RmgPlayerSettings { SchemaVersion = archipelago ? 19 : labyrinth ? 18 : strongholds ? 16 : divided ? 15 : ring ? 14 : crossroads ? 13 : battlefield ? 12 : axes == 0 ? 10 : 11, MirroringAxes = axes, MapSize = size, PlayerCount = shares.Length,
+					Seed = seed, Tileset = tileset, NeutralColonyDensity = crowded ? RmgPlayerColonyDensity.Ultra : RmgPlayerColonyDensity.Standard, LayoutFamily = archipelago ? RmgPlayerLayoutFamily.Archipelago : labyrinth ? RmgPlayerLayoutFamily.Labyrinth : strongholds ? RmgPlayerLayoutFamily.Strongholds : divided ? RmgPlayerLayoutFamily.DividedLands : ring ? RmgPlayerLayoutFamily.Ring : crossroads ? RmgPlayerLayoutFamily.Crossroads : battlefield ? RmgPlayerLayoutFamily.ArtificialBattlefield : axes == 0 ? RmgPlayerLayoutFamily.NaturalLandscape : RmgPlayerLayoutFamily.NaturalLandscapePvp,
 					StartingColonyShares = shares, StartingColonyMode = mode, NeutralColonyWeights = empty ? new(0, 0, 0, 0, 0) : new() };
 				var settings = RmgPlayerSettingsContract.Resolve(requested).Normalized;
 				var package = OpenRaRmgMapAdapter.GenerateAndSave(utility.ModData, RmgProfile.Load(utility.ModData, settings),
@@ -92,7 +93,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				using var directory = new OpenRA.FileSystem.Folder(output);
 				utility.ModData.MapCache.LoadMap(id + ".oramap", directory, MapClassification.User, utility.ModData.Manifest.Get<MapGrid>(), null);
 				var map = utility.ModData.MapCache[package.EngineUid];
-				if (axes != 0 || battlefield || crossroads || ring || divided || strongholds || labyrinth || args.Contains("--starting-area")) map = SavePvpRuntimeCopy(utility, map, directory, id);
+				if (axes != 0 || battlefield || crossroads || ring || divided || strongholds || labyrinth || archipelago || args.Contains("--starting-area")) map = SavePvpRuntimeCopy(utility, map, directory, id);
 				if (bots && crowded) CheckServer(utility, map);
 				var first = CheckWorld(utility, map, shares, spawns, absent, bots, Path.Combine(output, id), hostiles);
 				var second = CheckWorld(utility, map, shares, spawns, absent, bots, null, hostiles);
@@ -102,7 +103,29 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				Console.WriteLine($"PASS: {id}, pool {first["pool"]}, assigned {first["counts"]}, repeat world identical.");
 			}
 
-			if (labyrinth)
+			if (archipelago)
+			{
+				Run("islands-solo", 64, new[] { 100 }, new int[1]);
+				Run("islands-small", 64, new[] { 100, 100, 100, 100 }, new[] { 4, 3, 2, 1 });
+				Run("islands-desert", 128, new[] { 0, 10, 20 }, new int[3], bots: true, tileset: "DESERT", hostiles: true);
+				Run("islands-swamp", 256, new[] { 0, 20, 40, 60, 80 }, new int[5], bots: true, mode: RmgColonyOwnershipMode.Random, tileset: "SWAMP");
+				Run("islands-candy", 512, Enumerable.Repeat(100, 8).ToArray(), new int[8], bots: true, mode: RmgColonyOwnershipMode.Random, tileset: "CANDY");
+				Run("islands-empty", 128, new[] { 100, 100 }, new[] { 2, 1 }, empty: true);
+				Run("islands-absent", 256, new[] { 100, 100, 100, 100 }, new[] { 4, 3, 2, 1 }, absent: 1, mode: RmgColonyOwnershipMode.Random);
+				foreach (var compact in new[] { (64, 4), (128, 8), (256, 5), (512, 8) })
+					foreach (var many in new[] { false, true })
+						Run($"islands-extremes-{compact.Item1}-{many}", compact.Item1, Enumerable.Repeat(100, compact.Item2).ToArray(), new int[compact.Item2], bots: true, options: new RmgPlayerSettings
+						{
+							SchemaVersion = 19, LayoutFamily = RmgPlayerLayoutFamily.Archipelago, Seed = 1,
+							MapSize = compact.Item1, PlayerCount = compact.Item2, StartingColonyShares = Enumerable.Repeat(100, compact.Item2).ToArray(),
+							IslandAmount = many ? RmgIslandAmount.Ultra : RmgIslandAmount.Few, IslandSize = many ? RmgIslandSize.Small : RmgIslandSize.Ultra,
+							TerrainComplexity = Rmg.Reassessment.TerrainComplexity.Ultra, WaterAmount = RmgPlayerParameterLevel.Ultra,
+							TacticalTerrain = RmgPlayerParameterLevel.Ultra, NeutralColonyDensity = RmgPlayerColonyDensity.Ultra,
+							NeutralColonyWeights = new(100, 100, 100, 100, 0), StartingColonyMode = RmgColonyOwnershipMode.Random,
+							PreventColonyOverlapping = false, OriginalSurfaceRelations = false, RespectStartingSafeArea = false
+						});
+			}
+			else if (labyrinth)
 			{
 				foreach (var level in Enum.GetValues<Rmg.Reassessment.TerrainComplexity>())
 					Run($"labyrinth-review-{level}", 256, new[] { 0, 10, 20, 30, 40, 50 }, new int[6], bots: true, options: new RmgPlayerSettings
@@ -371,6 +394,14 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			void Tick() { world.Tick(); manager.LocalFrameNumber++; }
 			Tick();
 			Require(controller.Applied, "Ownership setup did not run on the first tick.");
+			var mandatoryNests = spawned.Where(p => p.Value.Info.Name == "wasps_colony" && !info.ColonyActorNames.Contains(p.Key)).ToArray();
+			foreach (var nest in mandatoryNests)
+			{
+				Require(nest.Value.Owner.InternalName == "Creeps", "Mandatory island nest was assigned at startup.");
+				Require(forecast == null || !forecast.ColonyOwners.ContainsKey(nest.Key), "Mandatory island nest was colored as owned in the preview.");
+				Require(nest.Value.TraitsImplementing<ProductionQueue>().Any(q => q.BuildableItems().Any()), "Mandatory Wasps nest has no available production.");
+			}
+
 			if (forecast != null)
 				foreach (var name in info.ColonyActorNames)
 					Require(spawned[name].Owner.InternalName == (forecast.ColonyOwners.TryGetValue(name, out var slot) ? slot : "Creeps"), "Preview ownership disagrees with actual runtime owner.");
@@ -386,9 +417,16 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			}
 			Require(startingActors.Select((a, i) => a == null || a.Owner == players[i]).All(v => v), "Starting colony changed owner.");
 			Require(terrain.SequenceEqual(world.Map.AllCells.Select(c => world.Map.Tiles[c])), "Ownership changed terrain.");
-			var result = new JObject { ["tileset"] = world.Map.Tileset, ["whole_stronghold"] = info.OwnStartingStronghold, ["spawn_numbers"] = new JArray(players.Select(p => p?.SpawnPoint ?? 0)), ["colony_strongholds"] = new JArray(info.ColonySpawnPoints), ["ownership_mode"] = RmgColonyOwnership.ModeName(info.ChoiceMode), ["preview_matches_runtime"] = true, ["ai_opponents"] = bots, ["pool"] = colonies.Length, ["counts"] = new JArray(controller.AssignedCounts),
+			var result = new JObject { ["mandatory_neutral_nests"] = mandatoryNests.Length, ["tileset"] = world.Map.Tileset, ["whole_stronghold"] = info.OwnStartingStronghold, ["spawn_numbers"] = new JArray(players.Select(p => p?.SpawnPoint ?? 0)), ["colony_strongholds"] = new JArray(info.ColonySpawnPoints), ["ownership_mode"] = RmgColonyOwnership.ModeName(info.ChoiceMode), ["preview_matches_runtime"] = true, ["ai_opponents"] = bots, ["pool"] = colonies.Length, ["counts"] = new JArray(controller.AssignedCounts),
 				["starts"] = new JArray(starts.Select(p => $"{p.X},{p.Y}")),
 				["owners"] = new JArray(colonies.Select(a => a.Owner.InternalName)) };
+			if (mandatoryNests.Length > 0)
+			{
+				var nest = mandatoryNests[0].Value; var player = players.First(p => p != null);
+				nest.ChangeOwner(player); Tick(); Tick();
+				Require(nest.Owner == player && nest.TraitsImplementing<ProductionQueue>().Any(q => q.BuildableItems().Any()), "Mandatory neutral nest cannot be captured and used.");
+			}
+
 			var captured = colonies.FirstOrDefault(a => !a.Owner.NonCombatant);
 			if (captured != null)
 			{
