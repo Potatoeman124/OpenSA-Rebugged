@@ -8,13 +8,24 @@ The repository contains only original source code, build tooling, and project do
 
 The RMG must preserve that boundary: it may refer to terrain and actor identifiers supported by the engine, but it must not copy original maps, art, audio, or other legally ambiguous asset material into the repository.
 
-## Current development
+## Accepted RMG freeze
 
-[Chaos V25](CHAOS_V25.md) is the current change on `codex/rmg-chaos`, based on
-accepted Archipelago `dc6dcfc` (2026-09-11). It overlaps asymmetric terrain motifs
-and optionally mixes all four actual biome catalogues in one map. Collision Scale
-and Biome Mixing are its layout controls. Player-settings schema 20 selects
-generator 25, configuration 1. Pending user in-game review.
+The complete planned RMG feature set was accepted on 2026-09-11 and approved for
+merge into `main` and push to `origin`. The accepted implementation ends at
+`934ea2b`; all layout commits form one continuous history from the previous main
+checkpoint `e100d92`.
+
+[Chaos V25](CHAOS_V25.md) is the final accepted layout. It overlaps asymmetric
+terrain motifs and optionally mixes all four actual biome catalogues in one map.
+Collision Scale and Biome Mixing are its layout controls. Player-settings schema 20
+selects generator 25, configuration 1.
+
+The frozen set contains ten layouts: Natural Landscape, Natural Landscape PVP,
+Artificial Battlefield, Crossroads, Ring, Divided Lands, Strongholds, Labyrinth,
+Archipelago and Chaos. It includes all four terrain themes, 64/128/256/512 sizes,
+1-8 players (64x64 capped at four), extended quantity controls, colony type weights,
+starting ownership and previews, safe-area controls, and named custom map saving.
+Layout-specific options and constraints remain documented in their linked records.
 
 [Archipelago V24](ARCHIPELAGO_V24.md) was accepted at `dc6dcfc`. It provides
 asymmetric islands with Island Amount and Island Size, complex coastlines and large
@@ -37,13 +48,13 @@ map identities remain unchanged.
 Natural Landscape PVP `15f4882`, Artificial Battlefield `17881c4`, Crossroads `cfa6f9e`, Ring
 `ae6512c` Divided Lands `91f1594`, and Strongholds `af971d7` are accepted. New layouts from Strongholds onward are
 asymmetric by user direction. Existing families retain their earlier symmetry contracts.
-Ordinary Natural Landscape remains the default; no merge or push is part of this implementation.
+Ordinary Natural Landscape remains the default. All ten layouts are included in this main-branch freeze.
 Historical schemas preserve older generators. Structured Competitive remains retired from the
 lobby. Chaos is now implemented as the final experimental family.
 
-## Current integration checkpoint
+## Previous integration checkpoints
 
-The accepted checkpoint on `main` is **Regions V16 with all four biomes, 512 x 512 maps,
+The preceding checkpoint on `main` was **Regions V16 with all four biomes, 512 x 512 maps,
 and named map saving**, configuration 1 / player-settings schema 10. The user accepted this
 checkpoint and authorized merge/push on 2026-09-08. Implementation commits `55341a1`
 and `71f2b51` were developed on `codex/rmg-512-map-size` from accepted main `5742b43`.

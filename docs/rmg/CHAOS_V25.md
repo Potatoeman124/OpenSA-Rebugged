@@ -1,5 +1,8 @@
 # Chaos V25
 
+Status: accepted at `934ea2b` on 2026-09-11 as the final planned RMG layout.
+The user approved the complete RMG feature chain for merge to main and push to origin.
+
 Chaos is an experimental asymmetric layout built on accepted Archipelago `dc6dcfc`.
 It deliberately has no competitive parity contract. Player-settings schema 20 selects
 generator 25, configuration 1. Older schemas retain their existing generators.
