@@ -57,7 +57,7 @@ Container@OBSERVER_WIDGETS:
 			Height: 55
 			Children:
 				DropDownButton@SHROUD_SELECTOR:
-					Logic: ObserverShroudSelectorLogic
+					Logic: ObserverShroudSelectorLogic, ObserverDropdownBoundsLogic
 						CombinedViewKey: ObserverCombinedView
 						WorldViewKey: ObserverWorldView
 					X: 15

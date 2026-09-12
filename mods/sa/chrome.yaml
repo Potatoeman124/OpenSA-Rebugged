@@ -604,6 +604,38 @@ scrollitem-nohover:
 
 scrollitem-nohover-highlighted:
 
+# The shared spectator dropdown templates use observer-prefixed panels.
+# Keep all of their states in the same style as the rest of the OpenSA UI.
+observer-scrollheader:
+	Inherits: scrollheader
+
+observer-scrollheader-highlighted:
+	Inherits: scrollheader-highlighted
+
+observer-scrollitem:
+	Inherits: scrollitem
+
+observer-scrollitem-hover:
+	Inherits: scrollitem-hover
+
+observer-scrollitem-pressed:
+	Inherits: scrollitem-pressed
+
+observer-scrollitem-highlighted:
+	Inherits: scrollitem-highlighted
+
+observer-scrollpanel-button:
+	Inherits: scrollpanel-button
+
+observer-scrollpanel-button-hover:
+	Inherits: scrollpanel-button-hover
+
+observer-scrollpanel-button-pressed:
+	Inherits: scrollpanel-button-pressed
+
+observer-scrollpanel-button-disabled:
+	Inherits: scrollpanel-button-disabled
+
 scrollpanel-decorations:
 	Inherits: ^Glyphs
 	Regions:

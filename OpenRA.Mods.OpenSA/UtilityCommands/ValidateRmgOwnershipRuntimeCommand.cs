@@ -31,9 +31,9 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 	public sealed partial class ValidateRmgOwnershipRuntimeCommand : IUtilityCommand
 	{
 		string IUtilityCommand.Name => "--validate-sa-rmg-runtime";
-		bool IUtilityCommand.ValidateArguments(string[] args) => args.Length >= 2 && args.Length <= 4 && args.Skip(2).All(a => a is "--wide" or "--512" or "--save" or "--pvp" or "--battlefield" or "--crossroads" or "--ring" or "--divided-lands" or "--strongholds" or "--starting-area" or "--labyrinth" or "--archipelago" or "--chaos" or "--ui-only" or "--qol" or "--chaos-hostiles");
+		bool IUtilityCommand.ValidateArguments(string[] args) => args.Length >= 2 && args.Length <= 4 && args.Skip(2).All(a => a is "--wide" or "--512" or "--save" or "--pvp" or "--battlefield" or "--crossroads" or "--ring" or "--divided-lands" or "--strongholds" or "--starting-area" or "--labyrinth" or "--archipelago" or "--chaos" or "--ui-only" or "--qol" or "--chaos-hostiles" or "--observer-ui");
 
-		[Desc("OUTPUT-DIRECTORY [--wide] [--ui-only|--512|--save|--pvp|--battlefield|--crossroads|--ring|--divided-lands|--strongholds|--starting-area|--labyrinth|--archipelago|--chaos|--qol|--chaos-hostiles]", "Exercise colony ownership, live previews and skirmish startup; --512 checks large maps, --save checks saved copies, --pvp checks mirrored Regions.")]
+		[Desc("OUTPUT-DIRECTORY [--wide] [--ui-only|--512|--save|--pvp|--battlefield|--crossroads|--ring|--divided-lands|--strongholds|--starting-area|--labyrinth|--archipelago|--chaos|--qol|--chaos-hostiles|--observer-ui]", "Exercise colony ownership, live previews and skirmish startup; --512 checks large maps, --save checks saved copies, --pvp checks mirrored Regions.")]
 		void IUtilityCommand.Run(Utility utility, string[] args)
 		{
 			var output = Path.GetFullPath(args[1]);
@@ -56,6 +56,13 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			utility.ModData.InitializeLoaders(utility.ModData.DefaultFileSystem);
 			Game.Renderer.InitializeFonts(utility.ModData);
 			utility.ModData.MapCache.LoadMaps();
+			if (args.Contains("--observer-ui"))
+			{
+				CheckObserverUi(utility, output);
+				Game.Renderer.Dispose();
+				return;
+			}
+
 			if (args.Contains("--chaos-hostiles"))
 			{
 				CheckChaosHostiles(utility, output);
