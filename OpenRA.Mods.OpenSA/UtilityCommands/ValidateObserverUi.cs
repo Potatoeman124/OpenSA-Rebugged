@@ -67,6 +67,8 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				CaptureQolWorld(renderer, output, "observer-statistics", center);
 				stats.RemovePanel();
 
+				CheckObserverArmy(renderer, output);
+
 				// Also exercise the other shared spectator template, including its optional header.
 				var groups = new Dictionary<string, IEnumerable<int>>
 				{
@@ -85,7 +87,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			File.WriteAllText(Path.Combine(output, "verification.json"), new JObject
 			{
 				["status"] = "PASS", ["scope"] = "LIVE_OBSERVER_DROPDOWNS",
-				["checks"] = "Eight team headers, on-screen bounds, scrolling, all ten camera views, statistics menu, both shared spectator templates and row interaction states"
+				["checks"] = "Eight team headers, on-screen bounds, scrolling, all ten camera views, live army totals/composition/lifecycle/tooltips, statistics menu, both shared spectator templates and row interaction states"
 			}.ToString());
 			Console.WriteLine("PASS: observer dropdown rendering, scrolling, states and camera selection.");
 		}

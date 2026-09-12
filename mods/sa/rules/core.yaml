@@ -197,6 +197,7 @@
 	MustBeDestroyed:
 		RequiredForShortGame: false
 	UpdatesPlayerStatistics:
+		AddToArmyValue: true
 	AttackWander@BOT:
 		WanderMoveRadius: 2
 		ReduceMoveRadiusDelay: 50

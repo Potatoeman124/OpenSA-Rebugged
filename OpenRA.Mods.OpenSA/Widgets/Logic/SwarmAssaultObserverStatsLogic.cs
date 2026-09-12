@@ -75,6 +75,14 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			playerStatsPanel.Layout = new GridLayout(playerStatsPanel);
 			playerStatsPanel.IgnoreMouseOver = true;
 
+			basicPlayerTemplate = playerStatsPanel.Get<ScrollItemWidget>("BASIC_PLAYER_TEMPLATE");
+			economyPlayerTemplate = playerStatsPanel.Get<ScrollItemWidget>("ECONOMY_PLAYER_TEMPLATE");
+			productionPlayerTemplate = playerStatsPanel.Get<ScrollItemWidget>("PRODUCTION_PLAYER_TEMPLATE");
+			armyPlayerTemplate = playerStatsPanel.Get<ScrollItemWidget>("ARMY_PLAYER_TEMPLATE");
+			combatPlayerTemplate = playerStatsPanel.Get<ScrollItemWidget>("COMBAT_PLAYER_TEMPLATE");
+
+			teamTemplate = playerStatsPanel.Get<ScrollItemWidget>("TEAM_TEMPLATE");
+
 			if (ShowScrollBar)
 			{
 				playerStatsPanel.ScrollBar = ScrollBar.Left;
@@ -85,14 +93,6 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 				AdjustHeader(combatStatsHeaders);
 				AdjustHeader(armyHeaders);
 			}
-
-			basicPlayerTemplate = playerStatsPanel.Get<ScrollItemWidget>("BASIC_PLAYER_TEMPLATE");
-			economyPlayerTemplate = playerStatsPanel.Get<ScrollItemWidget>("ECONOMY_PLAYER_TEMPLATE");
-			productionPlayerTemplate = playerStatsPanel.Get<ScrollItemWidget>("PRODUCTION_PLAYER_TEMPLATE");
-			armyPlayerTemplate = playerStatsPanel.Get<ScrollItemWidget>("ARMY_PLAYER_TEMPLATE");
-			combatPlayerTemplate = playerStatsPanel.Get<ScrollItemWidget>("COMBAT_PLAYER_TEMPLATE");
-
-			teamTemplate = playerStatsPanel.Get<ScrollItemWidget>("TEAM_TEMPLATE");
 
 			var statsDropDown = widget.Get<DropDownButtonWidget>("STATS_DROPDOWN");
 			Func<string, ObserverStatsPanel, ScrollItemWidget, Action, StatsDropDownOption> createStatsOption = (title, panel, template, a) =>
@@ -281,6 +281,11 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 
 			SetupPlayerColor(player, template, playerColor, playerGradient);
 
+			var stats = player.PlayerActor.TraitOrDefault<PlayerStatistics>();
+			var totalText = new CachedTransform<int, string>(count => count.ToString());
+			template.Get<LabelWidget>("TOTAL_UNITS").GetText = () =>
+				totalText.Update(stats?.Units.Values.Sum(unit => Math.Max(0, unit.Count)) ?? 0);
+
 			template.Get<ObserverArmyIconsWidget>("ARMY_ICONS").GetPlayer = () => player;
 			template.IgnoreChildMouseOver = false;
 
@@ -425,10 +430,15 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			return (world.WorldTick == 0 ? 0 : orders / (world.WorldTick / 1500.0)).ToString("F1");
 		}
 
-		// HACK The height of the templates and the scrollpanel needs to be kept in sync
+		// Reserve a scrollbar when the tallest statistics view needs one.
 		bool ShowScrollBar
 		{
-			get { return players.Count() + (hasTeams ? teams.Count() : 0) > 10; }
+			get
+			{
+				var rowHeight = new[] { basicPlayerTemplate, economyPlayerTemplate, productionPlayerTemplate, armyPlayerTemplate, combatPlayerTemplate }
+					.Max(template => template.Bounds.Height);
+				return players.Count() * rowHeight + (hasTeams ? teams.Count() * teamTemplate.Bounds.Height : 0) > playerStatsPanel.Bounds.Height;
+			}
 		}
 
 		class StatsDropDownOption
