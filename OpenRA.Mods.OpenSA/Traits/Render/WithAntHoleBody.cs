@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using OpenRA.Graphics;
 using OpenRA.Mods.Common.Graphics;
 using OpenRA.Mods.Common.Traits.Render;
+using OpenRA.Mods.OpenSA.Rmg;
 using OpenRA.Primitives;
 using OpenRA.Traits;
 
@@ -26,9 +27,23 @@ namespace OpenRA.Mods.OpenSA.Traits.Render
 
 		public override object Create(ActorInitializer init) { return new WithAntHoleBody(init.Self, this); }
 
+		internal static string ImageFor(Map map, string image, CPos? location)
+		{
+			var tileset = map.Tileset;
+			if (tileset == "CHAOS")
+			{
+				// CHAOS imports the four source catalogues at 0/256/512/768. Use the
+				// local source biome; palette previews without a map location use Normal.
+				var biome = location.HasValue && map.Contains(location.Value) ? map.Tiles[location.Value].Type / 256 : 0;
+				tileset = biome < RmgBiome.Tilesets.Length ? RmgBiome.Tilesets[biome] : "NORMAL";
+			}
+
+			return $"{image}_{tileset.ToLowerInvariant()}";
+		}
+
 		public IEnumerable<IActorPreview> RenderPreviewSprites(ActorPreviewInitializer init, string image, int facings, PaletteReference p)
 		{
-			var anim = new Animation(init.World, image);
+			var anim = new Animation(init.World, ImageFor(init.World.Map, image, init.GetOrDefault<LocationInit>()?.Value));
 			anim.PlayRepeating(RenderSprites.NormalizeSequence(anim, init.GetDamageState(), IdleSequence));
 			yield return new SpriteActorPreview(anim, () => WVec.Zero, () => 0, p);
 		}
@@ -45,8 +60,7 @@ namespace OpenRA.Mods.OpenSA.Traits.Render
 		{
 			this.info = info;
 			renderSprites = self.Trait<RenderSprites>();
-			var tileset = self.World.Map.Tileset.ToLowerInvariant();
-			var image = $"{renderSprites.GetImage(self)}_{tileset}";
+			var image = WithAntHoleBodyInfo.ImageFor(self.World.Map, renderSprites.GetImage(self), self.Location);
 
 			defaultAnimation = new Animation(self.World, image);
 			defaultAnimation.Play(info.IdleSequence);

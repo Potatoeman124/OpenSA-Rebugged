@@ -12,9 +12,9 @@ using System.Reflection;
 using System.Threading;
 using Newtonsoft.Json.Linq;
 using OpenRA.Graphics;
-using OpenRA.Mods.Common.Graphics;
 using OpenRA.Mods.Common.Traits;
 using OpenRA.Mods.Common.Widgets;
+using OpenRA.Mods.OpenSA.Graphics;
 using OpenRA.Mods.OpenSA.Rmg;
 using OpenRA.Mods.OpenSA.Traits.World;
 using OpenRA.Mods.OpenSA.Widgets;
@@ -29,6 +29,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 	{
 		static void CheckQol(Utility utility, string output)
 		{
+			CheckRangeUnion();
 			var settings = RmgPlayerSettingsContract.Resolve(new RmgPlayerSettings { SchemaVersion = 10, LayoutFamily = RmgPlayerLayoutFamily.NaturalLandscape, MapSize = 128, PlayerCount = 8, Seed = 74231 }).Normalized;
 			var package = OpenRaRmgMapAdapter.GenerateAndSave(utility.ModData, RmgProfile.Load(utility.ModData, settings), settings,
 				Path.Combine(output, "qol.oramap"), false);
@@ -44,7 +45,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			{
 				["status"] = "PASS", ["scope"] = "LIVE_QOL_WIDGETS_AND_SERVER",
 				["lobby"] = "All map bot difficulties, closed slots, existing bots, humans, no-bot slots, ready/non-host guards, RMG and tab visibility, successful server start",
-				["ranges"] = "Real unit and colony weapons, selection, movement, disabled armament, local sync hash, button, Alt tap/repeat/chords/mouse/keyboard focus"
+				["ranges"] = "Merged range union, containment/disconnected/tangent/duplicate/projection cases, 330480 boundary samples, 1000-circle benchmark, live weapons, selection, movement, cache invalidation, paused weapons, sync hash, button and Alt input"
 			}.ToString());
 		}
 
@@ -64,25 +65,29 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			Require(!overlay.Enabled && !overlay.RenderAnnotations(world.WorldActor, renderer).Any(), "Range overlay must start off.");
 			button.OnClick();
 			Require(button.IsHighlighted() && overlay.Enabled && world.SyncHash() == hash, "Button changed synchronized gameplay state or failed to highlight.");
-			var circles = overlay.RenderAnnotations(world.WorldActor, renderer).ToArray();
-			Require(circles.Length == 4, "Expected a range for each armed unit and colony.");
+			var outline = (MergedRangeAnnotationRenderable)overlay.RenderAnnotations(world.WorldActor, renderer).Single();
+			var circles = outline.Ranges;
+			Require(outline.Arcs.Count > 0, "Merged outline has no boundary.");
+			Require(ReferenceEquals(outline, overlay.RenderAnnotations(world.WorldActor, renderer).Single()), "Stationary selection did not reuse its outline.");
+			Require(circles.Count == 4, "Expected a range for each armed unit and colony.");
 			foreach (var actor in units.Append(colony))
 			{
-				var circle = circles.Single(c => c.Pos == actor.CenterPosition);
-				var radius = (WDist)typeof(RangeCircleAnnotationRenderable).GetField("radius", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(circle);
+				var circle = circles.Single(c => c.Position == actor.CenterPosition);
+				var radius = circle.Radius;
 				Require(radius == actor.TraitsImplementing<AttackBase>().Max(a => a.GetMaximumRange()), "Displayed range disagrees with live weapon range.");
 			}
 
 			var before = units[0].CenterPosition;
 			units[0].Trait<Mobile>().SetPosition(units[0], units[0].Location + new CVec(2, 0));
-			Require(overlay.RenderAnnotations(world.WorldActor, renderer).Any(c => c.Pos == units[0].CenterPosition && c.Pos != before), "Range did not follow movement.");
+			Require(SelectedUnitRangeOverlay.GetRanges(world).Any(c => c.Position == units[0].CenterPosition && c.Position != before), "Range did not follow movement.");
+			Require(!ReferenceEquals(outline, overlay.RenderAnnotations(world.WorldActor, renderer).Single()), "Moving selection reused a stale outline.");
 			var token = units[0].GrantCondition("paralyzed");
-			Require(!overlay.RenderAnnotations(world.WorldActor, renderer).Any(c => c.Pos == units[0].CenterPosition), "Paused weapon kept a usable range.");
+			Require(!SelectedUnitRangeOverlay.GetRanges(world).Any(c => c.Position == units[0].CenterPosition), "Paused weapon kept a usable range.");
 			units[0].RevokeCondition(token);
 			world.Selection.Clear();
 			Require(!overlay.RenderAnnotations(world.WorldActor, renderer).Any() && overlay.Enabled, "Empty selection should retain toggle state without circles.");
 			world.Selection.Combine(world, units.Append(colony), false, false);
-			Require(overlay.RenderAnnotations(world.WorldActor, renderer).Count() == 4, "New selection did not inherit toggle.");
+			Require(SelectedUnitRangeOverlay.GetRanges(world).Count() == 4 && overlay.RenderAnnotations(world.WorldActor, renderer).Count() == 1, "New selection did not inherit toggle.");
 			Require(button.RenderBounds.Bottom <= Game.Renderer.Resolution.Height && button.RenderBounds.Left > Ui.Root.Get("STANCE_HOLDFIRE").RenderBounds.Right,
 				"Range control is clipped or overlaps stance controls.");
 

@@ -398,7 +398,7 @@ Container@PLAYER_WIDGETS:
 					Background: command-button
 					TooltipContainer: TOOLTIP_CONTAINER
 					TooltipText: Selected Unit Ranges (Alt)
-					TooltipDesc: Toggle maximum weapon ranges for selected units and colonies.\nTap Alt to toggle; Alt + click still forces movement.
+					TooltipDesc: Toggle combined maximum weapon ranges for selected units and colonies.\nTap Alt to toggle; Alt + click still forces movement.
 					TooltipTemplate: COMMAND_TOOLTIP
 					Children:
 						SelectedUnitRangeIcon@RANGE_ICON:

@@ -108,3 +108,22 @@ mixing, water, density, sizes and additional seeds. Source-art exports and live
 world views confirmed actual mixed textures. The most demanding 512x512 case took
 about 7.4 seconds for logical generation during concurrent tests; this is an
 observed stress-test time, not a controlled performance benchmark.
+
+
+## Pirate-hole runtime correction (2026-09-12)
+
+The original hostile runtime checks enabled plants and fliers but disabled pirate
+spawning. A user subsequently hit `anthole_chaos` when a recurring pirate wave
+created an ant hole. The body renderer had appended the composite tileset ID to
+the sprite name, although ant-hole sequences exist only for the four source biomes.
+
+Ant-hole rendering now selects the original biome variant from the source template
+band under the actor. The same resolver supports actor previews, with Normal as the
+location-free Chaos preview. Existing generated maps work with the updated mod;
+terrain, hostile weights and synchronized random draws are unchanged.
+
+The new `--chaos-hostiles` native runtime check reproduces the old crash and then
+exercises Patchwork, Fractured and all four ordinary tilesets through repeated
+opening, pirate spawning and closing cycles. It verifies all four local variants
+on each mixed map and drains all tracked holes before declaring success. Evidence:
+`artifacts/qol/followup/`.

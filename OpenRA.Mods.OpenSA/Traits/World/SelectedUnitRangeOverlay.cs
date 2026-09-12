@@ -2,10 +2,12 @@
 /* Copyright The OpenSA Developers. GPL version 3 or later. */
 #endregion
 
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using OpenRA.Graphics;
-using OpenRA.Mods.Common.Graphics;
 using OpenRA.Mods.Common.Traits;
+using OpenRA.Mods.OpenSA.Graphics;
 using OpenRA.Primitives;
 using OpenRA.Traits;
 
@@ -21,6 +23,9 @@ namespace OpenRA.Mods.OpenSA.Traits.World
 	public sealed class SelectedUnitRangeOverlay : IRenderAnnotations
 	{
 		// Presentation state only: never synchronized and never changes weapon or order logic.
+		SelectionRange[] previousRanges = Array.Empty<SelectionRange>();
+		MergedRangeAnnotationRenderable cachedOutline;
+
 		public bool Enabled { get; private set; }
 		public void Toggle() => Enabled = !Enabled;
 
@@ -29,9 +34,24 @@ namespace OpenRA.Mods.OpenSA.Traits.World
 			if (!Enabled)
 				yield break;
 
-			foreach (var actor in self.World.Selection.Actors)
+			var ranges = GetRanges(self.World).ToArray();
+			if (ranges.Length == 0)
+				yield break;
+
+			if (!ranges.SequenceEqual(previousRanges))
 			{
-				if (!actor.IsInWorld || actor.IsDead || actor.Disposed || self.World.FogObscures(actor))
+				previousRanges = ranges;
+				cachedOutline = new MergedRangeAnnotationRenderable(ranges);
+			}
+
+			yield return cachedOutline;
+		}
+
+		public static IEnumerable<SelectionRange> GetRanges(OpenRA.World world)
+		{
+			foreach (var actor in world.Selection.Actors)
+			{
+				if (!actor.IsInWorld || actor.IsDead || actor.Disposed || world.FogObscures(actor))
 					continue;
 
 				var range = WDist.Zero;
@@ -43,8 +63,7 @@ namespace OpenRA.Mods.OpenSA.Traits.World
 				}
 
 				if (range > WDist.Zero)
-					yield return new RangeCircleAnnotationRenderable(actor.CenterPosition, range, 0,
-						Color.FromArgb(210, actor.Owner.Color), 1.5f, Color.FromArgb(150, Color.Black), 3.5f);
+					yield return new SelectionRange(actor.CenterPosition, range, Color.FromArgb(210, actor.Owner.Color));
 			}
 		}
 

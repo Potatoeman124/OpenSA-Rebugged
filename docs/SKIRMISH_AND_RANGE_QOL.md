@@ -16,7 +16,7 @@ The **Fill Opponents** dropdown appears beside **Random Map Generator** in the s
 
 A stone-framed green range icon follows the stance controls at the bottom left. Click it or **tap Alt** to toggle the display. It starts off for each game, and its state persists as the selection changes during that game. The frame and icon brighten when enabled.
 
-The overlay draws a dashed circle in the actor owner's color for each selected, visible armed unit or colony. Its radius is the maximum current weapon range across the actor's attack traits, including runtime range modifiers. The circle follows movement; unavailable weapons, dead/removed actors, and actors hidden by fog do not produce circles. This shows maximum reach, not line of sight, firing arcs, target compatibility, or guaranteed shots.
+The overlay draws the combined boundary of the selected, visible armed units and colonies. Each contribution uses the maximum current weapon range across that actor's attack traits, including runtime range modifiers, in its owner's color. Overlapping and contained arcs disappear, concave edges remain exact, and disconnected groups retain separate outlines. Flying ranges use the same display projection as before. The outline follows movement; unavailable weapons, dead/removed actors, and actors hidden by fog do not contribute. Stationary selections reuse the cached union. This shows maximum reach, not line of sight, firing arcs, target compatibility, or guaranteed shots.
 
 A standalone left or right Alt tap toggles on release. Key repeats do not toggle repeatedly. Alt combined with mouse input or another key is not a tap: existing Alt-click Force Move and other Alt shortcuts retain their meaning. Chat/text focus, mouse capture, hidden controls and focus loss cancel a pending tap. The input listener never consumes commands.
 
@@ -42,3 +42,25 @@ Screenshots and machine-readable results are in ignored local artifacts:
 - `artifacts/qol/runtime-compact/`
 
 The user should still review the controls in a normal game, including their usual Alt command combinations.
+
+## Follow-up: merged outlines and Chaos pirate crash
+
+The 2026-09-12 follow-up adds exact circle-union clipping, including contained,
+coincident, tangent and disconnected circles. Geometry verification compares
+330,480 circumference samples against an independent disc-membership check.
+The native QoL check also verifies outline caching and invalidation after movement.
+
+The reported `anthole_chaos` exception was reproduced with recurring pirates enabled.
+Ant-hole bodies and previews now resolve the source biome at their location on a
+mixed map, using the existing Normal/Desert/Swamp/Candy sequences. Normal is used
+for a Chaos palette preview without a location. No replacement artwork or map
+regeneration is required.
+
+`--validate-sa-rmg-runtime <empty-directory> --wide --chaos-hostiles` exercises
+Patchwork, Fractured and the four original tilesets. It checks the local image
+choice, all three sequences, recurring pirate spawning, population reservations,
+and completion of every tracked opening/spawning/closing cycle. The previous
+Chaos runtime check enabled plants and fliers while leaving pirates disabled;
+this new test covers the previously missed path.
+
+Follow-up evidence is under `artifacts/qol/followup/` (ignored).
