@@ -33,6 +33,8 @@ On Windows, use the pinned build entry point:
 
 Run `.\build-pipeline.cmd validate` for the complete check suite. See [docs/BUILDING.md](docs/BUILDING.md) for dependency, validation, portable-package, and external-asset import details.
 
+See [Skirmish opponents and selected-unit ranges](docs/SKIRMISH_AND_RANGE_QOL.md) for the Fill Opponents dropdown and the Alt range-display toggle.
+
 # Swarm Assault assets status
 
 OpenSA requires a user-owned copy of the original Swarm Assault game. The project does not download or redistribute original-game assets: they are imported locally into the OpenRA support directory and remain outside this repository and its release packages.

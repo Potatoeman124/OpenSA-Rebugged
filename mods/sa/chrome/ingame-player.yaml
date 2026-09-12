@@ -384,3 +384,28 @@ Container@PLAYER_WIDGETS:
 					Height: 25
 					Text: Select BlockedByActor
 					Font: Regular
+		Container@SELECTED_UNIT_RANGE_CONTROL:
+			Logic: SelectedUnitRangeLogic
+			X: 438
+			Y: WINDOW_BOTTOM - HEIGHT + 9
+			Width: 33
+			Height: 46
+			Children:
+				Button@SELECTED_UNIT_RANGE:
+					Width: 33
+					Height: 32
+					VisualHeight: 0
+					Background: command-button
+					TooltipContainer: TOOLTIP_CONTAINER
+					TooltipText: Selected Unit Ranges (Alt)
+					TooltipDesc: Toggle maximum weapon ranges for selected units and colonies.\nTap Alt to toggle; Alt + click still forces movement.
+					TooltipTemplate: COMMAND_TOOLTIP
+					Children:
+						SelectedUnitRangeIcon@RANGE_ICON:
+							X: 4
+							Y: 3
+							Width: 25
+							Height: 25
+		SelectedUnitRangeHotkey@SELECTED_UNIT_RANGE_HOTKEY:
+			Width: WINDOW_RIGHT
+			Height: WINDOW_BOTTOM

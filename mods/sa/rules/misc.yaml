@@ -215,6 +215,7 @@ EditorPlayer:
 
 World:
 	Inherits: ^CoreWorld
+	SelectedUnitRangeOverlay:
 	ChatCommands:
 	DevCommands:
 	DebugVisualizations:

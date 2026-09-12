@@ -1,5 +1,5 @@
 Background@SERVER_LOBBY:
-	Logic: RmgLobbyLogic, LobbyLogic
+	Logic: RmgLobbyLogic, LobbyLogic, SkirmishFillOpponentsLogic
 		ChatTemplates:
 			Chat: CHAT_LINE_TEMPLATE
 			System: SYSTEM_LINE_TEMPLATE
@@ -24,6 +24,16 @@ Background@SERVER_LOBBY:
 			Font: Bold
 			Text: Random Map Generator
 			Visible: False
+		DropDownButton@FILL_OPPONENTS:
+			X: 230
+			Y: 16
+			Width: 150
+			Height: 25
+			Font: Bold
+			Text: Fill Opponents
+			Visible: False
+			TooltipText: Fill all AI-capable slots with the chosen difficulty. Existing AI opponents are updated; human players keep their slots.
+			TooltipContainer: TOOLTIP_CONTAINER
 		Button@RMG_SAVE_MAP_BUTTON:
 			X: 230
 			Y: 8
