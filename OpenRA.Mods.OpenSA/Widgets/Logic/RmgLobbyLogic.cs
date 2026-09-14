@@ -28,8 +28,8 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 	{
 		const int NormalLobbyWidth = 900;
 		const int NormalLobbyHeight = 600;
-		const int RmgLobbyWidth = 1182;
-		const int RmgLobbyHeight = 452;
+		const int RmgLobbyWidth = 1360;
+		const int RmgLobbyHeight = 532;
 
 		enum TerrainChoice { Normal, Desert, Swamp, Candy }
 		enum SizeChoice { Small, Standard, Large, Huge }
@@ -38,6 +38,9 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 
 		sealed record Choice<T>(T Value, string Label);
 
+		readonly Dictionary<Widget, Rectangle> rmgControlBounds = new();
+		readonly Dictionary<Widget, Rectangle> normalPreviewBounds = new();
+		Size rmgResolution;
 		readonly Widget lobby;
 		readonly ModData modData;
 		readonly OrderManager orderManager;
@@ -89,7 +92,6 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		bool IsRing => layoutFamily == RmgPlayerLayoutFamily.Ring;
 		bool IsCrossroads => layoutFamily == RmgPlayerLayoutFamily.Crossroads;
 		bool HasFixedPlayerCounts => IsBattlefield || IsCrossroads || IsRing || IsDividedLands;
-		bool HasLayoutOptions => IsPvp || HasFixedPlayerCounts || IsStrongholds || IsLabyrinth || IsArchipelago || IsChaos;
 		bool UsesModernTerrain => layoutFamily is RmgPlayerLayoutFamily.NaturalLandscape or RmgPlayerLayoutFamily.NaturalLandscapePvp or RmgPlayerLayoutFamily.ArtificialBattlefield or RmgPlayerLayoutFamily.Crossroads or RmgPlayerLayoutFamily.Ring or RmgPlayerLayoutFamily.DividedLands or RmgPlayerLayoutFamily.Strongholds or RmgPlayerLayoutFamily.Labyrinth or RmgPlayerLayoutFamily.Archipelago or RmgPlayerLayoutFamily.Chaos;
 		static readonly int[] BattlefieldPlayerCounts = { 2, 4, 8 };
 		RmgBattlefieldBlockShape blockShape = RmgBattlefieldBlockShape.CutCorners;
@@ -162,6 +164,9 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			originalSurfaceRelationsCheckbox = lobby.Get<CheckboxWidget>("RMG_ORIGINAL_SURFACE_RELATIONS");
 			preventColonyOverlappingCheckbox = lobby.Get<CheckboxWidget>("RMG_PREVENT_COLONY_OVERLAPPING");
 
+			foreach (var control in rmgPanel.Children)
+				rmgControlBounds.Add(control, control.Bounds);
+
 			BindControls();
 			rmgToggleButton.GetText = () => rmgView ? "Return to Skirmish" : "Random Map Generator";
 			rmgToggleButton.IsDisabled = () => generating;
@@ -176,6 +181,8 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			SetBounds("SERVER_NAME", 0, 16, 900, 25);
 			SetBounds("RMG_TOGGLE_BUTTON", 20, 16, 200, 25);
 			SetBounds("MAP_PREVIEW_ROOT", 706, 67, 174, 250);
+			foreach (var (widget, bounds) in normalPreviewBounds)
+				widget.Bounds = bounds;
 			SetBounds("SLOTS_DROPDOWNBUTTON", 20, 291, 185, 25);
 			SetBounds("CHANGEMAP_BUTTON", 706, 291, 174, 25);
 
@@ -197,15 +204,128 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 
 		void ApplyRmgLayout()
 		{
-			SetLobbyBounds(RmgLobbyWidth, RmgLobbyHeight + (HasLayoutOptions ? 40 : 0));
-			SetBounds("SERVER_NAME", 0, 8, 1182, 25);
+			rmgResolution = Game.Renderer.Resolution;
+			var width = Math.Min(RmgLobbyWidth, rmgResolution.Width - 20);
+			var settingsWidth = Math.Clamp(width - 440, 730, 820);
+			var reduction = 820 - settingsWidth;
+			var leftReduction = reduction / 2;
+			SetLobbyBounds(width, RmgLobbyHeight);
+			SetBounds("SERVER_NAME", 0, 8, width, 25);
 			SetBounds("RMG_TOGGLE_BUTTON", 20, 8, 200, 25);
-			SetBounds("RMG_PANEL", 20, 42, 1142, 390 + (HasLayoutOptions ? 40 : 0));
-			lobby.Get("RMG_SETTINGS_BACKGROUND").Bounds = new Rectangle(0, 0, 820, 390 + (HasLayoutOptions ? 40 : 0));
-			lobby.Get("RMG_PREVIEW_BACKGROUND").Bounds = new Rectangle(835, 0, 307, 390 + (HasLayoutOptions ? 40 : 0));
-			lobby.Get("RMG_STATUS").Bounds = new Rectangle(20, HasLayoutOptions ? 388 : 348, 770, 38);
-			lobby.Get("RMG_PREVIEW_CAPTION").Bounds = new Rectangle(845, HasLayoutOptions ? 398 : 358, 287, 25);
-			SetBounds("MAP_PREVIEW_ROOT", 875, 55, 270, 250);
+			SetBounds("RMG_PANEL", 20, 42, width - 40, 470);
+
+			// Keep the two columns readable at the minimum supported UI resolution.
+			foreach (var (control, bounds) in rmgControlBounds)
+			{
+				var adjusted = bounds;
+				if (bounds.X >= 410 && bounds.X < 820)
+				{
+					adjusted.X -= leftReduction;
+					if (control.Id == "RMG_COLONY_WEIGHTS" || control.Id == "RMG_COLONY_OWNERSHIP")
+					{
+						adjusted.Width -= (reduction - leftReduction) / 2;
+						if (control.Id == "RMG_COLONY_OWNERSHIP")
+							adjusted.X -= (reduction - leftReduction) / 2;
+					}
+					else if (control.Id == "RMG_RANDOMIZE_BUTTON")
+						adjusted.X -= reduction - leftReduction;
+					else if (bounds.X >= 570 || control.Id is "RMG_SEED" or "RMG_GENERATE_BUTTON")
+						adjusted.Width -= reduction - leftReduction;
+				}
+				else if (bounds.X == 20 && bounds.Width <= 355)
+					adjusted.Width -= bounds.Width <= 130 ? leftReduction / 2 : leftReduction;
+				else if (bounds.X >= 155 && bounds.X < 410)
+					adjusted.X -= leftReduction / 2;
+
+				control.Bounds = adjusted;
+			}
+
+			var previewX = settingsWidth + 15;
+			var previewWidth = width - 40 - previewX;
+			SetBounds("RMG_SETTINGS_BACKGROUND", 0, 0, settingsWidth, 470);
+			SetBounds("RMG_TITLE", 20, 2, settingsWidth - 40, 25);
+			SetBounds("RMG_STATUS", 20, 424, settingsWidth - 40, 38);
+			SetBounds("RMG_PREVIEW_BACKGROUND", previewX, 0, previewWidth, 470);
+			SetBounds("RMG_PREVIEW_CAPTION", previewX + 10, 435, previewWidth - 20, 25);
+			SetBounds("MAP_PREVIEW_ROOT", 30 + previewX, 52, previewWidth - 20, 420);
+			ResizeRmgPreview();
+		}
+
+		void ResizeRmgPreview()
+		{
+			var root = lobby.Get("MAP_PREVIEW_ROOT");
+
+			// LobbyLogic loads this subtree after our constructor. Remember its normal
+			// geometry once so switching views never accumulates offsets or scaling.
+			void Remember(Widget widget)
+			{
+				normalPreviewBounds.TryAdd(widget, widget.Bounds);
+				foreach (var child in widget.Children)
+					Remember(child);
+			}
+
+			foreach (var preview in root.Children)
+			{
+				var firstResize = !normalPreviewBounds.ContainsKey(preview);
+				Remember(preview);
+				preview.Bounds = new Rectangle(0, 0, root.Bounds.Width, root.Bounds.Height);
+				foreach (var state in preview.Children)
+				{
+					state.Bounds = preview.Bounds;
+					var background = state.GetOrNull<Widget>("MAP_BG");
+					if (background == null)
+						continue;
+
+					if (firstResize)
+						BindPreviewLabels(state);
+
+					var original = normalPreviewBounds[background];
+					var footer = state.Children.Max(c => normalPreviewBounds[c].Bottom) - original.Height + 5;
+					var size = Math.Min(root.Bounds.Width, root.Bounds.Height - footer);
+					var top = (root.Bounds.Height - size - footer) / 2;
+					var heightDelta = size - original.Height;
+					var widthDelta = root.Bounds.Width - original.Width;
+					void Reflow(Widget widget)
+					{
+						var bounds = normalPreviewBounds[widget];
+						bounds.Width += widthDelta;
+						if (bounds.Y >= original.Height - 1)
+							bounds.Y += heightDelta;
+						widget.Bounds = bounds;
+						foreach (var child in widget.Children)
+							Reflow(child);
+					}
+
+					foreach (var child in state.Children.Where(c => c != background))
+						Reflow(child);
+					state.Bounds = new Rectangle(0, top, root.Bounds.Width, root.Bounds.Height - top);
+					background.Bounds = new Rectangle((root.Bounds.Width - size) / 2, 0, size, size);
+					background.Get<MapPreviewWidget>("MAP_PREVIEW").Bounds = new Rectangle(1, 1, size - 2, size - 2);
+				}
+			}
+		}
+
+		static void BindPreviewLabels(Widget state)
+		{
+			// The common preview caches text by map only. Include width so labels
+			// also update when the same map moves between the lobby and RMG views.
+			var preview = state.Get<MapPreviewWidget>("MAP_PREVIEW");
+			var title = state.Get<LabelWithTooltipWidget>("MAP_TITLE");
+			var titleText = new CachedTransform<(MapPreview Map, int Width), string>(value =>
+			{
+				var truncated = WidgetUtils.TruncateText(value.Map.Title, value.Width, Game.Renderer.Fonts[title.Font]);
+				title.GetTooltipText = truncated == value.Map.Title ? null : () => value.Map.Title;
+				return truncated;
+			});
+			title.GetText = () => titleText.Update((preview.Preview(), title.Bounds.Width));
+			var author = state.GetOrNull<LabelWidget>("MAP_AUTHOR");
+			if (author == null)
+				return;
+
+			var authorText = new CachedTransform<(MapPreview Map, int Width), string>(value => WidgetUtils.TruncateText(
+				TranslationProvider.GetString("label-created-by", Translation.Arguments("author", value.Map.Author)),
+				value.Width, Game.Renderer.Fonts[author.Font]));
+			author.GetText = () => authorText.Update((preview.Preview(), author.Bounds.Width));
 		}
 
 		void SetLobbyBounds(int width, int height)
@@ -961,6 +1081,9 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		{
 			if (startGameButton == null)
 				return;
+
+			if (rmgView && rmgResolution != Game.Renderer.Resolution)
+				ApplyRmgLayout();
 
 			if (!visibilityComposed)
 			{

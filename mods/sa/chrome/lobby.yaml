@@ -79,39 +79,39 @@ Background@SERVER_LOBBY:
 					TooltipText: Select a Regions preset. Open Conflict uses Low complexity and amounts; Tactical Crossroads uses High complexity and gravel/moss.
 				Label@RMG_TERRAIN_LABEL:
 					X: 20
-					Y: 75
+					Y: 115
 					Width: 130
 					Height: 28
 					Text: Terrain
 				DropDownButton@RMG_TERRAIN:
 					X: 155
-					Y: 75
+					Y: 115
 					Width: 220
 					Height: 28
 					TooltipContainer: TOOLTIP_CONTAINER
 					TooltipText: Normal terrain: water blocks land units; gravel and moss slow them.
 				Label@RMG_SIZE_LABEL:
 					X: 20
-					Y: 115
+					Y: 155
 					Width: 130
 					Height: 28
 					Text: Size
 				DropDownButton@RMG_SIZE:
 					X: 155
-					Y: 115
+					Y: 155
 					Width: 220
 					Height: 28
 					TooltipContainer: TOOLTIP_CONTAINER
 					TooltipText: All layouts support 64, 128, 256 and 512 square maps. 64 supports up to four players; larger sizes support up to eight. Natural PVP requires mirrored player groups; Artificial Battlefield supports 2, 4 or 8 players.
 				Label@RMG_PLAYERS_LABEL:
 					X: 20
-					Y: 155
+					Y: 195
 					Width: 130
 					Height: 28
 					Text: Players
 				Slider@RMG_PLAYERS:
 					X: 155
-					Y: 157
+					Y: 197
 					Width: 175
 					Height: 24
 					MinimumValue: 1
@@ -120,28 +120,28 @@ Background@SERVER_LOBBY:
 					Ticks: 8
 				Label@RMG_PLAYERS_FIXED:
 					X: 155
-					Y: 155
+					Y: 195
 					Width: 175
 					Height: 28
 					Text: Fixed by symmetry
 					Visible: False
 				Label@RMG_PLAYERS_VALUE:
 					X: 338
-					Y: 155
+					Y: 195
 					Width: 37
 					Height: 28
 					Align: Center
 					Font: Bold
 				Label@RMG_PLAYERS_MIN:
 					X: 155
-					Y: 179
+					Y: 219
 					Width: 20
 					Height: 14
 					Font: Tiny
 					Text: 2
 				Label@RMG_PLAYERS_MAX:
 					X: 310
-					Y: 179
+					Y: 219
 					Width: 20
 					Height: 14
 					Align: Right
@@ -149,7 +149,7 @@ Background@SERVER_LOBBY:
 					Text: 4
 				Checkbox@RMG_PREVENT_COLONY_OVERLAPPING:
 					X: 20
-					Y: 195
+					Y: 240
 					Width: 355
 					Height: 28
 					Text: Prevent Colony Overlapping
@@ -157,48 +157,48 @@ Background@SERVER_LOBBY:
 					TooltipText: On: keep colonies outside one another's turret range. Off: if the target cannot be reached, add colonies with the least possible range overlap. Buildings, exits and player starts stay clear.
 				Label@RMG_LAYOUT_LABEL:
 					X: 20
-					Y: 195
+					Y: 240
 					Width: 130
 					Height: 28
 					Text: Battlefield Plan
 				DropDownButton@RMG_LAYOUT:
 					X: 155
-					Y: 195
+					Y: 240
 					Width: 220
 					Height: 28
 					TooltipContainer: TOOLTIP_CONTAINER
 					TooltipText: Select the strategic plan for Artificial Battlefield.
 				Label@RMG_GRAVEL_MOSS_AMOUNT_LABEL:
-					X: 20
-					Y: 235
-					Width: 195
+					X: 410
+					Y: 115
+					Width: 155
 					Height: 28
 					Text: Surface Modifiers
 				DropDownButton@RMG_GRAVEL_MOSS_AMOUNT:
-					X: 220
-					Y: 235
-					Width: 155
+					X: 570
+					Y: 115
+					Width: 220
 					Height: 28
 					Text: Standard
 					TooltipContainer: TOOLTIP_CONTAINER
 					TooltipText: Target percentages of non-water land: Low 10% gravel / 5% moss; Standard 14% / 8%; High 18% / 11%; Extreme 24% / 16%; Ultra 36% / 25%. Separate from Terrain Complexity.
 				Checkbox@RMG_ORIGINAL_SURFACE_RELATIONS:
-					X: 155
-					Y: 275
-					Width: 220
+					X: 20
+					Y: 272
+					Width: 355
 					Height: 28
 					Text: Original surface relations
 					TooltipContainer: TOOLTIP_CONTAINER
 					TooltipText: Natural Landscape: Water-Dirt-Gravel-Moss transitions. Starts and colonies must fit existing dirt; terrain is never cleared for placement.
 				Label@RMG_WATER_LABEL:
 					X: 410
-					Y: 35
+					Y: 75
 					Width: 155
 					Height: 28
 					Text: Water Amount
 				DropDownButton@RMG_WATER_AMOUNT:
 					X: 570
-					Y: 35
+					Y: 75
 					Width: 220
 					Height: 28
 					Text: Standard
@@ -206,26 +206,26 @@ Background@SERVER_LOBBY:
 					TooltipText: Blocking water target: Regions Low 16%, Standard 20%, High 24%, Extreme 32%, Ultra 44%. Fixed tile transitions can reduce the achieved amount.
 				Label@RMG_COLONY_LABEL:
 					X: 410
-					Y: 75
+					Y: 155
 					Width: 155
 					Height: 28
 					Text: Neutral Colony Density
 				DropDownButton@RMG_COLONY_DENSITY:
 					X: 570
-					Y: 75
+					Y: 155
 					Width: 220
 					Height: 28
 					TooltipContainer: TOOLTIP_CONTAINER
 					TooltipText: Select the neutral colony target. At 128 x 128, Extreme targets 32/40 colonies for 2/4 players; Ultra 52/64. At 256 x 256, targets triple. Existing terrain and the overlap setting determine capacity. Grey squares show placed colonies.
 				Label@RMG_LAYOUT_FAMILY_LABEL:
-					X: 410
-					Y: 115
-					Width: 155
+					X: 20
+					Y: 75
+					Width: 130
 					Height: 28
 					Text: Layout Family
 				DropDownButton@RMG_LAYOUT_FAMILY:
-					X: 570
-					Y: 115
+					X: 155
+					Y: 75
 					Width: 220
 					Height: 28
 					TooltipContainer: TOOLTIP_CONTAINER
@@ -233,13 +233,13 @@ Background@SERVER_LOBBY:
 
 				Label@RMG_TERRAIN_COMPLEXITY_LABEL:
 					X: 410
-					Y: 155
+					Y: 35
 					Width: 155
 					Height: 28
 					Text: Terrain Complexity
 				DropDownButton@RMG_TERRAIN_COMPLEXITY:
 					X: 570
-					Y: 155
+					Y: 35
 					Width: 220
 					Height: 28
 					Text: Standard
@@ -263,29 +263,29 @@ Background@SERVER_LOBBY:
 					TooltipText: Give each player a share of generated colonies near their actual starting colony. Defaults to none.
 				Label@RMG_SEED_LABEL:
 					X: 410
-					Y: 235
-					Width: 155
+					Y: 344
+					Width: 45
 					Height: 28
 					Text: Seed
 				TextField@RMG_SEED:
-					X: 570
-					Y: 235
-					Width: 150
+					X: 465
+					Y: 344
+					Width: 255
 					Height: 28
 					Type: Integer
 					MaxLength: 20
 				Button@RMG_RANDOMIZE_BUTTON:
 					X: 730
-					Y: 235
+					Y: 344
 					Width: 60
 					Height: 28
 					Text: Random
 					TooltipContainer: TOOLTIP_CONTAINER
 					TooltipText: Generate a new unsigned seed.
 				Button@RMG_GENERATE_BUTTON:
-					X: 570
-					Y: 275
-					Width: 220
+					X: 410
+					Y: 384
+					Width: 380
 					Height: 28
 					Font: Bold
 					Text: Generate Preview
@@ -293,14 +293,14 @@ Background@SERVER_LOBBY:
 					TooltipText: Generate, validate, install, and select this map candidate.
 				Label@RMG_MIRRORING_AXES_LABEL:
 					X: 20
-					Y: 350
-					Width: 150
+					Y: 344
+					Width: 130
 					Height: 28
 					Text: Mirroring Axes
 					Visible: False
 				DropDownButton@RMG_MIRRORING_AXES:
-					X: 175
-					Y: 350
+					X: 155
+					Y: 344
 					Width: 220
 					Height: 28
 					Visible: False
@@ -308,29 +308,29 @@ Background@SERVER_LOBBY:
 					TooltipText: Mirror terrain, starting positions and colony types across 1, 2 or 4 axes. Players form groups of 2, 4 or 8. One-axis orientation follows the seed.
 				Label@RMG_BLOCK_SHAPE_LABEL:
 					X: 20
-					Y: 350
-					Width: 150
+					Y: 344
+					Width: 130
 					Height: 28
 					Text: Block Shape
 					Visible: False
 				DropDownButton@RMG_BLOCK_SHAPE:
-					X: 175
-					Y: 350
+					X: 155
+					Y: 344
 					Width: 220
 					Height: 28
 					Visible: False
 					TooltipContainer: TOOLTIP_CONTAINER
 					TooltipText: Shape the planned water and surface blocks as rectangles, cut corners or diamonds. Colony sites stay fixed.
 				Label@RMG_LANE_WIDTH_LABEL:
-					X: 430
-					Y: 350
-					Width: 150
+					X: 20
+					Y: 384
+					Width: 130
 					Height: 28
 					Text: Lane Width
 					Visible: False
 				DropDownButton@RMG_LANE_WIDTH:
-					X: 590
-					Y: 350
+					X: 155
+					Y: 384
 					Width: 220
 					Height: 28
 					Visible: False
@@ -338,16 +338,16 @@ Background@SERVER_LOBBY:
 					TooltipText: Set clear combat lanes to Narrow, Standard or Wide. Wider lanes leave less room for water and surface modifiers.
 				Checkbox@RMG_RESPECT_STARTING_SAFE_AREA:
 					X: 20
-					Y: 310
-					Width: 375
+					Y: 304
+					Width: 355
 					Height: 28
 					Text: Respect Starting Safe Area
 					TooltipContainer: TOOLTIP_CONTAINER
 					TooltipText: Keep other colonies outside each starting colony's combat area. Turn off to allow nearby colonies; building footprints and production exits remain clear.
 				Checkbox@RMG_OWN_STARTING_STRONGHOLD:
-					X: 430
-					Y: 350
-					Width: 380
+					X: 20
+					Y: 384
+					Width: 355
 					Height: 28
 					Text: Own Starting Stronghold
 					Visible: False
@@ -355,8 +355,8 @@ Background@SERVER_LOBBY:
 					TooltipText: Each player owns all colonies in their starting stronghold. Overrides Starting Ownership; castles and unoccupied strongholds stay neutral. Turn off to use the saved ownership settings.
 				Checkbox@RMG_GENERATE_CASTLES:
 					X: 20
-					Y: 350
-					Width: 370
+					Y: 344
+					Width: 355
 					Height: 28
 					Text: Generate Castles
 					Visible: False
@@ -364,29 +364,29 @@ Background@SERVER_LOBBY:
 					TooltipText: Add smaller fortified colony clusters between player strongholds where space permits. Colonies use the existing density, type weights and Starting Ownership settings.
 				Label@RMG_LAND_CROSSINGS_LABEL:
 					X: 20
-					Y: 350
-					Width: 150
+					Y: 344
+					Width: 130
 					Height: 28
 					Text: Land Crossings
 					Visible: False
 				DropDownButton@RMG_LAND_CROSSINGS:
-					X: 175
-					Y: 350
+					X: 155
+					Y: 344
 					Width: 220
 					Height: 28
 					Visible: False
 					TooltipContainer: TOOLTIP_CONTAINER
 					TooltipText: None keeps home territories disconnected. One or Two creates that many crossings along each shared border.
 				Label@RMG_CROSSING_WIDTH_LABEL:
-					X: 430
-					Y: 350
-					Width: 150
+					X: 20
+					Y: 384
+					Width: 130
 					Height: 28
 					Text: Crossing Width
 					Visible: False
 				DropDownButton@RMG_CROSSING_WIDTH:
-					X: 590
-					Y: 350
+					X: 155
+					Y: 384
 					Width: 220
 					Height: 28
 					Visible: False
@@ -394,21 +394,21 @@ Background@SERVER_LOBBY:
 					TooltipText: Width of the land crossings: Narrow, Standard or Wide. With no crossings this choice is retained for later.
 				Label@RMG_RING_SHAPE_LABEL:
 					X: 20
-					Y: 350
-					Width: 150
+					Y: 344
+					Width: 130
 					Height: 28
 					Text: Ring Shape
 					Visible: False
 				Label@RMG_CHAOS_SCALE_LABEL:
 					X: 20
-					Y: 350
-					Width: 155
+					Y: 344
+					Width: 130
 					Height: 25
 					Text: Collision Scale
 					Visible: False
 				DropDownButton@RMG_CHAOS_SCALE:
-					X: 175
-					Y: 350
+					X: 155
+					Y: 344
 					Width: 220
 					Height: 28
 					Visible: False
@@ -417,15 +417,15 @@ Background@SERVER_LOBBY:
 					TooltipContainer: TOOLTIP_CONTAINER
 
 				Label@RMG_CHAOS_BIOMES_LABEL:
-					X: 430
-					Y: 350
-					Width: 155
+					X: 20
+					Y: 384
+					Width: 130
 					Height: 25
 					Text: Biome Mixing
 					Visible: False
 				DropDownButton@RMG_CHAOS_BIOMES:
-					X: 590
-					Y: 350
+					X: 155
+					Y: 384
 					Width: 220
 					Height: 28
 					Visible: False
@@ -435,14 +435,14 @@ Background@SERVER_LOBBY:
 
 				Label@RMG_ISLAND_AMOUNT_LABEL:
 					X: 20
-					Y: 350
-					Width: 155
+					Y: 344
+					Width: 130
 					Height: 25
 					Text: Island Amount
 					Visible: False
 				DropDownButton@RMG_ISLAND_AMOUNT:
-					X: 175
-					Y: 350
+					X: 155
+					Y: 344
 					Width: 220
 					Height: 28
 					Visible: False
@@ -451,15 +451,15 @@ Background@SERVER_LOBBY:
 					TooltipContainer: TOOLTIP_CONTAINER
 
 				Label@RMG_ISLAND_SIZE_LABEL:
-					X: 430
-					Y: 350
-					Width: 155
+					X: 20
+					Y: 384
+					Width: 130
 					Height: 25
 					Text: Island Size
 					Visible: False
 				DropDownButton@RMG_ISLAND_SIZE:
-					X: 590
-					Y: 350
+					X: 155
+					Y: 384
 					Width: 220
 					Height: 28
 					Visible: False
@@ -469,14 +469,14 @@ Background@SERVER_LOBBY:
 
 				Label@RMG_PASSAGE_WIDTH_LABEL:
 					X: 20
-					Y: 350
-					Width: 155
+					Y: 344
+					Width: 130
 					Height: 25
 					Text: Passage Width
 					Visible: False
 				DropDownButton@RMG_PASSAGE_WIDTH:
-					X: 175
-					Y: 350
+					X: 155
+					Y: 344
 					Width: 220
 					Height: 28
 					Visible: False
@@ -485,15 +485,15 @@ Background@SERVER_LOBBY:
 					TooltipContainer: TOOLTIP_CONTAINER
 
 				Label@RMG_EXTRA_ROUTES_LABEL:
-					X: 430
-					Y: 350
-					Width: 155
+					X: 20
+					Y: 384
+					Width: 130
 					Height: 25
 					Text: Extra Routes
 					Visible: False
 				DropDownButton@RMG_EXTRA_ROUTES:
-					X: 590
-					Y: 350
+					X: 155
+					Y: 384
 					Width: 220
 					Height: 28
 					Visible: False
@@ -502,23 +502,23 @@ Background@SERVER_LOBBY:
 					TooltipContainer: TOOLTIP_CONTAINER
 
 				DropDownButton@RMG_RING_SHAPE:
-					X: 175
-					Y: 350
+					X: 155
+					Y: 344
 					Width: 220
 					Height: 28
 					Visible: False
 					TooltipContainer: TOOLTIP_CONTAINER
 					TooltipText: Shape of the central lake and continuous land ring.
 				Label@RMG_RING_WIDTH_LABEL:
-					X: 430
-					Y: 350
-					Width: 150
+					X: 20
+					Y: 384
+					Width: 130
 					Height: 28
 					Text: Ring Width
 					Visible: False
 				DropDownButton@RMG_RING_WIDTH:
-					X: 590
-					Y: 350
+					X: 155
+					Y: 384
 					Width: 220
 					Height: 28
 					Visible: False
@@ -526,29 +526,29 @@ Background@SERVER_LOBBY:
 					TooltipText: Width of the land belt. The central lake sets minimum water coverage; colonies cannot erase the ring.
 				Label@RMG_APPROACH_WIDTH_LABEL:
 					X: 20
-					Y: 350
-					Width: 150
+					Y: 344
+					Width: 130
 					Height: 28
 					Text: Approach Width
 					Visible: False
 				DropDownButton@RMG_APPROACH_WIDTH:
-					X: 175
-					Y: 350
+					X: 155
+					Y: 344
 					Width: 220
 					Height: 28
 					Visible: False
 					TooltipContainer: TOOLTIP_CONTAINER
 					TooltipText: Set the clear main approaches to Narrow, Standard or Wide. Starts and colony sites stay fixed.
 				Label@RMG_SIDE_CONNECTIONS_LABEL:
-					X: 430
-					Y: 350
-					Width: 150
+					X: 20
+					Y: 384
+					Width: 130
 					Height: 28
 					Text: Side Connections
 					Visible: False
 				DropDownButton@RMG_SIDE_CONNECTIONS:
-					X: 590
-					Y: 350
+					X: 155
+					Y: 384
 					Width: 220
 					Height: 28
 					Visible: False
@@ -556,7 +556,7 @@ Background@SERVER_LOBBY:
 					TooltipText: Set exactly zero, one or two tiers of ground crossings between approaches. None requires travel through the central junction.
 				LabelWithTooltip@RMG_STATUS:
 					X: 20
-					Y: 308
+					Y: 424
 					Width: 770
 					Height: 38
 					Font: Regular
