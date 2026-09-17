@@ -22,7 +22,7 @@ Selecting a preset again restores its complete recipe. Editing its controls show
 | Great Continents | Archipelago / Normal | Few large landmasses with substantial inland room. |
 | Island Hopping | Archipelago / Candy | Many irregular islands with neutral flying access on each. |
 | Scrambled Empires | Chaos / Patchwork | Randomly distributed starting holdings across broad mixed-biome collisions. |
-| Total Mayhem | Chaos / Fractured | All five intensity settings at Ultra, small collision scale, crowded neutral colonies. |
+| Total Mayhem | Chaos / Fractured | Ultra complexity, surface modifiers and colony density; Standard water, small collision scale. |
 
 Fortress Realms enables Own Starting Stronghold and disables Respect Starting Safe Area and Prevent Colony Overlapping. Smaller castles remain neutral. Scrambled Empires sets every player's share to 100 and uses Random ownership, distributing the eligible pool approximately equally; mandatory Wasps nests remain neutral. All other presets reset ownership shares to zero.
 
@@ -48,7 +48,7 @@ Use 256 x 256 initially to compare the designs. 64 x 64 retains the existing cap
 | Great Continents | High | Low | Standard | Dense |
 | Island Hopping | Extreme | Standard | High | Standard |
 | Scrambled Empires | High | High | High | Dense |
-| Total Mayhem | Ultra | Ultra | Ultra | Ultra |
+| Total Mayhem | Ultra | Standard | Ultra | Ultra |
 
 ## Implementation
 

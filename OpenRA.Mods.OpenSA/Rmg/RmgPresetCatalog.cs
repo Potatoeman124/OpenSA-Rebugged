@@ -143,9 +143,9 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				Colonies = RmgPlayerColonyDensity.Dense, OriginalSurfaces = false, PreventOverlap = false, SafeArea = false,
 				StartingShare = 100, OwnershipMode = RmgColonyOwnershipMode.Random, ChaosScale = RmgChaosScale.Large
 			},
-			new RmgPresetDefinition("total-mayhem", "Total Mayhem", "Everything at Ultra, fractured biomes and tightly colliding terrain. Crowded neutral colonies, relaxed spacing and no starting safe areas.", RmgPlayerLayoutFamily.Chaos)
+			new RmgPresetDefinition("total-mayhem", "Total Mayhem", "Ultra terrain and colonies with Standard water and fractured biomes. Crowded neutral colonies, relaxed spacing and no starting safe areas.", RmgPlayerLayoutFamily.Chaos)
 			{
-				Complexity = TerrainComplexity.Ultra, Water = RmgPlayerParameterLevel.Ultra, Surfaces = RmgPlayerParameterLevel.Ultra,
+				Complexity = TerrainComplexity.Ultra, Water = RmgPlayerParameterLevel.Standard, Surfaces = RmgPlayerParameterLevel.Ultra,
 				Colonies = RmgPlayerColonyDensity.Ultra, OriginalSurfaces = false, PreventOverlap = false, SafeArea = false,
 				ChaosScale = RmgChaosScale.Small, ChaosBiomes = RmgChaosBiomes.Fractured
 			}
