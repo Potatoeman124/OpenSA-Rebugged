@@ -66,7 +66,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		RmgColonyWeights colonyWeights = new();
 		readonly int[] ownershipShares = new int[8];
 		RmgColonyOwnershipMode ownershipMode = RmgColonyOwnershipMode.ClosestToSpawn;
-		RmgPlayerPreset preset = RmgPlayerPreset.Balanced;
+		RmgPresetDefinition preset = RmgPresetCatalog.All[0];
 		TerrainChoice terrain = TerrainChoice.Normal;
 		SizeChoice size = SizeChoice.Large;
 		LayoutChoice layout = LayoutChoice.ContestedCenter;
@@ -229,7 +229,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 					}
 					else if (control.Id == "RMG_RANDOMIZE_BUTTON")
 						adjusted.X -= reduction - leftReduction;
-					else if (bounds.X >= 570 || control.Id is "RMG_SEED" or "RMG_GENERATE_BUTTON")
+					else if (bounds.X >= 570 || control.Id is "RMG_SEED" or "RMG_GENERATE_BUTTON" or "RMG_PRESET_DESCRIPTION")
 						adjusted.Width -= reduction - leftReduction;
 				}
 				else if (bounds.X == 20 && bounds.Width <= 355)
@@ -379,16 +379,15 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			tacticalTerrainButton.GetTooltipText = () => IsLabyrinth ? "Slowing surfaces shape alternative routes. Complexity increases their target coverage; narrow passages, alcoves and original surface relations can limit it." : tacticalTerrainButton.TooltipText;
 			colonyButton.GetTooltipText = () => IsChaos ? "Colonies occupy the resulting terrain without enlarging it. Mandatory neutral Wasps nests keep isolated inhabited land playable and count toward the target, regardless of weights or ownership." : IsArchipelago ? "One mandatory neutral Wasps nest per island counts toward the target and overrides a zero Wasps weight. Other colonies follow density and ownership settings; terrain is never enlarged to fit them." : IsLabyrinth ? "Labyrinth uses one quarter of the usual colony target, rounded up. Colonies occupy existing alcoves and never widen passages. Crowded maps can stop below the target." : colonyButton.TooltipText;
 			complexityButton.GetTooltipText = () => IsChaos ? "Intensifies the collision of natural islands, mazes, rings and fort-like geometry. Higher settings add smaller interruptions while the seed retains the broad composition. Chaos is deliberately asymmetric and unfair." : IsArchipelago ? "Adds bays, peninsulas, coastal detail and more varied slowing surfaces. Island anchors and player starts remain tied to the seed." : IsLabyrinth ? "Higher complexity subdivides the maze into more, longer and narrower routes. The seed retains its starting positions and large-scale connections." : complexityButton.TooltipText;
-			presetButton.GetText = () => presetCustomized ?
-				$"Custom ({RmgPlayerSettingsContract.PresetDisplayName(preset)})" :
-				RmgPlayerSettingsContract.PresetDisplayName(preset);
-			BindDropDown(presetButton,
-				new[]
-				{
-					new Choice<RmgPlayerPreset>(RmgPlayerPreset.Balanced, "Balanced"),
-					new Choice<RmgPlayerPreset>(RmgPlayerPreset.OpenConflict, "Open Conflict"),
-					new Choice<RmgPlayerPreset>(RmgPlayerPreset.TacticalCrossroads, "Tactical Crossroads")
-				}, () => preset, ApplyPreset);
+			presetButton.GetText = () => presetCustomized ? $"Custom ({preset.Name})" : preset.Name;
+			presetButton.GetTooltipText = () => preset.Description + " Keeps seed and map size; adjusts players only when the layout requires it.";
+			BindDropDown(presetButton, RmgPresetCatalog.All.Select(p => new Choice<RmgPresetDefinition>(p, p.Name)).ToArray(),
+				() => preset, ApplyPreset, description: p => p.Description, maximumHeight: 375);
+			var presetDescription = lobby.Get<LabelWithTooltipWidget>("RMG_PRESET_DESCRIPTION");
+			var descriptionLayout = new CachedTransform<(string Text, int Width, int Height), string>(key =>
+				RmgStatusText.Fit(key.Text, key.Width, key.Height, text => Game.Renderer.Fonts[presetDescription.Font].Measure(text)));
+			presetDescription.GetText = () => descriptionLayout.Update((preset.Description, presetDescription.Bounds.Width, presetDescription.Bounds.Height));
+			presetDescription.GetTooltipText = () => preset.Description;
 
 			terrainButton.GetText = () => TerrainDisplayName(terrain);
 			BindDropDown(terrainButton,
@@ -740,7 +739,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 		}
 
 		void BindDropDown<T>(DropDownButtonWidget button, IReadOnlyList<Choice<T>> choices,
-			Func<T> selected, Action<T> onSelected, Func<T, bool> available = null)
+			Func<T> selected, Action<T> onSelected, Func<T, bool> available = null, Func<T, string> description = null, int maximumHeight = 175)
 		{
 			button.IsDisabled = () => !CanConfigure();
 			button.OnMouseDown = _ =>
@@ -751,43 +750,48 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 						() => EqualityComparer<T>.Default.Equals(selected(), choice.Value),
 						() => onSelected(choice.Value));
 					item.Get<LabelWidget>("LABEL").GetText = () => choice.Label;
+					if (description != null)
+						item.GetTooltipText = () => description(choice.Value);
+
 					return item;
 				}
 
-				button.ShowDropDown("LABEL_DROPDOWN_TEMPLATE", Math.Min(175, choices.Count * 25), choices.Where(choice => available == null || available(choice.Value)), SetupItem);
+				button.ShowDropDown(description == null ? "LABEL_DROPDOWN_TEMPLATE" : "RMG_PRESET_DROPDOWN_TEMPLATE", Math.Min(maximumHeight, choices.Count * 25), choices.Where(choice => available == null || available(choice.Value)), SetupItem);
 			};
 		}
 
-		void ApplyPreset(RmgPlayerPreset selected)
+		void ApplyPreset(RmgPresetDefinition selected)
 		{
+			var current = CreatePlayerSettings(0);
+			var settings = selected.CreateSettings(current.MapSize, current.PlayerCount, 0);
 			preset = selected;
-			presetCustomized = false;
-			if (!IsPvp && !HasFixedPlayerCounts && !IsStrongholds && !IsLabyrinth && !IsArchipelago && !IsChaos) layoutFamily = RmgPlayerLayoutFamily.NaturalLandscape;
+			layoutFamily = settings.LayoutFamily;
+			terrain = Enum.Parse<TerrainChoice>(settings.Tileset, true);
+			playerCount = settings.PlayerCount;
 			layout = LayoutChoice.OpenFields;
-			originalSurfaceRelations = true;
-			preventColonyOverlapping = true;
-			colonyWeights = new();
-			Array.Clear(ownershipShares);
-			ownershipMode = RmgColonyOwnershipMode.ClosestToSpawn;
-			complexity = selected switch
-			{
-				RmgPlayerPreset.OpenConflict => TerrainComplexity.Low,
-				RmgPlayerPreset.TacticalCrossroads => TerrainComplexity.High,
-				_ => TerrainComplexity.Standard
-			};
-			colonyDensity = selected switch
-			{
-				RmgPlayerPreset.OpenConflict => RmgPlayerColonyDensity.Sparse,
-				RmgPlayerPreset.TacticalCrossroads => RmgPlayerColonyDensity.Dense,
-				_ => RmgPlayerColonyDensity.Standard
-			};
-			waterAmount = selected == RmgPlayerPreset.OpenConflict ? RmgPlayerParameterLevel.Low : RmgPlayerParameterLevel.Standard;
-			tacticalTerrain = selected switch
-			{
-				RmgPlayerPreset.OpenConflict => RmgPlayerParameterLevel.Low,
-				RmgPlayerPreset.TacticalCrossroads => RmgPlayerParameterLevel.High,
-				_ => RmgPlayerParameterLevel.Standard
-			};
+			complexity = settings.TerrainComplexity;
+			waterAmount = settings.WaterAmount;
+			tacticalTerrain = settings.TacticalTerrain;
+			colonyDensity = settings.NeutralColonyDensity;
+			originalSurfaceRelations = settings.OriginalSurfaceRelations;
+			preventColonyOverlapping = settings.PreventColonyOverlapping;
+			respectStartingSafeArea = settings.RespectStartingSafeArea;
+			colonyWeights = settings.NeutralColonyWeights;
+			Array.Fill(ownershipShares, selected.StartingShare);
+			ownershipMode = settings.StartingColonyMode;
+			mirroringAxes = selected.Axes;
+			blockShape = settings.BlockShape;
+			laneWidth = approachWidth = ringWidth = crossingWidth = passageWidth = settings.LaneWidth;
+			sideConnections = settings.SideConnections;
+			ringShape = settings.RingShape;
+			landCrossings = settings.LandCrossings;
+			generateCastles = settings.GenerateCastles;
+			ownStartingStronghold = settings.OwnStartingStronghold;
+			extraRoutes = settings.ExtraRoutes;
+			islandAmount = settings.IslandAmount;
+			islandSize = settings.IslandSize;
+			chaosScale = settings.ChaosScale;
+			chaosBiomes = settings.ChaosBiomes;
 			MarkStale();
 		}
 
@@ -863,6 +867,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			rmgMode = generatedUid != null && CurrentMapUid() == generatedUid;
 			stale = true;
 			var unsupported = UnsupportedReason();
+			presetCustomized = unsupported != null || !preset.Matches(CreatePlayerSettings(0));
 			if (unsupported != null)
 				SetStatus(unsupported, StatusKind.Warning);
 			else if (!TryGetSeed())
@@ -908,7 +913,7 @@ namespace OpenRA.Mods.OpenSA.Widgets.Logic
 			LaneWidth = IsLabyrinth ? passageWidth : IsDividedLands ? crossingWidth : IsRing ? ringWidth : IsCrossroads ? approachWidth : IsBattlefield ? laneWidth : RmgBattlefieldLaneWidth.Standard,
 			SideConnections = IsCrossroads ? sideConnections : RmgCrossroadsConnections.Standard,
 			MapSize = size switch { SizeChoice.Small => 64, SizeChoice.Standard => 128, SizeChoice.Large => 256, _ => 512 },
-			Preset = preset,
+			Preset = preset.LegacyPreset,
 			Seed = seed,
 			Tileset = terrain.ToString().ToUpperInvariant(),
 			PlayerCount = playerCount,

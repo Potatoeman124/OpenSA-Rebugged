@@ -76,7 +76,7 @@ Background@SERVER_LOBBY:
 					Width: 220
 					Height: 28
 					TooltipContainer: TOOLTIP_CONTAINER
-					TooltipText: Select a Regions preset. Open Conflict uses Low complexity and amounts; Tactical Crossroads uses High complexity and gravel/moss.
+					TooltipText: Apply a complete map setup. Keeps seed and map size; adjusts players only when the selected layout requires it.
 				Label@RMG_TERRAIN_LABEL:
 					X: 20
 					Y: 115
@@ -261,6 +261,15 @@ Background@SERVER_LOBBY:
 					Text: Starting Ownership...
 					TooltipContainer: TOOLTIP_CONTAINER
 					TooltipText: Give each player a share of generated colonies near their actual starting colony. Defaults to none.
+				LabelWithTooltip@RMG_PRESET_DESCRIPTION:
+					X: 410
+					Y: 240
+					Width: 380
+					Height: 88
+					Font: Regular
+					VAlign: Top
+					TooltipContainer: TOOLTIP_CONTAINER
+					TooltipTemplate: SIMPLE_TOOLTIP
 				Label@RMG_SEED_LABEL:
 					X: 410
 					Y: 344
@@ -695,3 +704,18 @@ Background@SERVER_LOBBY:
 			Font: Bold
 		Container@FACTION_DROPDOWN_PANEL_ROOT:
 		TooltipContainer@TOOLTIP_CONTAINER:
+
+ScrollPanel@RMG_PRESET_DROPDOWN_TEMPLATE:
+	Width: DROPDOWN_WIDTH
+	Children:
+		ScrollItem@TEMPLATE:
+			Width: PARENT_RIGHT - 27
+			Height: 25
+			X: 2
+			Visible: False
+			TooltipContainer: TOOLTIP_CONTAINER
+			Children:
+				Label@LABEL:
+					X: 10
+					Width: PARENT_RIGHT - 20
+					Height: 25

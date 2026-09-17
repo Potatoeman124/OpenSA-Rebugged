@@ -108,9 +108,9 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			}
 
 			Choose("RMG_LAYOUT_FAMILY", "Natural Landscape PVP");
-			Choose("RMG_PRESET", "Open Conflict");
-			Require(Settings().GeneratorVersion == 17 && Settings().MirroringAxes == 1, "Changing quantities through a preset exited PVP.");
-			Choose("RMG_PRESET", "Balanced");
+			Choose("RMG_TERRAIN_COMPLEXITY", "Small");
+			Require(Settings().GeneratorVersion == 17 && Settings().MirroringAxes == 1, "Changing complexity exited PVP.");
+			Choose("RMG_TERRAIN_COMPLEXITY", "Medium");
 			var slider = lobby.Get<SliderWidget>("RMG_PLAYERS");
 			Require(Settings().GeneratorVersion == 17 && Settings().MirroringAxes == 1 && lobby.Get("RMG_MIRRORING_AXES").IsVisible(), "PvP family did not activate.");
 			slider.UpdateValue(6); Require(Settings().PlayerCount == 6, "One-axis six-player setup unavailable.");
@@ -144,7 +144,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			Require(Settings().BlockShape == RmgBattlefieldBlockShape.Diamonds && Settings().LaneWidth == RmgBattlefieldLaneWidth.Wide && Settings().Tileset == "CANDY", "Battlefield controls do not reach generation settings.");
 			Require(!lobby.Get("RMG_MIRRORING_AXES").IsVisible() && lobby.Get("RMG_BLOCK_SHAPE").IsVisible(), "Wrong family controls visible.");
 			Draw(output, "battlefield-512-options");
-			Choose("RMG_PRESET", "Balanced"); Require(Settings().GeneratorVersion == 18, "Preset selection exited Battlefield.");
+			Choose("RMG_TERRAIN_COMPLEXITY", "Medium"); Require(Settings().GeneratorVersion == 18, "Complexity selection exited Battlefield.");
 			Choose("RMG_SIZE", "64 x 64"); Require(Settings().PlayerCount == 4 && slider.MaximumValue == 1, "Battlefield small-map cap failed.");
 			lobby.Get<ButtonWidget>("RMG_COLONY_OWNERSHIP").OnClick();
 			Require(Ui.CurrentWindow().Get<ScrollPanelWidget>("SETTINGS").Children.Count == 4, "Battlefield ownership rows disagree with the player count.");
@@ -158,7 +158,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			Choose("RMG_SIZE", "512 x 512"); slider.UpdateValue(2);
 			Require(Settings().PlayerCount == 8 && Settings().LaneWidth == RmgBattlefieldLaneWidth.Narrow && Settings().SideConnections == RmgCrossroadsConnections.Many, "Crossroads UI choices did not reach generation settings.");
 			Draw(output, "crossroads-512-options");
-			Choose("RMG_PRESET", "Balanced"); Require(Settings().GeneratorVersion == 19, "Preset selection exited Crossroads.");
+			Choose("RMG_TERRAIN_COMPLEXITY", "Medium"); Require(Settings().GeneratorVersion == 19, "Complexity selection exited Crossroads.");
 			lobby.Get<ButtonWidget>("RMG_COLONY_OWNERSHIP").OnClick();
 			Require(Ui.CurrentWindow().Get<ScrollPanelWidget>("SETTINGS").Children.Count == 8, "Crossroads ownership rows disagree with players.");
 			Ui.CurrentWindow().Get<ButtonWidget>("CANCEL").OnClick();
@@ -175,7 +175,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			Choose("RMG_SIZE", "512 x 512"); slider.UpdateValue(2);
 			Require(Settings().PlayerCount == 8 && Settings().RingShape == RmgRingShape.Square && Settings().LaneWidth == RmgBattlefieldLaneWidth.Wide, "Ring UI choices did not reach settings.");
 			Draw(output, "ring-512-options");
-			Choose("RMG_PRESET", "Balanced"); Require(Settings().GeneratorVersion == 20, "Preset selection exited Ring.");
+			Choose("RMG_TERRAIN_COMPLEXITY", "Medium"); Require(Settings().GeneratorVersion == 20, "Complexity selection exited Ring.");
 			lobby.Get<ButtonWidget>("RMG_COLONY_OWNERSHIP").OnClick();
 			Require(Ui.CurrentWindow().Get<ScrollPanelWidget>("SETTINGS").Children.Count == 8, "Ring ownership rows disagree with players.");
 			Ui.CurrentWindow().Get<ButtonWidget>("CANCEL").OnClick();
@@ -195,7 +195,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			Choose("RMG_SIZE", "512 x 512"); slider.UpdateValue(2);
 			Require(Settings().PlayerCount == 8 && Settings().LandCrossings == RmgLandCrossings.Two && Settings().LaneWidth == RmgBattlefieldLaneWidth.Wide, "Divided Lands UI choices did not reach settings.");
 			Draw(output, "divided-512-options");
-			Choose("RMG_PRESET", "Balanced"); Require(Settings().GeneratorVersion == 21, "Preset selection exited Divided Lands.");
+			Choose("RMG_TERRAIN_COMPLEXITY", "Medium"); Require(Settings().GeneratorVersion == 21, "Complexity selection exited Divided Lands.");
 			lobby.Get<ButtonWidget>("RMG_COLONY_OWNERSHIP").OnClick();
 			Require(Ui.CurrentWindow().Get<ScrollPanelWidget>("SETTINGS").Children.Count == 8, "Divided Lands ownership rows disagree with players.");
 			Ui.CurrentWindow().Get<ButtonWidget>("CANCEL").OnClick();
@@ -214,8 +214,8 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			lobby.Get<CheckboxWidget>("RMG_GENERATE_CASTLES").OnClick();
 			Choose("RMG_SIZE", "512 x 512");
 			foreach (var count in new[] { 1, 3, 5, 7, 8 }) { slider.UpdateValue(count); Require(Settings().PlayerCount == count, "Strongholds lost an asymmetric player count."); }
-			Choose("RMG_PRESET", "Balanced");
-			Require(Settings().GeneratorVersion == 22 && !Settings().GenerateCastles, "Preset changed Strongholds or castles.");
+			Choose("RMG_TERRAIN_COMPLEXITY", "Medium");
+			Require(Settings().GeneratorVersion == 22 && !Settings().GenerateCastles, "Complexity changed Strongholds or castles.");
 			Draw(output, "strongholds-512-options");
 			lobby.Get<ButtonWidget>("RMG_COLONY_OWNERSHIP").OnClick();
 			Require(Ui.CurrentWindow().Get<ScrollPanelWidget>("SETTINGS").Children.Count == 8, "Strongholds ownership rows differ from players.");
@@ -274,7 +274,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 			Choose("RMG_SIZE", "512 x 512");
 			for (var count = 1; count <= 8; count++) { slider.UpdateValue(count); Require(Settings().PlayerCount == count, "Labyrinth lost player count."); }
 			Require(Settings().LaneWidth == RmgBattlefieldLaneWidth.Narrow && Settings().ExtraRoutes == RmgLabyrinthRoutes.Many, "Labyrinth options did not reach settings.");
-			Choose("RMG_PRESET", "Balanced"); Require(Settings().GeneratorVersion == 23, "Preset exited Labyrinth.");
+			Choose("RMG_TERRAIN_COMPLEXITY", "Medium"); Require(Settings().GeneratorVersion == 23, "Complexity selection exited Labyrinth.");
 			Draw(output, "labyrinth-512-options");
 			ownership.OnClick(); Require(Ui.CurrentWindow().Get<ScrollPanelWidget>("SETTINGS").Children.Count == 8, "Labyrinth ownership rows disagree.");
 			Ui.CurrentWindow().Get<ButtonWidget>("CANCEL").OnClick();
@@ -322,7 +322,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 					Require(Settings().IslandAmount == amount && Settings().IslandSize == islandSize, "Island controls did not reach generation.");
 				}
 
-			Choose("RMG_PRESET", "Balanced"); Require(Settings().GeneratorVersion == 24, "Preset exited Archipelago.");
+			Choose("RMG_TERRAIN_COMPLEXITY", "Medium"); Require(Settings().GeneratorVersion == 24, "Complexity selection exited Archipelago.");
 			Draw(output, "archipelago-512-options");
 			ownership.OnClick(); Require(Ui.CurrentWindow().Get<ScrollPanelWidget>("SETTINGS").Children.Count == 8, "Archipelago ownership rows disagree.");
 			Require(Ui.CurrentWindow().Get<LabelWidget>("HELP").GetText().Contains("Mandatory island nests"), "Ownership panel omitted the island nest exception.");
@@ -374,7 +374,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 					Require(Settings().ChaosScale == scale && Settings().ChaosBiomes == biomes, "Chaos controls did not reach generation.");
 				}
 
-			Choose("RMG_PRESET", "Balanced"); Require(Settings().GeneratorVersion == 25, "Preset exited Chaos.");
+			Choose("RMG_TERRAIN_COMPLEXITY", "Medium"); Require(Settings().GeneratorVersion == 25, "Complexity selection exited Chaos.");
 			Draw(output, "chaos-512-options");
 			ownership.OnClick(); Require(Ui.CurrentWindow().Get<ScrollPanelWidget>("SETTINGS").Children.Count == 8, "Chaos ownership rows disagree.");
 			Require(Ui.CurrentWindow().Get<LabelWidget>("HELP").GetText().Contains("Mandatory island nests"), "Chaos ownership panel omitted the island nest exception.");
