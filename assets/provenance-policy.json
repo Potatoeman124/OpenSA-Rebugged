@@ -19,7 +19,41 @@
     ".vqa",
     ".wav"
   ],
-  "approved": [],
+  "approved": [
+    {
+      "glob": "mods/sa/bits/sounds/Missle_Launch.wav",
+      "author": "Kibblesbob; Dzierzan (OpenSA adaptation)",
+      "source": "https://soundbible.com/1794-Missle-Launch.html",
+      "license": "Public Domain (source); GPL-3.0 repository contribution for any OpenSA adaptation",
+      "evidence": "assets/provenance/2026-09-18-sounds.md",
+      "sha256": "2a263e63679c44b74d80daac8c4eca542cded0d994d0fffe2ababd5f82d562ea",
+      "title": "Missle Launch",
+      "licenseUrl": "https://soundbible.com/1794-Missle-Launch.html",
+      "upstreamBlob": "75b9e4bb55bdc7ae81ec73bd6d5c60fc0c75afb1"
+    },
+    {
+      "glob": "mods/sa/bits/sounds/click.wav",
+      "author": "Sebastian",
+      "source": "https://soundbible.com/1705-Click2.html",
+      "license": "CC-BY-3.0",
+      "evidence": "assets/provenance/2026-09-18-sounds.md",
+      "sha256": "44adfab9cf8961c0a19904116074dafcd9987978e78342c0d3f19d560abb490f",
+      "title": "Click2",
+      "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
+      "upstreamBlob": "5c5041c3951a1a02505418d17686d6acc8a0c221"
+    },
+    {
+      "glob": "mods/sa/bits/sounds/blaster.wav",
+      "author": "newlocknew",
+      "source": "https://freesound.org/people/newlocknew/sounds/520056/",
+      "license": "CC-BY-4.0",
+      "evidence": "assets/provenance/2026-09-18-sounds.md",
+      "sha256": "73c6023c8de52f57d4156a8c503e0c0cb3c33b753fcf0358e9ecd4f05a552a9d",
+      "title": "blaster comb (Sytrus,mltprcsng,combine attck+tale)single.wav",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "upstreamBlob": "7de7b27142af35e4a98b5e31f526d3d10091ec13"
+    }
+  ],
   "unresolved": [
     {
       "glob": "mods/sa/bits/**",

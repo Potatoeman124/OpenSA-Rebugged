@@ -38,3 +38,9 @@ The release gate must remain failing until all unresolved items have either been
 ## Contributions
 
 New media or other content-bearing files require provenance before merge. Record the author, original source, applicable license or permission, and a durable evidence location. Do not add extracted or converted original-game assets.
+
+## Evidence-backed approvals
+
+Approvals name one exact repository path and record `author`, `source`, `license`, a local `evidence` document, and the file's `sha256`. The release gate rejects incomplete approvals, wildcard approvals, missing evidence, and changed file bytes. Source-marker findings and forbidden original bundles remain independent blockers.
+
+See [the September 2026 audit](ASSET_PROVENANCE_AUDIT.md) for the remaining inventory and [the verified sound evidence](../assets/provenance/2026-09-18-sounds.md) for the first three approvals. Attribution notices for those sounds live inside the packaged mod at `mods/sa/ASSET_ATTRIBUTIONS.md`.

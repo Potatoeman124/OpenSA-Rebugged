@@ -58,7 +58,45 @@ foreach ($relativePath in $repositoryFiles)
     if ($candidateExtensions -contains $extension)
     {
         $approvedRule = Find-MatchingRule -Path $normalizedPath -Rules @($policy.approved)
-        if ($null -eq $approvedRule)
+        if ($null -ne $approvedRule)
+        {
+            $approvalProblems = New-Object System.Collections.Generic.List[string]
+            foreach ($field in @("author", "source", "license", "evidence", "sha256"))
+            {
+                if ([string]::IsNullOrWhiteSpace([string]$approvedRule.$field))
+                {
+                    $approvalProblems.Add("Missing $field.")
+                }
+            }
+
+            if ([string]$approvedRule.glob -cne $normalizedPath)
+            {
+                $approvalProblems.Add("Approval must name one exact repository path; wildcard approvals are not permitted.")
+            }
+
+            if ([string]$approvedRule.sha256 -notmatch "^[0-9a-fA-F]{64}$" -or
+                (Get-FileHash -LiteralPath $fullPath -Algorithm SHA256).Hash -ne [string]$approvedRule.sha256)
+            {
+                $approvalProblems.Add("Approved SHA-256 does not match the file.")
+            }
+
+            if (![string]::IsNullOrWhiteSpace([string]$approvedRule.evidence))
+            {
+                $evidencePath = [IO.Path]::GetFullPath((Join-Path $rootPath $approvedRule.evidence))
+                $rootPrefix = $rootPath.TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+                if (!$evidencePath.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase) -or
+                    !(Test-Path -LiteralPath $evidencePath -PathType Leaf))
+                {
+                    $approvalProblems.Add("Evidence must be an existing file inside the repository.")
+                }
+            }
+
+            if ($approvalProblems.Count -gt 0)
+            {
+                $findings.Add([pscustomobject]@{ kind = "invalid-approval"; path = $normalizedPath; reason = ($approvalProblems -join " ") })
+            }
+        }
+        else
         {
             $unresolvedRule = Find-MatchingRule -Path $normalizedPath -Rules @($policy.unresolved)
             if ($null -ne $unresolvedRule)
