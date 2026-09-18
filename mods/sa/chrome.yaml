@@ -669,9 +669,9 @@ dropdown-separators:
 		observer-separator: 769, 258, 1, 19
 
 logos:
-	Inherits: ^LoadScreen
+	Image: loading-rebugged.png
 	Regions:
-		logo: 0, 0, 256, 260
+		logo: 128, 101, 256, 310
 
 loadscreen-stripe:
 	Inherits: ^LoadScreen

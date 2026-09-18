@@ -21,10 +21,11 @@ Container@MAINMENU:
 			ImageCollection: logos
 			ImageName: logo
 		Label@VERSION_LABEL:
-			X: WINDOW_RIGHT - 296
-			Y: 296 - 20
-			Width: 296 - 20
+			X: WINDOW_RIGHT - 328
+			Y: 348
+			Width: 320
 			Height: 25
+			Text: OSArB 1.1: Return of the RMG
 			Align: Center
 			Font: Regular
 			Shadow: true
