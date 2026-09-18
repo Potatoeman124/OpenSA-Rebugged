@@ -23,14 +23,26 @@ Background@RMG_COLONY_OWNERSHIP_PANEL:
 		Label@OWNERSHIP_MODE_LABEL:
 			X: 20
 			Y: 76
-			Width: 190
+			Width: 135
 			Height: 28
 			Text: Ownership Choice
 		DropDownButton@OWNERSHIP_MODE:
-			X: 220
+			X: 165
 			Y: 76
-			Width: 260
+			Width: 182
 			Height: 28
+		Button@SET_ALL:
+			X: 362
+			Y: 76
+			Width: 120
+			Height: 28
+			Text: Set for All
+		TextField@ALL_VALUE:
+			X: 492
+			Y: 76
+			Width: 75
+			Height: 28
+			MaxLength: 3
 		ScrollPanel@SETTINGS:
 			X: 20
 			Y: 80

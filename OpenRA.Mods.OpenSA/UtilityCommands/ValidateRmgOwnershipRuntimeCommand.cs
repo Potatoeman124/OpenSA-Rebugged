@@ -93,6 +93,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 
 			if (args.Contains("--ui-only"))
 			{
+				CheckWidgets(output);
 				CheckPvpWidgets(utility, output);
 				File.WriteAllText(Path.Combine(output, "verification.json"), new JObject { ["status"] = "PASS", ["scope"] = "LIVE_RMG_WIDGETS" }.ToString());
 				Game.Renderer.Dispose();
@@ -775,7 +776,7 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				var disabled = false;
 				var original = new int[count];
 				Widget Open() => Ui.OpenWindow("RMG_COLONY_OWNERSHIP_PANEL", new WidgetArgs {
-					{ "initialShares", original }, { "initialMode", RmgColonyOwnershipMode.ClosestToSpawn }, { "configurationDisabled", (Func<bool>)(() => disabled) },
+					{ "mandatoryIslandNests", false }, { "initialShares", original }, { "initialMode", RmgColonyOwnershipMode.ClosestToSpawn }, { "configurationDisabled", (Func<bool>)(() => disabled) },
 					{ "onApply", (Action<int[], RmgColonyOwnershipMode>)((v, mode) => { applied = v; appliedMode = mode; }) } });
 				var widget = Open();
 				Require(widget.Get<DropDownButtonWidget>("OWNERSHIP_MODE").GetText() == "Closest to Spawn", "Ownership mode default changed.");
@@ -787,9 +788,27 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				field.Text = "101"; field.OnTextEdited();
 				Require(widget.Get<ButtonWidget>("APPLY").IsDisabled(), "Invalid ownership value accepted.");
 				field.Text = "40"; field.OnTextEdited();
+				void SetAll(string text)
+				{
+					widget.Get<TextFieldWidget>("ALL_VALUE").Text = text;
+					widget.Get<ButtonWidget>("SET_ALL").OnClick();
+				}
+				foreach (var invalid in new[] { "", "101", "-1", "abc" })
+				{
+					SetAll(invalid);
+					Require(widget.Get<ButtonWidget>("SET_ALL").IsDisabled() && field.Text == "40", "Invalid bulk value changed ownership.");
+				}
+				foreach (var value in new[] { 100, 0, 2 })
+				{
+					SetAll(value.ToString());
+					Require(panel.Children.All(r => r.Get<TextFieldWidget>("VALUE").Text == value.ToString() && r.Get<SliderWidget>("SLIDER").GetValue() == value), "Bulk edit missed ownership rows or sliders.");
+					Require(widget.Get<LabelWidget>("NOTE").GetText().StartsWith($"Total: {count * value}.", StringComparison.Ordinal), "Bulk edit left the ownership total stale.");
+				}
 				Draw(output, "ownership-" + count);
 				if (count == 8) { panel.ScrollToBottom(); Draw(output, "ownership-8-bottom"); }
 				disabled = true;
+				SetAll("60");
+				Require(widget.Get<ButtonWidget>("SET_ALL").IsDisabled() && widget.Get<TextFieldWidget>("ALL_VALUE").IsDisabled() && field.Text == "2", "Non-host can bulk edit ownership.");
 				Require(widget.Get<DropDownButtonWidget>("OWNERSHIP_MODE").IsDisabled(), "Non-host can change ownership mode.");
 				widget.Get<ButtonWidget>("APPLY").OnClick();
 				Require(applied == null, "Non-host applied ownership.");
@@ -803,20 +822,21 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				field.Text = "100"; field.OnTextEdited();
 				widget.Get<ButtonWidget>("RESET").OnClick();
 				Require(field.Text == "0", "Reset did not clear shares.");
-				field.Text = "25"; field.OnTextEdited();
+				SetAll("25");
+				field.Text = "10"; field.OnTextEdited();
 				widget.Get<ButtonWidget>("APPLY").OnClick();
-				Require(applied[0] == 25 && original[0] == 0 && appliedMode == RmgColonyOwnershipMode.Random, "Apply failed or mutated original.");
+				Require(applied[0] == 10 && applied.Skip(1).All(v => v == 25) && original.All(v => v == 0) && appliedMode == RmgColonyOwnershipMode.Random, "Bulk Apply or individual override failed, or mutated original.");
 			}
 			RmgColonyWeights weights = null;
 			var species = Ui.OpenWindow("RMG_COLONY_WEIGHTS_PANEL", new WidgetArgs {
-				{ "initialWeights", new RmgColonyWeights() }, { "configurationDisabled", (Func<bool>)(() => false) },
+				{ "mandatoryIslandNests", false }, { "initialWeights", new RmgColonyWeights() }, { "configurationDisabled", (Func<bool>)(() => false) },
 				{ "onApply", (Action<RmgColonyWeights>)(v => weights = v) } });
 			Require(species.Get<ScrollPanelWidget>("SETTINGS").Children.All(r => r.Get<SliderWidget>("SLIDER").MaximumValue == 100), "Species slider maximum.");
 			Draw(output, "species-weights");
 			species.Get<ButtonWidget>("APPLY").OnClick();
 			Require(weights.Values.All(v => v == 100), "Species defaults changed.");
 			Ui.ResetAll();
-			Console.WriteLine("PASS: real ownership/species widgets, 1/3/8 rows, validation, reset, Cancel/Apply isolation, host guard, scrolling.");
+			Console.WriteLine("PASS: real ownership/species widgets, 1/3/8 rows, bulk edits, validation, reset, Cancel/Apply isolation, host guard, scrolling.");
 		}
 
 		static void Draw(string output, string name)

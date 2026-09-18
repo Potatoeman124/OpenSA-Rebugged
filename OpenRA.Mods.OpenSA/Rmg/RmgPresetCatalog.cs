@@ -143,11 +143,11 @@ namespace OpenRA.Mods.OpenSA.Rmg
 				Colonies = RmgPlayerColonyDensity.Dense, OriginalSurfaces = false, PreventOverlap = false, SafeArea = false,
 				StartingShare = 100, OwnershipMode = RmgColonyOwnershipMode.Random, ChaosScale = RmgChaosScale.Large
 			},
-			new RmgPresetDefinition("total-mayhem", "Total Mayhem", "Ultra terrain and colonies with Standard water and fractured biomes. Crowded neutral colonies, relaxed spacing and no starting safe areas.", RmgPlayerLayoutFamily.Chaos)
+			new RmgPresetDefinition("total-mayhem", "Total Mayhem", "Ultra terrain and colonies with Standard water and fractured biomes. Each player starts with a 2% colony share, relaxed spacing and no starting safe areas.", RmgPlayerLayoutFamily.Chaos)
 			{
 				Complexity = TerrainComplexity.Ultra, Water = RmgPlayerParameterLevel.Standard, Surfaces = RmgPlayerParameterLevel.Ultra,
 				Colonies = RmgPlayerColonyDensity.Ultra, OriginalSurfaces = false, PreventOverlap = false, SafeArea = false,
-				ChaosScale = RmgChaosScale.Small, ChaosBiomes = RmgChaosBiomes.Fractured
+				StartingShare = 2, ChaosScale = RmgChaosScale.Small, ChaosBiomes = RmgChaosBiomes.Fractured
 			}
 		});
 	}

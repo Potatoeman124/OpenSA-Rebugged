@@ -80,6 +80,8 @@ namespace OpenRA.Mods.OpenSA.UtilityCommands
 				Require(preset.Matches(Settings()), "Reselection failed to reset edited settings.");
 				lobby.Get<ButtonWidget>("RMG_COLONY_OWNERSHIP").OnClick();
 				Require(Ui.CurrentWindow().Get<ScrollPanelWidget>("SETTINGS").Children.Count == 4, "Wrong ownership slider count.");
+				Require(Ui.CurrentWindow().Get<ScrollPanelWidget>("SETTINGS").Children.All(r => r.Get<SliderWidget>("SLIDER").GetValue() == preset.StartingShare), "Preset ownership values did not reach the dialog.");
+				if (preset.Id == "total-mayhem") Draw(output, "total-mayhem-ownership");
 				Ui.CurrentWindow().Get<ButtonWidget>("CANCEL").OnClick();
 				lobby.Get<ButtonWidget>("RMG_COLONY_WEIGHTS").OnClick();
 				Ui.CurrentWindow().Get<ButtonWidget>("CANCEL").OnClick();
