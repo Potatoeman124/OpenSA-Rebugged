@@ -31,7 +31,7 @@ On Windows, use the pinned build entry point:
 .\launch-game.cmd
 ```
 
-Run `.\build-pipeline.cmd validate` for the complete check suite. See [docs/BUILDING.md](docs/BUILDING.md) for dependency, validation, portable-package, and external-asset import details.
+Run `.\build-pipeline.cmd validate` for the complete check suite. See [docs/BUILDING.md](docs/BUILDING.md) for dependency, validation, overlay-package, and external-asset import details.
 
 To build the reBugged update ZIP for an existing OpenSA 20230905 x64 installation, run **Terminal > Run Task... > OpenSA: Build Overlay ZIP** in VS Code, or `.\build-pipeline.cmd overlay`. The ZIP appears directly in `artifacts`; build dependencies are prepared automatically. See [overlay build and installation instructions](docs/OVERLAY_INSTALLATION.md).
 

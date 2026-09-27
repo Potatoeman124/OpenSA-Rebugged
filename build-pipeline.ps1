@@ -1,13 +1,11 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet("help", "bootstrap", "build", "validate", "audit-assets", "verify-assets", "portable", "overlay", "import-assets")]
+    [ValidateSet("help", "bootstrap", "build", "validate", "audit-assets", "verify-assets", "overlay", "import-assets")]
     [string]$Command = "help",
     [string]$OriginalGamePath,
     [string]$SupportDir,
-    [string]$Version = (Get-Date -Format "yyyyMMdd"),
-    [ValidateSet("x64", "x86")]
-    [string]$Architecture = "x64"
+    [string]$Version = (Get-Date -Format "yyyyMMdd")
 )
 
 $ErrorActionPreference = "Stop"
@@ -252,8 +250,6 @@ function Show-Help
     Write-Host "      Produce an informational tracked-content provenance inventory."
     Write-Host "  build-pipeline.cmd verify-assets"
     Write-Host "      Enforce the release asset gate. Findings produce a non-zero exit code."
-    Write-Host "  build-pipeline.cmd portable [-Version YYYYMMDD]"
-    Write-Host "      Validate and stage an asset-free self-contained Windows package."
     Write-Host "  build-pipeline.cmd overlay [-Version 1.1]"
     Write-Host "      Prepare dependencies and build the overlay ZIP directly in artifacts."
     Write-Host "  build-pipeline.cmd import-assets -OriginalGamePath C:\Path\To\SwarmAssault"
@@ -281,11 +277,6 @@ try
         }
         "verify-assets" {
             Invoke-AssetPolicy "Release"
-        }
-        "portable" {
-            Invoke-Validation
-            Invoke-AssetPolicy "Release" $Version
-            Invoke-PowerShellScript (Join-Path $root "scripts\build\New-Portable.ps1") @("-Root", $root, "-Version", $Version, "-Architecture", $Architecture)
         }
         "overlay" {
             Initialize-Dependencies

@@ -27,9 +27,8 @@
 # the following are internal sdk helpers that are not intended to be run directly:
 #   make check-variables
 #   make check-sdk-scripts
-#   make check-packaging-scripts
 
-.PHONY: check-sdk-scripts check-packaging-scripts check-variables engine all clean version check-scripts check test install
+.PHONY: check-sdk-scripts check-variables engine all clean version check-scripts check test install
 .DEFAULT_GOAL := all
 
 PYTHON = $(shell command -v python3 2> /dev/null)
@@ -88,29 +87,6 @@ check-sdk-scripts:
 		echo "Repair their permissions and try again."; \
 		echo "If you are using git you can repair these permissions by running"; \
 		echo "   git update-index --chmod=+x *.sh"; \
-		echo "and commiting the changed files to your repository."; \
-		exit 1; \
-	fi
-
-check-packaging-scripts:
-	@if [ ! -x "packaging/package-all.sh" ] || [ ! -x "packaging/linux/buildpackage.sh" ] || [ ! -x "packaging/macos/buildpackage.sh" ] || [ ! -x "packaging/windows/buildpackage.sh" ]; then \
-		echo "Required SDK scripts are not executable:"; \
-		if [ ! -x "packaging/package-all.sh" ]; then \
-			echo "   packaging/package-all.sh"; \
-		fi; \
-		if [ ! -x "packaging/linux/buildpackage.sh" ]; then \
-			echo "   packaging/linux/buildpackage.sh"; \
-		fi; \
-		if [ ! -x "packaging/macos/buildpackage.sh" ]; then \
-			echo "   packaging/macos/buildpackage.sh"; \
-		fi; \
-		if [ ! -x "packaging/windows/buildpackage.sh" ]; then \
-			echo "   packaging/windows/buildpackage.sh"; \
-		fi; \
-		echo "Repair their permissions and try again."; \
-		echo "If you are using git you can repair these permissions by running"; \
-		echo "   git update-index --chmod=+x *.sh"; \
-		echo "in the directories containing the affected files"; \
 		echo "and commiting the changed files to your repository."; \
 		exit 1; \
 	fi

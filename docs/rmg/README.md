@@ -2,6 +2,8 @@
 
 This directory contains the durable technical documentation for OpenSA's random map generator (RMG). Phase reports, generated catalogues, and other point-in-time evidence belong under `artifacts/rmg/`, which is intentionally excluded from version control.
 
+Individual generated maps, native terrain buffers and per-case debug exports are disposable build/test output. Repository cleanup may remove them while retaining aggregate results, case settings, comparison galleries and handoffs. Historical evidence paths in phase reports may therefore require regenerating their corpus with the documented scripts.
+
 ## Project boundary
 
 The repository contains only original source code, build tooling, and project documentation. Copyrighted game assets are not committed. Building, auditing, or running OpenSA obtains the required assets from an external installation supplied by the developer or player.

@@ -8,7 +8,7 @@ The original Swarm Assault files are an external runtime dependency. A user supp
 
 `%APPDATA%\OpenRA\Content\sa`
 
-The importer verifies every file against [the known-good manifest](../assets/original-game-manifest.json). It never copies those files into the repository, build tree, portable package, or release archive.
+The importer verifies every file against [the known-good manifest](../assets/original-game-manifest.json). It never copies those files into the repository, build tree or release archive.
 
 The game may also use the engine's existing registry-based local installer source. There is deliberately no quick-download or mirror fallback.
 
@@ -49,4 +49,4 @@ See [the September 2026 audit](ASSET_PROVENANCE_AUDIT.md) for the remaining inve
 
 The maintainer chose upstream-equivalent risk acceptance: preserve the audit and attribution, acknowledge unresolved rights, and permit the existing inherited content for release 1.1. See [the release notice](../mods/sa/RELEASE_EXCEPTION.md) and [exact-file snapshot](../assets/provenance/release-1.1-exception.json). This supersedes the strict blocking decision for those files and that release only.
 
-Pass `-ReleaseVersion 1.1` to `Check-AssetPolicy.ps1` to evaluate this exception. Without it, the strict audit still fails. Reports retain every finding and separately count accepted and blocking findings. Changed/new files, invalid approvals, original bundles, and remote-download routes are not exempt. The portable packager passes its explicit version and scans the stage before making an archive.
+Pass `-ReleaseVersion 1.1` to `Check-AssetPolicy.ps1` to evaluate this exception. Without it, the strict audit still fails. Reports retain every finding and separately count accepted and blocking findings. Changed/new files, invalid approvals, original bundles, and remote-download routes are not exempt. The overlay packager passes its explicit version and scans the stage before making an archive.
