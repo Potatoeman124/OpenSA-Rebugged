@@ -1,7 +1,6 @@
 [CmdletBinding()]
 param(
     [string]$Root,
-    [Parameter(Mandatory = $true)]
     [string]$BasePath,
     [ValidateSet("1.1")]
     [string]$Version = "1.1"
@@ -10,10 +9,12 @@ param(
 $ErrorActionPreference = "Stop"
 if ([string]::IsNullOrWhiteSpace($Root)) { $Root = Join-Path $PSScriptRoot "../.." }
 $rootPath = [IO.Path]::GetFullPath($Root)
-$baseRoot = (Resolve-Path -LiteralPath $BasePath).Path.TrimEnd('\', '/')
+$baseRoot = $null
+if (![string]::IsNullOrWhiteSpace($BasePath))
+{ $baseRoot = (Resolve-Path -LiteralPath $BasePath).Path.TrimEnd('\', '/') }
 $artifactsRoot = Join-Path $rootPath "artifacts"
 $stagePath = Join-Path $artifactsRoot "overlay-$Version/payload"
-$packageRoot = Join-Path $artifactsRoot "1_1_Release/overlay"
+$packageRoot = $artifactsRoot
 $archiveName = "OpenSA-reBugged-$Version-overlay-20230905-x64.zip"
 $archivePath = Join-Path $packageRoot $archiveName
 $expectedEngine = "386f691c2e1f469596ef6f58e258a10a176bdc3d"
@@ -32,31 +33,60 @@ function Assert-GeneratedPath
     $absolute = [IO.Path]::GetFullPath($Path)
     $prefix = [IO.Path]::GetFullPath($artifactsRoot).TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
     if (!$absolute.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase) -or
-        $baseRoot.StartsWith($absolute, [StringComparison]::OrdinalIgnoreCase) -or
-        $absolute.StartsWith($baseRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase))
+        ($baseRoot -and ($baseRoot.StartsWith($absolute, [StringComparison]::OrdinalIgnoreCase) -or
+        $absolute.StartsWith($baseRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase))))
     { throw "Unsafe generated path: $absolute" }
     if ((Test-Path -LiteralPath $absolute) -and
         (Get-Item -LiteralPath $absolute).Attributes.HasFlag([IO.FileAttributes]::ReparsePoint))
     { throw "Generated path must not be a link: $absolute" }
 }
 
-# Read-only compatibility checks run before any build or packaging work.
-if ([IO.File]::ReadAllText((Join-Path $baseRoot "VERSION")).Trim() -ne $expectedEngine)
-{ throw "The overlay requires the stock OpenSA 20230905 engine ($expectedEngine)." }
-$baseYaml = [IO.File]::ReadAllText((Join-Path $baseRoot "mods/sa/mod.yaml"))
-if ($baseYaml -notmatch '(?m)^\tVersion: 20230905\s*$')
-{ throw "The overlay must be built against an unmodified OpenSA 20230905 installation." }
-foreach ($name in @("OpenSA.exe", "OpenRA.Utility.exe", "SDL2.dll"))
+# The recorded baseline makes packaging independent of personal installation paths
+# and remains usable after a developer has already installed reBugged locally.
+$baselinePath = Join-Path $rootPath "packaging/overlay/opensa-20230905-x64.json"
+$baseline = Get-Content -LiteralPath $baselinePath -Raw | ConvertFrom-Json
+if ($baseline.format -ne 1 -or $baseline.version -ne "20230905" -or
+    $baseline.platform -ne "win-x64" -or $baseline.engine -ne $expectedEngine)
+{ throw "Unsupported overlay baseline manifest: $baselinePath" }
+$baselineHashes = @{}
+foreach ($file in $baseline.files.PSObject.Properties)
 {
-    $data = [IO.File]::ReadAllBytes((Join-Path $baseRoot $name))
-    $peOffset = [BitConverter]::ToInt32($data, 0x3c)
-    if ([BitConverter]::ToUInt16($data, $peOffset + 4) -ne 0x8664)
-    { throw "The overlay requires the x64 installation: $name is not x64." }
+    if (($file.Name -ne "OpenRA.Mods.OpenSA.dll" -and !$file.Name.StartsWith("mods/sa/")) -or
+        $file.Name.Contains("..") -or $file.Value -notmatch '^[0-9a-f]{64}$')
+    { throw "Invalid file or hash in overlay baseline: $($file.Name)" }
+    $baselineHashes[$file.Name] = [string]$file.Value
 }
-foreach ($name in @("OpenRA.Game.dll", "OpenRA.Mods.Common.dll", "OpenRA.Mods.Cnc.dll", "OpenRA.Mods.OpenSA.dll", "COPYING"))
+if (!$baselineHashes.ContainsKey("mods/sa/mod.yaml") -or !$baselineHashes.ContainsKey("OpenRA.Mods.OpenSA.dll"))
+{ throw "Incomplete overlay baseline manifest." }
+
+# Optional read-only verification of a stock installation; never needed by the task.
+if ($baseRoot)
 {
-    if (!(Test-Path -LiteralPath (Join-Path $baseRoot $name) -PathType Leaf))
-    { throw "Incomplete base installation: missing $name" }
+    if ([IO.File]::ReadAllText((Join-Path $baseRoot "VERSION")).Trim() -ne $expectedEngine)
+    { throw "The overlay requires the stock OpenSA 20230905 engine ($expectedEngine)." }
+    $baseYaml = [IO.File]::ReadAllText((Join-Path $baseRoot "mods/sa/mod.yaml"))
+    if ($baseYaml -notmatch '(?m)^\tVersion: 20230905\s*$')
+    { throw "The overlay must be built against an unmodified OpenSA 20230905 installation." }
+    foreach ($name in @("OpenSA.exe", "OpenRA.Utility.exe", "SDL2.dll"))
+    {
+        $data = [IO.File]::ReadAllBytes((Join-Path $baseRoot $name))
+        $peOffset = [BitConverter]::ToInt32($data, 0x3c)
+        if ([BitConverter]::ToUInt16($data, $peOffset + 4) -ne 0x8664)
+        { throw "The overlay requires the x64 installation: $name is not x64." }
+    }
+    foreach ($name in @("OpenRA.Game.dll", "OpenRA.Mods.Common.dll", "OpenRA.Mods.Cnc.dll", "OpenRA.Mods.OpenSA.dll", "COPYING"))
+    {
+        if (!(Test-Path -LiteralPath (Join-Path $baseRoot $name) -PathType Leaf))
+        { throw "Incomplete base installation: missing $name" }
+    }
+
+    foreach ($path in $baselineHashes.Keys)
+    {
+        $file = Join-Path $baseRoot $path
+        if (!(Test-Path -LiteralPath $file -PathType Leaf) -or
+            (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash -ne $baselineHashes[$path])
+        { throw "The installation differs from the recorded stock baseline: $path" }
+    }
 }
 
 $dotnetExe = Join-Path $rootPath ".tools/dotnet/dotnet.exe"
@@ -92,13 +122,10 @@ $changes = New-Object System.Collections.Generic.List[object]
 function Add-DeltaFile
 {
     param([string]$RelativePath, [byte[]]$Bytes)
-    $baseFile = Join-Path $baseRoot $RelativePath
     $sha = [Security.Cryptography.SHA256]::Create()
     try { $newHash = [BitConverter]::ToString($sha.ComputeHash($Bytes)).Replace("-", "").ToLowerInvariant() }
     finally { $sha.Dispose() }
-    $oldHash = $null
-    if (Test-Path -LiteralPath $baseFile -PathType Leaf)
-    { $oldHash = (Get-FileHash -LiteralPath $baseFile -Algorithm SHA256).Hash.ToLowerInvariant() }
+    $oldHash = $baselineHashes[$RelativePath]
     if ($oldHash -eq $newHash) { return }
     $target = Join-Path $stagePath $RelativePath
     New-Item -ItemType Directory -Path (Split-Path $target -Parent) -Force | Out-Null

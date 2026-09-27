@@ -86,4 +86,4 @@ The artifact-only `release-artifacts.yml` workflow builds Linux AppImage and mac
 
 ## Overlay for an existing OpenSA installation
 
-For the current delivery strategy, use [OVERLAY_INSTALLATION.md](OVERLAY_INSTALLATION.md). `scripts/build/New-Overlay.ps1 -BasePath "E:\Gejms\OpenSA"` creates one ZIP for a working OpenSA 20230905 x64 installation. It reuses the installed engine, runtime and assets, and packages only the mod delta plus notices and audit evidence. It does not write to the base installation or publish anything.
+For the current delivery strategy, use [OVERLAY_INSTALLATION.md](OVERLAY_INSTALLATION.md). **Terminal > Run Task... > OpenSA: Build Overlay ZIP** in VS Code (or `build-pipeline.cmd overlay`) prepares dependencies and creates one ZIP directly in `artifacts` for a working OpenSA 20230905 x64 installation. It reuses the installed engine, runtime and assets, and packages only the mod delta plus notices and audit evidence. Building uses the checked-in baseline hash inventory, so no local OpenSA installation or original assets are needed. The task does not publish anything.

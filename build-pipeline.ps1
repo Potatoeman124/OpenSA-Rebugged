@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet("help", "bootstrap", "build", "validate", "audit-assets", "verify-assets", "portable", "import-assets")]
+    [ValidateSet("help", "bootstrap", "build", "validate", "audit-assets", "verify-assets", "portable", "overlay", "import-assets")]
     [string]$Command = "help",
     [string]$OriginalGamePath,
     [string]$SupportDir,
@@ -254,6 +254,8 @@ function Show-Help
     Write-Host "      Enforce the release asset gate. Findings produce a non-zero exit code."
     Write-Host "  build-pipeline.cmd portable [-Version YYYYMMDD]"
     Write-Host "      Validate and stage an asset-free self-contained Windows package."
+    Write-Host "  build-pipeline.cmd overlay [-Version 1.1]"
+    Write-Host "      Prepare dependencies and build the overlay ZIP directly in artifacts."
     Write-Host "  build-pipeline.cmd import-assets -OriginalGamePath C:\Path\To\SwarmAssault"
     Write-Host "      Verify and copy original assets to the user's OpenRA support directory."
 }
@@ -284,6 +286,11 @@ try
             Invoke-Validation
             Invoke-AssetPolicy "Release" $Version
             Invoke-PowerShellScript (Join-Path $root "scripts\build\New-Portable.ps1") @("-Root", $root, "-Version", $Version, "-Architecture", $Architecture)
+        }
+        "overlay" {
+            Initialize-Dependencies
+            $overlayVersion = if ($PSBoundParameters.ContainsKey("Version")) { $Version } else { "1.1" }
+            Invoke-PowerShellScript (Join-Path $root "scripts\build\New-Overlay.ps1") @("-Root", $root, "-Version", $overlayVersion)
         }
         "import-assets" {
             if ([string]::IsNullOrWhiteSpace($OriginalGamePath))

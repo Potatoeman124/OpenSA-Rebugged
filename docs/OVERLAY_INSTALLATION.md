@@ -12,13 +12,27 @@ The existing engine, runtime and Swarm Assault assets are reused. The archive co
 
 ## Building the ZIP
 
+In VS Code, open **Terminal > Run Task... > OpenSA: Build Overlay ZIP**. The task prepares the pinned SDK and engine when needed, builds the Release mod assembly, runs the release asset gate, and creates the ZIP directly in `artifacts`.
+
+The same operation is available outside VS Code:
+
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/build/New-Overlay.ps1 -BasePath "E:\Gejms\OpenSA"
+.\build-pipeline.cmd overlay
 ```
 
-The builder validates the baseline version, engine revision and x64 executables before building the Release mod assembly. It compares that assembly and current `mods/sa` content to the baseline and packages only changed files, plus installation instructions, the delta manifest, license, attribution and provenance evidence. No baseline files are written. Rebuilt engine/runtime files are never copied into the payload. Unreferenced old files can remain in place.
+Requirements: Windows, Git on PATH, and Internet access for the first dependency download/NuGet restore. Later builds reuse the local dependencies. No OpenSA installation, original-game assets, personal path, or assistant is required to **build** the overlay; players still need a working OpenSA 20230905 x64 installation to **use** it.
 
-Output: `artifacts/1_1_Release/overlay/OpenSA-reBugged-1.1-overlay-20230905-x64.zip` and a SHA-256 sidecar. The sidecar is for verification; only the ZIP is needed to install. The package root directly contains `mods/sa` and `OpenRA.Mods.OpenSA.dll`.
+The builder compares current mod files to `packaging/overlay/opensa-20230905-x64.json`, the SHA-256 inventory recorded from the verified original installation. The reference includes only filenames and hashes, not asset contents. This keeps the delta independent of developer installation paths and makes rebuilding possible even after upgrading a local game to reBugged.
+
+Output: `artifacts/OpenSA-reBugged-1.1-overlay-20230905-x64.zip` and a `.zip.sha256` sidecar. Re-running replaces those generated files. Only the ZIP is needed to install. Its root directly contains `mods/sa` and `OpenRA.Mods.OpenSA.dll`, together with instructions, license, attribution, and provenance evidence. Rebuilt engine/runtime files are never copied into the payload.
+
+For an optional extra check against a stock installation, after bootstrapping:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/build/New-Overlay.ps1 -BasePath "C:\Games\OpenSA"
+```
+
+That mode also verifies the installation's version, architecture and all recorded baseline hashes without changing its files. Omit `-BasePath` for normal automated builds. It is intentionally incompatible with an already upgraded installation.
 
 The version-scoped inherited-content exception still applies; the audit is preserved and the eight original-game asset bundles remain excluded. An overlay changes delivery mechanics, not the recorded provenance status.
 
@@ -30,7 +44,7 @@ This work stays on its feature branch until the maintainer explicitly authorizes
 
 ## Verified delivery (2026-09-27)
 
-The 92-file ZIP is 874,434 bytes and adds 79 files while replacing 13. The installed engine, native libraries and bundled .NET 6.0.22 remain byte-identical. All 1,187 original installation files were checked before and after the work and remained unchanged.
+The first verified 92-file ZIP was 874,434 bytes and adds 79 files while replacing 13. The installed engine, native libraries and bundled .NET 6.0.22 remain byte-identical. All 1,187 original installation files were checked before and after the work and remained unchanged.
 
 Validation on the copy, after extracting the actual ZIP:
 
@@ -43,3 +57,5 @@ Validation on the copy, after extracting the actual ZIP:
 - Native interactive control was unavailable because the helper could not initialize. Rendering and world startup were checked using the existing game test harness, not an interactive launcher session.
 
 Detailed local evidence: `artifacts/overlay-1.1/verification.json`, `check-yaml.log`, `rmg-validation.log`, `full-package-rmg-validation.log`, `preset-runtime/`, and `preset-worlds/`.
+
+The maintainer subsequently installed and played the overlay successfully, reported no RMG issues, and accepted the current RMG behavior as a pass. The older automated continuity findings remain recorded above.
