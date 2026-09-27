@@ -2,7 +2,11 @@ name: Build OSArB 1.1 release artifacts
 on:
   push:
     branches: [main]
-    paths: ['.github/workflows/release-artifacts.yml']
+    paths:
+      - '.github/workflows/release-artifacts.yml'
+      - 'packaging/**'
+      - 'scripts/build/Check-AssetPolicy.ps1'
+      - '.gitignore'
   workflow_dispatch:
 permissions:
   contents: read

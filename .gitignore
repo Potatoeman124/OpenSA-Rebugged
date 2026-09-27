@@ -21,3 +21,11 @@ StyleCopViolations.xml
 .directory
 /.tools/
 /artifacts/
+
+# Generated native release packaging trees (scanned separately before archiving).
+/build/
+/packaging/linux/*.appdir/
+/packaging/linux/appimagetool-x86_64.AppImage
+/packaging/macos/build/
+/packaging/macos/build*.dmg
+/packaging/windows/build/
