@@ -117,7 +117,9 @@ cp "${TEMPLATE_ROOT}/${ENGINE_DIRECTORY}/packaging/macos/Info.plist.in" "${LAUNC
 modify_plist "{DEV_VERSION}" "${TAG}" "${LAUNCHER_CONTENTS_DIR}/Info.plist"
 modify_plist "{FAQ_URL}" "${PACKAGING_FAQ_URL}" "${LAUNCHER_CONTENTS_DIR}/Info.plist"
 modify_plist "{MOD_ID}" "${MOD_ID}" "${LAUNCHER_CONTENTS_DIR}/Info.plist"
-modify_plist "{MINIMUM_SYSTEM_VERSION}" "10.11" "${LAUNCHER_CONTENTS_DIR}/Info.plist"
+MINIMUM_SYSTEM_VERSION="10.11"
+if [ "${PACKAGING_OSX_LEGACY_MONO:-True}" = "False" ]; then MINIMUM_SYSTEM_VERSION="10.15"; fi
+modify_plist "{MINIMUM_SYSTEM_VERSION}" "${MINIMUM_SYSTEM_VERSION}" "${LAUNCHER_CONTENTS_DIR}/Info.plist"
 modify_plist "{MOD_NAME}" "${PACKAGING_DISPLAY_NAME}" "${LAUNCHER_CONTENTS_DIR}/Info.plist"
 modify_plist "{JOIN_SERVER_URL_SCHEME}" "openra-${MOD_ID}-${TAG}" "${LAUNCHER_CONTENTS_DIR}/Info.plist"
 if [ -n "${DISCORD_APPID}" ]; then
@@ -138,7 +140,9 @@ rm "${LAUNCHER_ASSEMBLY_DIR}/Launcher-x86_64" "${LAUNCHER_ASSEMBLY_DIR}/Launcher
 
 install_assemblies "${TEMPLATE_ROOT}/${ENGINE_DIRECTORY}" "${LAUNCHER_ASSEMBLY_DIR}/x86_64" "osx-x64" "net6" "True" "${PACKAGING_COPY_CNC_DLL}" "${PACKAGING_COPY_D2K_DLL}"
 install_assemblies "${TEMPLATE_ROOT}/${ENGINE_DIRECTORY}" "${LAUNCHER_ASSEMBLY_DIR}/arm64" "osx-arm64" "net6" "True" "${PACKAGING_COPY_CNC_DLL}" "${PACKAGING_COPY_D2K_DLL}"
-install_assemblies "${TEMPLATE_ROOT}/${ENGINE_DIRECTORY}" "${LAUNCHER_ASSEMBLY_DIR}/mono" "osx-x64" "mono" "True" "${PACKAGING_COPY_CNC_DLL}" "${PACKAGING_COPY_D2K_DLL}"
+if [ "${PACKAGING_OSX_LEGACY_MONO:-True}" = "True" ]; then
+	install_assemblies "${TEMPLATE_ROOT}/${ENGINE_DIRECTORY}" "${LAUNCHER_ASSEMBLY_DIR}/mono" "osx-x64" "mono" "True" "${PACKAGING_COPY_CNC_DLL}" "${PACKAGING_COPY_D2K_DLL}"
+fi
 install_data "${TEMPLATE_ROOT}/${ENGINE_DIRECTORY}" "${LAUNCHER_RESOURCES_DIR}"
 rm -rf "${LAUNCHER_RESOURCES_DIR}/global mix database.dat"
 
@@ -150,7 +154,9 @@ done
 echo "Building mod files"
 install_mod_assemblies "${TEMPLATE_ROOT}" "${LAUNCHER_ASSEMBLY_DIR}/x86_64" "osx-x64" "net6" "${TEMPLATE_ROOT}/${ENGINE_DIRECTORY}"
 install_mod_assemblies "${TEMPLATE_ROOT}" "${LAUNCHER_ASSEMBLY_DIR}/arm64" "osx-arm64" "net6" "${TEMPLATE_ROOT}/${ENGINE_DIRECTORY}"
-install_mod_assemblies "${TEMPLATE_ROOT}" "${LAUNCHER_ASSEMBLY_DIR}/mono" "osx-x64" "mono" "${TEMPLATE_ROOT}/${ENGINE_DIRECTORY}"
+if [ "${PACKAGING_OSX_LEGACY_MONO:-True}" = "True" ]; then
+	install_mod_assemblies "${TEMPLATE_ROOT}" "${LAUNCHER_ASSEMBLY_DIR}/mono" "osx-x64" "mono" "${TEMPLATE_ROOT}/${ENGINE_DIRECTORY}"
+fi
 
 cp -LR "${TEMPLATE_ROOT}mods/"* "${LAUNCHER_RESOURCES_DIR}/mods"
 
@@ -161,6 +167,10 @@ else
 	MOD_VERSION=$(grep 'Version:' "${LAUNCHER_RESOURCES_DIR}/mods/${MOD_ID}/mod.yaml" | awk '{print $2}')
 	echo "Mod version ${MOD_VERSION} will remain unchanged.";
 fi
+
+# Preserve provenance alongside the packaged mod and enforce the scoped release gate.
+cp -R "${TEMPLATE_ROOT}/assets/provenance" "${LAUNCHER_RESOURCES_DIR}/provenance"
+pwsh -NoProfile -File "${TEMPLATE_ROOT}/scripts/build/Check-AssetPolicy.ps1" -Mode Release -Root "${TEMPLATE_ROOT}" -ReleaseVersion "${TAG}" -StagePath "${LAUNCHER_RESOURCES_DIR}"
 
 # Assemble multi-resolution icon
 mkdir "${BUILTDIR}/mod.iconset"

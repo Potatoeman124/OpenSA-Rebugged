@@ -2,7 +2,7 @@
 
 Audit date: 2026-09-18. Source snapshot: `d358e0a09eff558391e489fa276d77673c8be02a`.
 
-The release remains blocked. The user explicitly retained the provenance gate. No exception has been granted, and no release package has been created.
+Historical audit result: the initial strict gate blocked release. The maintainer subsequently authorized upstream-equivalent risk acceptance for OSArB 1.1. See [the release exception](../mods/sa/RELEASE_EXCEPTION.md). The findings below are preserved; they are not assertions of resolved rights.
 
 ## Findings and evidence
 

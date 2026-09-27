@@ -16,7 +16,7 @@ jobs:
 
       - name: Verify tracked asset provenance
         shell: powershell
-        run: .\scripts\build\Check-AssetPolicy.ps1 -Mode Release -Root .
+        run: .\scripts\build\Check-AssetPolicy.ps1 -Mode Release -Root . -ReleaseVersion $env:GITHUB_REF_NAME
 
   linux:
     name: Linux AppImages

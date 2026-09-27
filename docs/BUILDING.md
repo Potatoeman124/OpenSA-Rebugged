@@ -75,3 +75,11 @@ At the initial restoration checkpoint this command is expected to stop at the re
 The Windows CI job uses `build-pipeline.cmd validate`. Existing tag packaging jobs are dependent on the release provenance gate, so they cannot publish while unresolved material remains.
 
 No installer should be considered releasable until the same gate passes. The portable directory is the first delivery target because it directly proves the playable executable and layout with fewer unrelated packaging dependencies.
+
+## OSArB 1.1 release packaging
+
+The maintainer authorized a version-scoped exception for existing inherited content. See ASSET_POLICY.md and `mods/sa/RELEASE_EXCEPTION.md`; rights remain unresolved. `build-pipeline.cmd portable -Version 1.1 -Architecture x64` (or x86) applies this exception and preserves the audit. Without an explicit matching version, the strict gate remains in effect.
+
+For local Windows installers, download the official [NSIS 3.11 ZIP](https://sourceforge.net/projects/nsis/files/NSIS%203/3.11/nsis-3.11.zip/download), verify SHA-256 `c7d27f780ddb6cffb4730138cd1591e841f4b7edb155856901cdf5f214394fa1`, and extract `.tools/nsis-3.11`. Then run `scripts/build/New-WindowsInstaller.ps1 -Version 1.1 -Architecture x64` and repeat for x86 after building its portable stage. Installers use architecture-specific reBugged directories and registry keys, include the complete portable payload, importer, audit and notices, and preserve user Support data on uninstall.
+
+The artifact-only `release-artifacts.yml` workflow builds Linux AppImage and macOS DMG on native hosted runners. It uploads downloadable Actions artifacts without creating a tag or publishing a GitHub release. It runs when its workflow file changes on main, or by manual dispatch when available on the default branch. The macOS release uses bundled .NET 6 for Intel and Apple Silicon, requires macOS 10.15 or later (Apple Silicon requires 11 or later), and disables the inherited legacy Mono build. Without an Apple signing identity the DMG is unsigned and unnotarized. Windows installers are also unsigned.

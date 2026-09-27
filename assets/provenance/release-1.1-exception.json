@@ -1,0 +1,1935 @@
+{
+  "id": "OSArB-1.1-inherited-content",
+  "version": "1.1",
+  "basis": "Explicit maintainer authorization: upstream-equivalent risk acceptance. Rights remain unresolved; audit and attribution are retained.",
+  "notice": "mods/sa/RELEASE_EXCEPTION.md",
+  "files": [
+    {
+      "path": "mods/sa/Legacy Map Importer Tutorial.pdf",
+      "sha256": "6cdc86c291729ca5c5a0d591d51639169eb7c3d221953b48574f767d4a608ba8"
+    },
+    {
+      "path": "mods/sa/bits/AntsColonyTurret.png",
+      "sha256": "7ea1c3b0aa12a4643229cffc56f2b4e29b650309316f9d3b2c26885c976be3ad"
+    },
+    {
+      "path": "mods/sa/bits/Gumnut.png",
+      "sha256": "ff75ef89e998e2f3835ee36e4015d6997f31e112714015dd55216ff984a3c3f7"
+    },
+    {
+      "path": "mods/sa/bits/Homing.png",
+      "sha256": "d67e87e6387ee62ce0735ba5313bbd616031f7469937e9833376986c2dc1bb5c"
+    },
+    {
+      "path": "mods/sa/bits/PirateBazooka.png",
+      "sha256": "79bbc220449736a0a498c8031590b8688ede27b6dc150c1a487cc3c5b87fc939"
+    },
+    {
+      "path": "mods/sa/bits/README.MD",
+      "sha256": "bafa87458a34927de83673a3ecb6de08291ac49350f2144af88249574e6d50df",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/bits/STCLYSPB.png",
+      "sha256": "4740aa039637b524562b73705355f7ca8e5810be582db616a66133c896d42e6f"
+    },
+    {
+      "path": "mods/sa/bits/ScorpionsColonyTurret.png",
+      "sha256": "973cdb53f47a2c7fabb1d1d6b2d3ac0ee910ad3d470fa545beadc804641eb33f"
+    },
+    {
+      "path": "mods/sa/bits/ScorpionsColonyTurretSmall.png",
+      "sha256": "3be15fbed099068c597db7f7499d50379a24fc3b5fc667c1e3df085ae6618246"
+    },
+    {
+      "path": "mods/sa/bits/SpidersColonyTurret.png",
+      "sha256": "57e98ae036ee40ba30dbc68c08e49c17e797e5a382522fca42b87c6264a523ae"
+    },
+    {
+      "path": "mods/sa/bits/VenusFlytrap.png",
+      "sha256": "fc12120f13b8b6fae61203bdcd288f4ae0e475a11506e689af978aee421e8f71"
+    },
+    {
+      "path": "mods/sa/bits/WaspsColonyTurret.png",
+      "sha256": "465c919015f4e0974fcfa911f0d68dc622d64ca7db6b6b35789e0584a0d15b29"
+    },
+    {
+      "path": "mods/sa/bits/antblue.png",
+      "sha256": "0979e515d964661371f282de472aedd0d21a4d52e9a935b1544779f7ec4ba5a3"
+    },
+    {
+      "path": "mods/sa/bits/antholes.png",
+      "sha256": "4b67a0e86d93267e698744e68a5d766625827172d4557f74dcf510554a733303"
+    },
+    {
+      "path": "mods/sa/bits/arrow.png",
+      "sha256": "b194e4452935b30d57434ba920e4350e36d6b62f35b0d82d7c624b4d7e7a0fb6"
+    },
+    {
+      "path": "mods/sa/bits/beetlesColonyTurret-old.png",
+      "sha256": "f89da3674644044cab30dae59cee4a327d8d9e12ab9fcc325464ea75e02785d3"
+    },
+    {
+      "path": "mods/sa/bits/beetlesColonyTurret.png",
+      "sha256": "c1faee2eee9016aabea4dd14ec953c640a8f8a954a9c92b97426598abfbcefcf"
+    },
+    {
+      "path": "mods/sa/bits/breakbombleft.png",
+      "sha256": "63945242bf6d419b2434f2f0458b85ed28168ef45c50b10abb39738d459b7882"
+    },
+    {
+      "path": "mods/sa/bits/breakbombright.png",
+      "sha256": "78be7d542656a4a07fb613d5a1359a680637f087e82702ff729de2c65d011623"
+    },
+    {
+      "path": "mods/sa/bits/camera.png",
+      "sha256": "968535ca35a282d66777c92cc9666bcdf4400e7733ec804eec0e832e979f8f73"
+    },
+    {
+      "path": "mods/sa/bits/clock.png",
+      "sha256": "d0b07cfd8fc7d5827f0fb95ffe5df7e70450215891ecea41634fbffca684a36a"
+    },
+    {
+      "path": "mods/sa/bits/copypaste.png",
+      "sha256": "6968d124a2a481067aaf649fc71bd9df1037c4a79d5871d6c7687ed229889e74"
+    },
+    {
+      "path": "mods/sa/bits/cursors.png",
+      "sha256": "2a3676b919c7b1f11c9541e4dd3453723d63d341137373cfe14de509aa20f006"
+    },
+    {
+      "path": "mods/sa/bits/dragonfly.png",
+      "sha256": "0aafa7f940d4c209e3a202f882918522753f13a5a0cdb75bf21591d5a1f10c0d"
+    },
+    {
+      "path": "mods/sa/bits/empty.png",
+      "sha256": "c8965b3c146f330c55eca53e3f0204ef0a74a2e460e4f71fe0e022462b4116e5"
+    },
+    {
+      "path": "mods/sa/bits/firepowerbooster.png",
+      "sha256": "19ac938b417cf328947f27d423c339101ab6e766fd086a7dc5165bfeace799fc"
+    },
+    {
+      "path": "mods/sa/bits/flag.png",
+      "sha256": "80037fc43bcf0a5cd2a1a29ba98f4a19db746a016b8d39a5b0d7ada1eebd3ded"
+    },
+    {
+      "path": "mods/sa/bits/gas.png",
+      "sha256": "1c6333db170d406a0f6572234f12b5a136f4fd1adeb2ebd77af3f08de026cf76"
+    },
+    {
+      "path": "mods/sa/bits/greencolonybits-small.png",
+      "sha256": "8a260a6773792bbccfe54547994389e14e9c4fc69edd39ad7574fd21d383890c"
+    },
+    {
+      "path": "mods/sa/bits/greencolonybits.png",
+      "sha256": "af26b526e83c084576eda28ee582512cb7e9119f309935559317af57831fa095"
+    },
+    {
+      "path": "mods/sa/bits/gumnutmissile.png",
+      "sha256": "9650b26571c36229c16ab5e673afaba9eec96a4420f24ea7d6ef099452ccba29"
+    },
+    {
+      "path": "mods/sa/bits/icons.png",
+      "sha256": "e5eec41e96bc4c2927afdfd9f859faabc20f6a02c57fcf13848d4b399937885f"
+    },
+    {
+      "path": "mods/sa/bits/missile.png",
+      "sha256": "ba82b2d837172d5dc8ed4e2071c597be88dbac23c46cd125c5f9de65d13b4374"
+    },
+    {
+      "path": "mods/sa/bits/mpspawn.png",
+      "sha256": "4ad7b08e251c79ada014a7731a949fd0c75e457fe807ef0705235070d29d0532"
+    },
+    {
+      "path": "mods/sa/bits/mushroom.png",
+      "sha256": "c016c4b9c7a955618fcf260ba5600dc784d7513aa0ab8086e2da2244f59eb8c8"
+    },
+    {
+      "path": "mods/sa/bits/palette.png",
+      "sha256": "188681202977fa63f5f7aaf22baebdbdeadae2fcc01ac02811d6909db872691b"
+    },
+    {
+      "path": "mods/sa/bits/productionbooster.png",
+      "sha256": "1f9f28b2bfc51a6b479197c960fe79f0fd4591c828db1d531b038ca8ad677787"
+    },
+    {
+      "path": "mods/sa/bits/random-colony.png",
+      "sha256": "418361b4a6ffb46879c20fa77867cb6f497ff6664276837f58514830edec334b"
+    },
+    {
+      "path": "mods/sa/bits/rocket.png",
+      "sha256": "44a89bbd91c296e270302425c10a6e2d9b099e4da3a4995e0edde58da4cab0c2"
+    },
+    {
+      "path": "mods/sa/bits/seed.png",
+      "sha256": "251070f8a394c455a8ef82224ef5c8c75a79ce086d04ea04cd490aa634cd2566"
+    },
+    {
+      "path": "mods/sa/bits/ship.png",
+      "sha256": "3f9330555f5a25bb6b1b94bd3d8cf4348132159f848a85dfec1a420387b8ba06"
+    },
+    {
+      "path": "mods/sa/bits/shroud.png",
+      "sha256": "47e18c9035e1f00d7d92a68b1d90742ceb9b42a527e48bba6bf54305a0382b8f"
+    },
+    {
+      "path": "mods/sa/bits/sonic.png",
+      "sha256": "47157ff8eecf3625e645db22e8958878a3359d3a9236a7c99a86723c9c19f4d2"
+    },
+    {
+      "path": "mods/sa/bits/sounds/ANTCRUNCH.wav",
+      "sha256": "01e0c9c45763a3fdbd31f4e52cf551a41274e3ca1b3f82aafbb9ee7985060459"
+    },
+    {
+      "path": "mods/sa/bits/sounds/README.MD",
+      "sha256": "036fa5714f73dfd8e9aeaddbf0cb1ed410d4c968388bb1c8b6c4de79729ba0b2",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/bits/sounds/TurretExplosion.wav",
+      "sha256": "9cf75630540edf6f768093eb78ebb1180b306a034efa665ce239bd39095fe847"
+    },
+    {
+      "path": "mods/sa/bits/sounds/TurretPowerDown.wav",
+      "sha256": "666e9d3d6a92004bfa90915378c42b6b5268119f05f31c40547e2134731e99f7"
+    },
+    {
+      "path": "mods/sa/bits/sounds/TurretPowerUp.wav",
+      "sha256": "789b7c29b0baace3a9e6b6d5af84979cf3796b83056fb03e5c2ba21cc772ba90"
+    },
+    {
+      "path": "mods/sa/bits/sounds/electricity.wav",
+      "sha256": "43915ab87d1c4bd529d43f1873c22671e2069ee2a01764eeaa69a20a0ddf1642"
+    },
+    {
+      "path": "mods/sa/bits/sounds/empty.wav",
+      "sha256": "4277e3c11926b95e522c14242abc40b462d3b2f87309bf1c72315cfac6d8a2ca"
+    },
+    {
+      "path": "mods/sa/bits/sounds/gas.wav",
+      "sha256": "2b0f4676af8c05f52528dc03b2ee78e207a31108a9d3d3feef82a45cb077a2d5"
+    },
+    {
+      "path": "mods/sa/bits/sounds/gas_explosion.wav",
+      "sha256": "fdffa186422b8400aa38f72e7e8a147f8c38e4c63a7a5fbf2a1fb68e6aeaf436"
+    },
+    {
+      "path": "mods/sa/bits/sounds/warning.wav",
+      "sha256": "b370aaa6f16fbac8971da0ec8501d09dcdde0b41f03d9478e5263ca1f4d0fb8b"
+    },
+    {
+      "path": "mods/sa/bits/spaceship.png",
+      "sha256": "3cc8b20054c5309e6e62b22c9944efb340e7d5dbd7cb07e96a3fb8d7bfcf719d"
+    },
+    {
+      "path": "mods/sa/bits/spear.png",
+      "sha256": "03b8ea27058c7a35ec5cfacd232c60fc3f8743d2412ee1cd86113775810d761b"
+    },
+    {
+      "path": "mods/sa/bits/teslacoilturret.png",
+      "sha256": "60a7de548ed7919e9494db24ce69511bc377bbe5528c7f6beb96bd2834d58244"
+    },
+    {
+      "path": "mods/sa/bits/thorn.png",
+      "sha256": "4ca78929f8bea97a48c55715502e39b40452387f34ae3b0a617449a732b23f7b"
+    },
+    {
+      "path": "mods/sa/bits/videos/G5Logo.vqa",
+      "sha256": "3fd49d35660f694d42002a52816d0430a0aa54f61d47ee67ab407e0a87f27557"
+    },
+    {
+      "path": "mods/sa/bits/videos/MKSLogo.vqa",
+      "sha256": "694a7318d6ddab67884a5ad2b6e8ea59a939cf5496b728fa4cd15c01ac29a50e"
+    },
+    {
+      "path": "mods/sa/bits/videos/TeamLogoBlue.vqa",
+      "sha256": "38af22254e159c052dc02d7602302608a4cf79c5197d7ed469ac4cc85fdd203b"
+    },
+    {
+      "path": "mods/sa/bits/videos/TeamLogoGreen.vqa",
+      "sha256": "aa904fce52e47cd25534a9a298e586b0378097e444aa15930ff041868bd7b19e"
+    },
+    {
+      "path": "mods/sa/bits/videos/TeamLogoRed.vqa",
+      "sha256": "659e77741ed286d83ecbe328e068fbc5f80f0fe866b0cfa28aef6afeda4c51af"
+    },
+    {
+      "path": "mods/sa/bits/videos/TeamLogoYellow.vqa",
+      "sha256": "29817169c34d106e3f9cc697c5e413713ce6502723107edc2760899fd500fabe"
+    },
+    {
+      "path": "mods/sa/bits/videos/TeamWinBlue.vqa",
+      "sha256": "cffeba5e6ba6ccffbf810c7134701b1b289da1cf5efc309019f110d0b3636794"
+    },
+    {
+      "path": "mods/sa/bits/videos/TeamWinGreen.vqa",
+      "sha256": "388492cd0ab1b677a72601702ae741e57be52dd54bbacf79197c11a40ca920e7"
+    },
+    {
+      "path": "mods/sa/bits/videos/TeamWinRed.vqa",
+      "sha256": "ad61364dfd1b4c39fd5ece351d8674bbcbe7f94df61e1dc98191e1505cf9059c"
+    },
+    {
+      "path": "mods/sa/bits/videos/TeamWinYellow.vqa",
+      "sha256": "9230feb73c305f3324c098a53d34eca54c139935030941b10327e8283aeb806d"
+    },
+    {
+      "path": "mods/sa/bits/whip.png",
+      "sha256": "fd1fcfed15d9a992ed3d11d7d26b92c8fde03f81662224654718bea225d90b4a"
+    },
+    {
+      "path": "mods/sa/maps/001_Colony_Defence/map.bin",
+      "sha256": "3b8c67b18da6e46cf0ef3dfbc20f83d7694bfc278e386b8f016cd64ec2dd52c2"
+    },
+    {
+      "path": "mods/sa/maps/001_Colony_Defence/map.png",
+      "sha256": "08390726c9d2d3a8cfa59bc42d43cde5dda0d5cb19023e2d5db094e897a4075b"
+    },
+    {
+      "path": "mods/sa/maps/001_Colony_Defence/map.yaml",
+      "sha256": "c785386628c624180c0a263d9d926446abab2ed2a9a069debec2a32c8728b830",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/002_Defend_Your_Colony/map.bin",
+      "sha256": "70e0d314fac63bf4665d2b8c78c5f65aad76f2444e1b9e449cdbeb2abeb61a0e"
+    },
+    {
+      "path": "mods/sa/maps/002_Defend_Your_Colony/map.png",
+      "sha256": "08390726c9d2d3a8cfa59bc42d43cde5dda0d5cb19023e2d5db094e897a4075b"
+    },
+    {
+      "path": "mods/sa/maps/002_Defend_Your_Colony/map.yaml",
+      "sha256": "8726dcdb3f957f61cf3ecd81c739b4c32f5a43d8bbc8028435b28cce98943083",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/003_Take_Neutral_Colony/map.bin",
+      "sha256": "43d04e4e73baee02a4f3031b696eee301932aabf762ad3a1bad1e63983c942b5"
+    },
+    {
+      "path": "mods/sa/maps/003_Take_Neutral_Colony/map.png",
+      "sha256": "03c8c5b94ce9a98a8746ae45047eedef2f28c2f73240ce0e58dc0f516ec9d32f"
+    },
+    {
+      "path": "mods/sa/maps/003_Take_Neutral_Colony/map.yaml",
+      "sha256": "7da7de30c38286744218ef82886c4fe0582ce1bd5e33e634b8f5fda36470e3a6",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/004_Expand_Your_Empire/map.bin",
+      "sha256": "17fb531abf6b5782ecbadd2a9fcb1c7705b5726cc895a185a7490979c90dc1dc"
+    },
+    {
+      "path": "mods/sa/maps/004_Expand_Your_Empire/map.png",
+      "sha256": "03c8c5b94ce9a98a8746ae45047eedef2f28c2f73240ce0e58dc0f516ec9d32f"
+    },
+    {
+      "path": "mods/sa/maps/004_Expand_Your_Empire/map.yaml",
+      "sha256": "0159b54092a39e54470973f484b81dc86355e587c65554233d16e1c88668e372",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/005_Destroy_Enemy/map.bin",
+      "sha256": "5b9eeccb8620d4fb1865be5297546a98ef1a94ac68c4aa3ac819d52812fa38ce"
+    },
+    {
+      "path": "mods/sa/maps/005_Destroy_Enemy/map.png",
+      "sha256": "08390726c9d2d3a8cfa59bc42d43cde5dda0d5cb19023e2d5db094e897a4075b"
+    },
+    {
+      "path": "mods/sa/maps/005_Destroy_Enemy/map.yaml",
+      "sha256": "b61edfb721d42a7ced18699e146d15d6e44ccd05538e3096453d60ef3492d3a4",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/006_Expand_And_Destroy/map.bin",
+      "sha256": "c726e31e1b1b0aed7713c71c33ca1999b6c9e09504bab00a721a4ce151e3ee3d"
+    },
+    {
+      "path": "mods/sa/maps/006_Expand_And_Destroy/map.png",
+      "sha256": "e001a8f4e75a6db08fb7235c7236f3b00e761f5eb42d6d76f62f16c54aa6382d"
+    },
+    {
+      "path": "mods/sa/maps/006_Expand_And_Destroy/map.yaml",
+      "sha256": "df580a70d18119121ccfd4175e27c7da92372032b2e42f8f0aa2382b720d3339",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/007_Destroy_Enemies/map.bin",
+      "sha256": "880933c87d82eed332fd6cd0def0a35abcb6195a8cdb257fcbe72d1d0c270963"
+    },
+    {
+      "path": "mods/sa/maps/007_Destroy_Enemies/map.png",
+      "sha256": "df97579e305f72ddf0506b5e072b4a541ba7f5a8d8ea0bbbe87da6c6926a9972"
+    },
+    {
+      "path": "mods/sa/maps/007_Destroy_Enemies/map.yaml",
+      "sha256": "7fc1222300d985900f6ab79f3f4bad8baf9a5b815d5823415a12c1e2605ac5c3",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/008_Little_Battle/map.bin",
+      "sha256": "50168cf07e426d57c76aff4ba02bc233161fa279d7119dda51e19e42cb5818f0"
+    },
+    {
+      "path": "mods/sa/maps/008_Little_Battle/map.png",
+      "sha256": "08390726c9d2d3a8cfa59bc42d43cde5dda0d5cb19023e2d5db094e897a4075b"
+    },
+    {
+      "path": "mods/sa/maps/008_Little_Battle/map.yaml",
+      "sha256": "6e7595f3fe999c9caa6a7f1576ee391f3f015790bdc037bc97db1dd51f2d3131",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/009_Four_Teams/map.bin",
+      "sha256": "983a430a4df6497db11015933a540ab9a8b4e53f8ce8f017a0438d711b3e4e3e"
+    },
+    {
+      "path": "mods/sa/maps/009_Four_Teams/map.png",
+      "sha256": "e001a8f4e75a6db08fb7235c7236f3b00e761f5eb42d6d76f62f16c54aa6382d"
+    },
+    {
+      "path": "mods/sa/maps/009_Four_Teams/map.yaml",
+      "sha256": "067e96f2cdef3d8a11016710e5f103732b89973353073c32f032c802c72ac290",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/010_Training_Complete/map.bin",
+      "sha256": "fc29eca20bb82fcfae5fe15aa7fb07a717be1d8d4a58a08b42900a1b3a21bc3d"
+    },
+    {
+      "path": "mods/sa/maps/010_Training_Complete/map.png",
+      "sha256": "e001a8f4e75a6db08fb7235c7236f3b00e761f5eb42d6d76f62f16c54aa6382d"
+    },
+    {
+      "path": "mods/sa/maps/010_Training_Complete/map.yaml",
+      "sha256": "7486a78d2a465010ce0359e99c02d3db6bdbde722cb1f52db1acc39f169519aa",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/011_New_World/map.bin",
+      "sha256": "fb27229f66fdcd83c2bdf7fb57c0c825b56dc86225795146c9c0490c7ac9f470"
+    },
+    {
+      "path": "mods/sa/maps/011_New_World/map.png",
+      "sha256": "08390726c9d2d3a8cfa59bc42d43cde5dda0d5cb19023e2d5db094e897a4075b"
+    },
+    {
+      "path": "mods/sa/maps/011_New_World/map.yaml",
+      "sha256": "63616ef5a005ca5539ce708db5f418a91ee47737fae89624fa0a07a2719625b6",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/012_Desert_Foray/map.bin",
+      "sha256": "fbaf71db0be23be1e4385498018bf77fdb4c6789e52db8e096b6ec409382c580"
+    },
+    {
+      "path": "mods/sa/maps/012_Desert_Foray/map.png",
+      "sha256": "df97579e305f72ddf0506b5e072b4a541ba7f5a8d8ea0bbbe87da6c6926a9972"
+    },
+    {
+      "path": "mods/sa/maps/012_Desert_Foray/map.yaml",
+      "sha256": "2e8e3adb8ac02bec1a6c951d811250e0b40ee0bb2f74d27dbdd3d42432d45ccb",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/013_Coastal_Battle/map.bin",
+      "sha256": "9569706d1eb2af60813603c1052edcee3c17c9c2a04db4162923df07d9521c20"
+    },
+    {
+      "path": "mods/sa/maps/013_Coastal_Battle/map.png",
+      "sha256": "df97579e305f72ddf0506b5e072b4a541ba7f5a8d8ea0bbbe87da6c6926a9972"
+    },
+    {
+      "path": "mods/sa/maps/013_Coastal_Battle/map.yaml",
+      "sha256": "4fda984dc615a5a1fc2357e0f0305eb0c387569a1e0d4bf01b2fa13de142e8c9",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/014_Road_To_Victory/map.bin",
+      "sha256": "3a41ede2d2da9a775dec27abc1e2af531781c778d25e96ffbbc76651ef002a32"
+    },
+    {
+      "path": "mods/sa/maps/014_Road_To_Victory/map.png",
+      "sha256": "03c8c5b94ce9a98a8746ae45047eedef2f28c2f73240ce0e58dc0f516ec9d32f"
+    },
+    {
+      "path": "mods/sa/maps/014_Road_To_Victory/map.yaml",
+      "sha256": "a1dc49d928af73b8b4e58880e9e84b887e58c63a65c4ab8a16c77d48624f9f2b",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/015_Smiley/map.bin",
+      "sha256": "4037a1c0b2aa8009fa9a3a1acba1ccc2306ccc6608d9e8827948efdb4de64a71"
+    },
+    {
+      "path": "mods/sa/maps/015_Smiley/map.png",
+      "sha256": "e001a8f4e75a6db08fb7235c7236f3b00e761f5eb42d6d76f62f16c54aa6382d"
+    },
+    {
+      "path": "mods/sa/maps/015_Smiley/map.yaml",
+      "sha256": "3f93812a522217bea4bf09a8d20d2aae69ad2b31040f4a86edf176e56beace61",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/016_Compact/map.bin",
+      "sha256": "8421b66353397fd4edec25e7de4a0aa0015046ab5397ddc2211ecc8bc652e43c"
+    },
+    {
+      "path": "mods/sa/maps/016_Compact/map.png",
+      "sha256": "08390726c9d2d3a8cfa59bc42d43cde5dda0d5cb19023e2d5db094e897a4075b"
+    },
+    {
+      "path": "mods/sa/maps/016_Compact/map.yaml",
+      "sha256": "e4ddfb5bbd2d1d0bf1160cfcd72660d3011eaaf02b03d72a284b13649d7bf11e",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/017_Sandwich/map.bin",
+      "sha256": "1a67452b67de8999d123e4d9b5e08ff1fc62484c90d6b5550351b0c22960fb17"
+    },
+    {
+      "path": "mods/sa/maps/017_Sandwich/map.png",
+      "sha256": "df97579e305f72ddf0506b5e072b4a541ba7f5a8d8ea0bbbe87da6c6926a9972"
+    },
+    {
+      "path": "mods/sa/maps/017_Sandwich/map.yaml",
+      "sha256": "56f446ca651605b4e76f3379da4272217f1af3ac2555127a00065ae0abf72129",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/018_Spiral/map.bin",
+      "sha256": "24b312028f9574b04d425c4dbcb0f98b6e0f87788dc158e7828039579842ceea"
+    },
+    {
+      "path": "mods/sa/maps/018_Spiral/map.png",
+      "sha256": "03c8c5b94ce9a98a8746ae45047eedef2f28c2f73240ce0e58dc0f516ec9d32f"
+    },
+    {
+      "path": "mods/sa/maps/018_Spiral/map.yaml",
+      "sha256": "c61ba23f0699022ede6f13bb8eed98c641bf282de1391ffc4a0de61a414bd791",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/019_Skirmish/map.bin",
+      "sha256": "63528a50b77b8ccd3a4164c8d58bdb655ecef07e336b34cdcd42c6cee05695b9"
+    },
+    {
+      "path": "mods/sa/maps/019_Skirmish/map.png",
+      "sha256": "03c8c5b94ce9a98a8746ae45047eedef2f28c2f73240ce0e58dc0f516ec9d32f"
+    },
+    {
+      "path": "mods/sa/maps/019_Skirmish/map.yaml",
+      "sha256": "4176a06205c44b511507ffe11e482ee6a68e89908837c740f54ba91d92f40097",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/020_Yummy/map.bin",
+      "sha256": "33da137ac1b6990be948093d8d18ee245e0be766d338a21b040cc10aa7858d30"
+    },
+    {
+      "path": "mods/sa/maps/020_Yummy/map.png",
+      "sha256": "e001a8f4e75a6db08fb7235c7236f3b00e761f5eb42d6d76f62f16c54aa6382d"
+    },
+    {
+      "path": "mods/sa/maps/020_Yummy/map.yaml",
+      "sha256": "dbb6c63ee9b0c8db32028a2ad040e5ef2bb5a4fa20a5dbc49c9969c5544d4caa",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/021_North_And_South/map.bin",
+      "sha256": "85ed03cee9d8bd86e954e5216d38e720fc12f831cc6ab62fd4a4666320bc6faf"
+    },
+    {
+      "path": "mods/sa/maps/021_North_And_South/map.png",
+      "sha256": "03c8c5b94ce9a98a8746ae45047eedef2f28c2f73240ce0e58dc0f516ec9d32f"
+    },
+    {
+      "path": "mods/sa/maps/021_North_And_South/map.yaml",
+      "sha256": "ff7bc416b596d2f1e38a49058944ce66e43efcaa2186819e95eb422237f6a4b2",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/022_Humble_Beginnings/map.bin",
+      "sha256": "88ab83ebe5e72f1d74778845d333c65b3ad7f3a0620740b16d532ccf0e653231"
+    },
+    {
+      "path": "mods/sa/maps/022_Humble_Beginnings/map.png",
+      "sha256": "08390726c9d2d3a8cfa59bc42d43cde5dda0d5cb19023e2d5db094e897a4075b"
+    },
+    {
+      "path": "mods/sa/maps/022_Humble_Beginnings/map.yaml",
+      "sha256": "37fef7f5b6289b4d0d5d5b03933af3730fce13931d64b9e9574c0626802cdbce",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/023_Weeds/map.bin",
+      "sha256": "ab8fe5d134fe75111791b1e1d5823a46c8022f41717428628c37391fd2ada766"
+    },
+    {
+      "path": "mods/sa/maps/023_Weeds/map.png",
+      "sha256": "df97579e305f72ddf0506b5e072b4a541ba7f5a8d8ea0bbbe87da6c6926a9972"
+    },
+    {
+      "path": "mods/sa/maps/023_Weeds/map.yaml",
+      "sha256": "649bfe83fc5f4fc75e4812673ed0fe3c998fb53ca7e3a661788f4ee131618350",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/024_Circuit/map.bin",
+      "sha256": "5e52b6dadcb1c9524fcbeff3b3998e190747c758464aedfe6508ea98c5fa4fa5"
+    },
+    {
+      "path": "mods/sa/maps/024_Circuit/map.png",
+      "sha256": "df97579e305f72ddf0506b5e072b4a541ba7f5a8d8ea0bbbe87da6c6926a9972"
+    },
+    {
+      "path": "mods/sa/maps/024_Circuit/map.yaml",
+      "sha256": "209fa6ea26e6c542c33e4e08f0574826c094d59383224f39beeacfbae840ccd8",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/025_Black_Ants!/map.bin",
+      "sha256": "80c7f3a75d59dfce666afb36ac89d172722f7132dff3cccec47fd4c1ab918274"
+    },
+    {
+      "path": "mods/sa/maps/025_Black_Ants!/map.png",
+      "sha256": "03c8c5b94ce9a98a8746ae45047eedef2f28c2f73240ce0e58dc0f516ec9d32f"
+    },
+    {
+      "path": "mods/sa/maps/025_Black_Ants!/map.yaml",
+      "sha256": "f825d120b831eb462426edbca853ce2b67573927f62e9512ff6a3885d4392ef4",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/026_Landbridge/map.bin",
+      "sha256": "aa0094c92f0293c30d06fece1dc1f9d2cebfd5ddec0cabd38621a03719ab43c7"
+    },
+    {
+      "path": "mods/sa/maps/026_Landbridge/map.png",
+      "sha256": "08390726c9d2d3a8cfa59bc42d43cde5dda0d5cb19023e2d5db094e897a4075b"
+    },
+    {
+      "path": "mods/sa/maps/026_Landbridge/map.yaml",
+      "sha256": "ece7ab5b500aa5b2e4c1a767b6f43d15dd6d48a428fa4410d5b2ed206d7176fa",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/027_Island_Paradise/map.bin",
+      "sha256": "31d0a2013accbb5bb54a4520ea87d378c2019864f66400bb483096ac0d03d617"
+    },
+    {
+      "path": "mods/sa/maps/027_Island_Paradise/map.png",
+      "sha256": "e001a8f4e75a6db08fb7235c7236f3b00e761f5eb42d6d76f62f16c54aa6382d"
+    },
+    {
+      "path": "mods/sa/maps/027_Island_Paradise/map.yaml",
+      "sha256": "88d264cfe69716afc01899a4c1ffdf468f3293fe66289b2ebc9218221f1a2f87",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/028_Into_The_Fray/map.bin",
+      "sha256": "d44d5449c2e6059176dfb5dad32f2639c5cf093bedd419457247e8d434d5da15"
+    },
+    {
+      "path": "mods/sa/maps/028_Into_The_Fray/map.png",
+      "sha256": "e001a8f4e75a6db08fb7235c7236f3b00e761f5eb42d6d76f62f16c54aa6382d"
+    },
+    {
+      "path": "mods/sa/maps/028_Into_The_Fray/map.yaml",
+      "sha256": "27a8bc367f8758628739f30038f7f58374128b47e6a919baa7f31c0e308ebc90",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/029_Ant_Crazy/map.bin",
+      "sha256": "5eb62d6debb24dc66f077da45043edb917c3ab69c6c0fed7bbac5fef86c3de08"
+    },
+    {
+      "path": "mods/sa/maps/029_Ant_Crazy/map.png",
+      "sha256": "08390726c9d2d3a8cfa59bc42d43cde5dda0d5cb19023e2d5db094e897a4075b"
+    },
+    {
+      "path": "mods/sa/maps/029_Ant_Crazy/map.yaml",
+      "sha256": "e0149dc088d99519f05d716401aac07f2fbd9bbe611d06e81f023dc6ad8d972d",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/030_The_Fifth_Force/map.bin",
+      "sha256": "45fdb99245b48dd485352d14147f7c2725e9e01cc899494dd298cc1d93e43fea"
+    },
+    {
+      "path": "mods/sa/maps/030_The_Fifth_Force/map.png",
+      "sha256": "03c8c5b94ce9a98a8746ae45047eedef2f28c2f73240ce0e58dc0f516ec9d32f"
+    },
+    {
+      "path": "mods/sa/maps/030_The_Fifth_Force/map.yaml",
+      "sha256": "22dcb3c91b7f72e585521dea0344458ca5c78a71443c4ecf78d225b846b1d70d",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/031_Ground_Warfare/map.bin",
+      "sha256": "f9f3d0c447b74880998c0c30f29b07495fd760f9925b4b6f515ae0ea44fd1e03"
+    },
+    {
+      "path": "mods/sa/maps/031_Ground_Warfare/map.png",
+      "sha256": "e001a8f4e75a6db08fb7235c7236f3b00e761f5eb42d6d76f62f16c54aa6382d"
+    },
+    {
+      "path": "mods/sa/maps/031_Ground_Warfare/map.yaml",
+      "sha256": "5d69df49ba928d2ee0ee23eb14cdae430ef3b5d367d2f151802881c60b45ae98",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/032_Labyrinth/map.bin",
+      "sha256": "9d75ad29c52be25dd36f41a8e4b92038ff252754b0c5de10bb1db1dc44b93234"
+    },
+    {
+      "path": "mods/sa/maps/032_Labyrinth/map.png",
+      "sha256": "df97579e305f72ddf0506b5e072b4a541ba7f5a8d8ea0bbbe87da6c6926a9972"
+    },
+    {
+      "path": "mods/sa/maps/032_Labyrinth/map.yaml",
+      "sha256": "ee2d05bc157cb704737a40c4267de70064a9eec9ca8e4fa9346249e57fc81d2f",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/033_Conquest_Of_Paradise/map.bin",
+      "sha256": "aca24c24bcfbc3662549eb6ef3a131b323c339ec980fdcd9078dc3119cc93cb8"
+    },
+    {
+      "path": "mods/sa/maps/033_Conquest_Of_Paradise/map.png",
+      "sha256": "e001a8f4e75a6db08fb7235c7236f3b00e761f5eb42d6d76f62f16c54aa6382d"
+    },
+    {
+      "path": "mods/sa/maps/033_Conquest_Of_Paradise/map.yaml",
+      "sha256": "c744fd8a8d199bfc02240ed872e9c2e961e41d7206c46bbfa997d948a596d84b",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/034_A_Day_In_The_Field/map.bin",
+      "sha256": "b901a098ca23914aeac6fd388565225d9d35b081c253591d42b1fff0b9c82a81"
+    },
+    {
+      "path": "mods/sa/maps/034_A_Day_In_The_Field/map.png",
+      "sha256": "03c8c5b94ce9a98a8746ae45047eedef2f28c2f73240ce0e58dc0f516ec9d32f"
+    },
+    {
+      "path": "mods/sa/maps/034_A_Day_In_The_Field/map.yaml",
+      "sha256": "cd10c4718c17af448799b4fe357e5d30a94876fd7e5db283bd48e726a328cf1a",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/035_Love_Theme/map.bin",
+      "sha256": "d74d51a3d7a247a0a5b70940d62711947fb06df59128be67e73871afe714fb43"
+    },
+    {
+      "path": "mods/sa/maps/035_Love_Theme/map.png",
+      "sha256": "df97579e305f72ddf0506b5e072b4a541ba7f5a8d8ea0bbbe87da6c6926a9972"
+    },
+    {
+      "path": "mods/sa/maps/035_Love_Theme/map.yaml",
+      "sha256": "51eb93392d9e9287841dd2e06b804978d28c8f115890e01e88a1818669efcbef",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/036_Start_From_Scratch/map.bin",
+      "sha256": "0a675b84648f43abdb8081dafda836f6d65580e066cfbf33b44125cfe7d11507"
+    },
+    {
+      "path": "mods/sa/maps/036_Start_From_Scratch/map.png",
+      "sha256": "08390726c9d2d3a8cfa59bc42d43cde5dda0d5cb19023e2d5db094e897a4075b"
+    },
+    {
+      "path": "mods/sa/maps/036_Start_From_Scratch/map.yaml",
+      "sha256": "269d74236900c8565edc0d2a0645ac50a3fca3134f73faca8e53d0c4db555846",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/037_Terror_Island/map.bin",
+      "sha256": "f2fb2111d52f9859ca27c8cc13c805dd79faccfd86181f53c5cb5a1bef7e115b"
+    },
+    {
+      "path": "mods/sa/maps/037_Terror_Island/map.png",
+      "sha256": "df97579e305f72ddf0506b5e072b4a541ba7f5a8d8ea0bbbe87da6c6926a9972"
+    },
+    {
+      "path": "mods/sa/maps/037_Terror_Island/map.yaml",
+      "sha256": "5435ea082bde88e9c3eb0e825a992d6c2a5a7bd53cc6272ded9570b8dc336909",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/038_They_are_Everywhere/map.bin",
+      "sha256": "631f66534ff5638e24befb5cdd4ffffa9291ba610fbd7bfe564eb8fe386428a5"
+    },
+    {
+      "path": "mods/sa/maps/038_They_are_Everywhere/map.png",
+      "sha256": "03c8c5b94ce9a98a8746ae45047eedef2f28c2f73240ce0e58dc0f516ec9d32f"
+    },
+    {
+      "path": "mods/sa/maps/038_They_are_Everywhere/map.yaml",
+      "sha256": "061e376a9f38c63f6142d8dd12910c2fb14aa622523a5d127babf1f179dd759a",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/039_Outpost/map.bin",
+      "sha256": "5cda81b41bf76fdfe674f1d48fa8a69525285bc132e6c388f60c5f44666df54f"
+    },
+    {
+      "path": "mods/sa/maps/039_Outpost/map.png",
+      "sha256": "e001a8f4e75a6db08fb7235c7236f3b00e761f5eb42d6d76f62f16c54aa6382d"
+    },
+    {
+      "path": "mods/sa/maps/039_Outpost/map.yaml",
+      "sha256": "392f82a14eb9c349b2c5aa0f8cb039e24bc6f302bb60eeffd0b11b758f8a64b2",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/040_The_Castle/map.bin",
+      "sha256": "29188b00a0b96684f609dc34e05d76d89cfff173cebdd23c56ee807c57bdc4a7"
+    },
+    {
+      "path": "mods/sa/maps/040_The_Castle/map.png",
+      "sha256": "03c8c5b94ce9a98a8746ae45047eedef2f28c2f73240ce0e58dc0f516ec9d32f"
+    },
+    {
+      "path": "mods/sa/maps/040_The_Castle/map.yaml",
+      "sha256": "665f9d376cdb87e1ad791dd73385c088a438d46a479a4502585d833dd5bb2756",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/041_The_Charge/map.bin",
+      "sha256": "cad919ae3cec523312cc29c2db960cb90379367168c11f6200a31f6ec1630499"
+    },
+    {
+      "path": "mods/sa/maps/041_The_Charge/map.png",
+      "sha256": "df97579e305f72ddf0506b5e072b4a541ba7f5a8d8ea0bbbe87da6c6926a9972"
+    },
+    {
+      "path": "mods/sa/maps/041_The_Charge/map.yaml",
+      "sha256": "b48199e8f38272c42ed4c82c368b4d4cbdc14ebd67652e5c4bc801831991b112",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/042_Brief_Battle/map.bin",
+      "sha256": "fcfd5bbe44c11257e0d8d7de3d5a46febbdfa2dd6edf09dd9e946fdb46666c82"
+    },
+    {
+      "path": "mods/sa/maps/042_Brief_Battle/map.png",
+      "sha256": "03c8c5b94ce9a98a8746ae45047eedef2f28c2f73240ce0e58dc0f516ec9d32f"
+    },
+    {
+      "path": "mods/sa/maps/042_Brief_Battle/map.yaml",
+      "sha256": "46a97c51adbafcec9572349e3160c709435e54cb7cdaf45dae1fb566e9b1173e",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/043_Mind_Wars/map.bin",
+      "sha256": "5336d5ec4a4ed0aa41c86c9325df8b199fab5a61e7b688a7e67eeef3fce2e8d1"
+    },
+    {
+      "path": "mods/sa/maps/043_Mind_Wars/map.png",
+      "sha256": "e001a8f4e75a6db08fb7235c7236f3b00e761f5eb42d6d76f62f16c54aa6382d"
+    },
+    {
+      "path": "mods/sa/maps/043_Mind_Wars/map.yaml",
+      "sha256": "90769776f9d180b89fb5bf923df4529b816eebde364335f717c22c783b7dc3cd",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/044_Yin-Yang/map.bin",
+      "sha256": "1ae31856c7ee4a9190be50f88ae3fc0454870dc330396e03fc46b606a9d6e5ff"
+    },
+    {
+      "path": "mods/sa/maps/044_Yin-Yang/map.png",
+      "sha256": "e001a8f4e75a6db08fb7235c7236f3b00e761f5eb42d6d76f62f16c54aa6382d"
+    },
+    {
+      "path": "mods/sa/maps/044_Yin-Yang/map.yaml",
+      "sha256": "1db4ec8def9515f82b0b7b08e6d86a72e2d1ca190e51bba86928648c62d6cf90",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/045_Highland_Battle/map.bin",
+      "sha256": "2433b21c7aaf71af9cb0d77c1140147ec87bd6f8fdf6d457d74f08922c4ee909"
+    },
+    {
+      "path": "mods/sa/maps/045_Highland_Battle/map.png",
+      "sha256": "df97579e305f72ddf0506b5e072b4a541ba7f5a8d8ea0bbbe87da6c6926a9972"
+    },
+    {
+      "path": "mods/sa/maps/045_Highland_Battle/map.yaml",
+      "sha256": "5abe3077bc0962225de5caca5afb6882abe35229dddfed596e729c17dea03a22",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/046_Primary_Colours/map.bin",
+      "sha256": "86a2fff20f8591bdf40acb316092cc76638036c2bb1daba6bc8cd79c3605e896"
+    },
+    {
+      "path": "mods/sa/maps/046_Primary_Colours/map.png",
+      "sha256": "03c8c5b94ce9a98a8746ae45047eedef2f28c2f73240ce0e58dc0f516ec9d32f"
+    },
+    {
+      "path": "mods/sa/maps/046_Primary_Colours/map.yaml",
+      "sha256": "21aad02366197c7b3b8cf1932ad7e3ca6eacde13b1a94c2ff9794a876547456f",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/047_Inner_Circle/map.bin",
+      "sha256": "9e0bd6b58f11cbae0cd87dca58b7572f241dedd4d1ced228069c05856039170a"
+    },
+    {
+      "path": "mods/sa/maps/047_Inner_Circle/map.png",
+      "sha256": "df97579e305f72ddf0506b5e072b4a541ba7f5a8d8ea0bbbe87da6c6926a9972"
+    },
+    {
+      "path": "mods/sa/maps/047_Inner_Circle/map.yaml",
+      "sha256": "2779ae05737adbc5ffbc6dd78326b5435a001ed03885fe008cac726333bc789d",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/048_Footprints/map.bin",
+      "sha256": "949553f32948597240e563b19eca3216a22f4ced4e8abe528f77d65ac9d316bd"
+    },
+    {
+      "path": "mods/sa/maps/048_Footprints/map.png",
+      "sha256": "08390726c9d2d3a8cfa59bc42d43cde5dda0d5cb19023e2d5db094e897a4075b"
+    },
+    {
+      "path": "mods/sa/maps/048_Footprints/map.yaml",
+      "sha256": "d4aba3508546c5282859b70378b0c253e82a2c667de3264b42f7622c0ff0abe2",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/049_Swamp_War/map.bin",
+      "sha256": "7614486aff5fffe315da6c26e8e4b361de587dcb3eb168762365276657c18b04"
+    },
+    {
+      "path": "mods/sa/maps/049_Swamp_War/map.png",
+      "sha256": "e001a8f4e75a6db08fb7235c7236f3b00e761f5eb42d6d76f62f16c54aa6382d"
+    },
+    {
+      "path": "mods/sa/maps/049_Swamp_War/map.yaml",
+      "sha256": "e1feacf45d1a85e7df331f77f9203f86df21342b8696958f3b3cd2fb2644cabc",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/050_The_Long_March/map.bin",
+      "sha256": "178c5c5d3b1544e469dc56882fa8ae8a932e16b9ec27de5d1a06f5ad25f83c6d"
+    },
+    {
+      "path": "mods/sa/maps/050_The_Long_March/map.png",
+      "sha256": "df97579e305f72ddf0506b5e072b4a541ba7f5a8d8ea0bbbe87da6c6926a9972"
+    },
+    {
+      "path": "mods/sa/maps/050_The_Long_March/map.yaml",
+      "sha256": "a4e4f41b99a9ed10b230bbc2ef96faed2114937e8554994362c7d79b9441753b",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/051_Double_Trouble/map.bin",
+      "sha256": "481eb231f9bfc55e4e1521f3ad1ba5f297c679609a2b3e545fcf0dc70fd4ea2c"
+    },
+    {
+      "path": "mods/sa/maps/051_Double_Trouble/map.png",
+      "sha256": "df97579e305f72ddf0506b5e072b4a541ba7f5a8d8ea0bbbe87da6c6926a9972"
+    },
+    {
+      "path": "mods/sa/maps/051_Double_Trouble/map.yaml",
+      "sha256": "cf2fa2607643693ef4aab98ed59e41f231b5d56d199a96e10093d58cbfd562b3",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/052_The_Web/map.bin",
+      "sha256": "f8f545840d4249d74eab017bf7903f152be7f4a69a76e2b5c4adc57e0eae023b"
+    },
+    {
+      "path": "mods/sa/maps/052_The_Web/map.png",
+      "sha256": "03c8c5b94ce9a98a8746ae45047eedef2f28c2f73240ce0e58dc0f516ec9d32f"
+    },
+    {
+      "path": "mods/sa/maps/052_The_Web/map.yaml",
+      "sha256": "44b111186f05e518ddf30e3d522f0c60b10a1a6f2f729a3fc4282ae218366e43",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/053_Morning_Melee/map.bin",
+      "sha256": "21a9d7dbd4d3265c5d919f960b98a3de26b7027d8b0220eafc348e790bcbb0cf"
+    },
+    {
+      "path": "mods/sa/maps/053_Morning_Melee/map.png",
+      "sha256": "08390726c9d2d3a8cfa59bc42d43cde5dda0d5cb19023e2d5db094e897a4075b"
+    },
+    {
+      "path": "mods/sa/maps/053_Morning_Melee/map.yaml",
+      "sha256": "5a358a84e28813b5e02756feda1c5e0bee9381e6c6eb37c0c367ee586f901aab",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/054_Memories_Of_Green/map.bin",
+      "sha256": "4ac47327edcf038d13562dc74bf31b8a4048fba84d31cd818f7ff1ec718066ab"
+    },
+    {
+      "path": "mods/sa/maps/054_Memories_Of_Green/map.png",
+      "sha256": "08390726c9d2d3a8cfa59bc42d43cde5dda0d5cb19023e2d5db094e897a4075b"
+    },
+    {
+      "path": "mods/sa/maps/054_Memories_Of_Green/map.yaml",
+      "sha256": "9ba66aba27fa2764706882568e554c8c51528f6a1932e68f6ada26c050eb9986",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/055_River_Cruise/map.bin",
+      "sha256": "3f589e99d31593fbde582771296eb2aacebecae1c794c2f626babeb0701d2c3d"
+    },
+    {
+      "path": "mods/sa/maps/055_River_Cruise/map.png",
+      "sha256": "e001a8f4e75a6db08fb7235c7236f3b00e761f5eb42d6d76f62f16c54aa6382d"
+    },
+    {
+      "path": "mods/sa/maps/055_River_Cruise/map.yaml",
+      "sha256": "112f068ab39d8303386cc1810768beeb3c4ccfa6cf445c246421eac12199b0b2",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/056_Bomber_Paradise/map.bin",
+      "sha256": "5bc1ba91c2adf066f8e9d0488f421634417ad03c6c27031379007e16ed48eaf0"
+    },
+    {
+      "path": "mods/sa/maps/056_Bomber_Paradise/map.png",
+      "sha256": "03c8c5b94ce9a98a8746ae45047eedef2f28c2f73240ce0e58dc0f516ec9d32f"
+    },
+    {
+      "path": "mods/sa/maps/056_Bomber_Paradise/map.yaml",
+      "sha256": "7ada985a6849fa4dafd777320df46fecb9ce0cb7125f152223bf77b78af46c6c",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/057_Blitz/map.bin",
+      "sha256": "63929b5da89b23a5daa1a200578319dcdcd92bd0d175cef7cdd1e5a8f6e5ef98"
+    },
+    {
+      "path": "mods/sa/maps/057_Blitz/map.png",
+      "sha256": "df97579e305f72ddf0506b5e072b4a541ba7f5a8d8ea0bbbe87da6c6926a9972"
+    },
+    {
+      "path": "mods/sa/maps/057_Blitz/map.yaml",
+      "sha256": "b500ecc79275f37f3c642f84e50fe8f060f519ba5ee8ca551fead9900bdfcdc7",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/058_War_Front/map.bin",
+      "sha256": "498e9b7823b5dd69abe97e9427226131071a74e273026150899f2db8f5c1eb62"
+    },
+    {
+      "path": "mods/sa/maps/058_War_Front/map.png",
+      "sha256": "df97579e305f72ddf0506b5e072b4a541ba7f5a8d8ea0bbbe87da6c6926a9972"
+    },
+    {
+      "path": "mods/sa/maps/058_War_Front/map.yaml",
+      "sha256": "1c3e6683391ed4a1f4485a96da1d878a0828b9446b7007de93ef8e92d47e4623",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/059_Vertical_Islands/map.bin",
+      "sha256": "f8ffae5d2c8a17502d6139339961e23c11d02aaebd5273a283253c7d1a7deb07"
+    },
+    {
+      "path": "mods/sa/maps/059_Vertical_Islands/map.png",
+      "sha256": "e001a8f4e75a6db08fb7235c7236f3b00e761f5eb42d6d76f62f16c54aa6382d"
+    },
+    {
+      "path": "mods/sa/maps/059_Vertical_Islands/map.yaml",
+      "sha256": "47a26a6975163ffea6f7a00c6d5ff7364d88bd7211dfc06fdbbc834fac5d525f",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/060_Beetle_Mania/map.bin",
+      "sha256": "145602f1bd52f3d45c8a083871d6374c93ef66b99d47510809e894696a7feb2b"
+    },
+    {
+      "path": "mods/sa/maps/060_Beetle_Mania/map.png",
+      "sha256": "08390726c9d2d3a8cfa59bc42d43cde5dda0d5cb19023e2d5db094e897a4075b"
+    },
+    {
+      "path": "mods/sa/maps/060_Beetle_Mania/map.yaml",
+      "sha256": "07a1f0e429cc5bcf24ce29ffc9fb4b8e70d10436548eb7cedc05b5d174b91c1b",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/061_Retreat/map.bin",
+      "sha256": "2c61d266bae8208785dc86eb85683710dc0af7bd4ccd178e623dc8d6c2f96d50"
+    },
+    {
+      "path": "mods/sa/maps/061_Retreat/map.png",
+      "sha256": "03c8c5b94ce9a98a8746ae45047eedef2f28c2f73240ce0e58dc0f516ec9d32f"
+    },
+    {
+      "path": "mods/sa/maps/061_Retreat/map.yaml",
+      "sha256": "8f02847af77aea766e313f5beee5684b8b33bdf767c8bb5ca7fd44ebaef85cf5",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/062_Air_Power/map.bin",
+      "sha256": "028b621f6884c81423d874d529584179475f70203145b597177148c9e10851c6"
+    },
+    {
+      "path": "mods/sa/maps/062_Air_Power/map.png",
+      "sha256": "03c8c5b94ce9a98a8746ae45047eedef2f28c2f73240ce0e58dc0f516ec9d32f"
+    },
+    {
+      "path": "mods/sa/maps/062_Air_Power/map.yaml",
+      "sha256": "892915a0fec0a4fc3c2b43d5f08ddbba0177a126cb0aab91ad9ad23de64eb521",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/063_Arena/map.bin",
+      "sha256": "c479f1c4592ed1f0f162cf8472c0341d03e801ca0d85a1e28ea1a8cd117f2b45"
+    },
+    {
+      "path": "mods/sa/maps/063_Arena/map.png",
+      "sha256": "e001a8f4e75a6db08fb7235c7236f3b00e761f5eb42d6d76f62f16c54aa6382d"
+    },
+    {
+      "path": "mods/sa/maps/063_Arena/map.yaml",
+      "sha256": "1df1c1d60d0ee907df9b52a462cfe61b4ff9b485e34455281b25917c430c131a",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/064_Ant_Season/map.bin",
+      "sha256": "3a2ac7b8465bd335d00ae18703639021c48964392be813c0d5af00257946e765"
+    },
+    {
+      "path": "mods/sa/maps/064_Ant_Season/map.png",
+      "sha256": "e001a8f4e75a6db08fb7235c7236f3b00e761f5eb42d6d76f62f16c54aa6382d"
+    },
+    {
+      "path": "mods/sa/maps/064_Ant_Season/map.yaml",
+      "sha256": "aa62d66b08e863b672074f4897e6dd70e67b580b560d8ae107f1071835210a65",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/065_Thorny_Issue/map.bin",
+      "sha256": "822e2c06f6c6ed2591c23ded9e1391c61bc228cec86eabae697c01dfd33f138b"
+    },
+    {
+      "path": "mods/sa/maps/065_Thorny_Issue/map.png",
+      "sha256": "08390726c9d2d3a8cfa59bc42d43cde5dda0d5cb19023e2d5db094e897a4075b"
+    },
+    {
+      "path": "mods/sa/maps/065_Thorny_Issue/map.yaml",
+      "sha256": "daf6e570bbb26be3d42f071511871b42a5030716676c8fe33714681a0b8f9687",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/066_Combat_Engineering/map.bin",
+      "sha256": "ac910a98a8e46cc8b3e9ab2e22cd34e5dc1122753a042a78c65c4bc0364941c7"
+    },
+    {
+      "path": "mods/sa/maps/066_Combat_Engineering/map.png",
+      "sha256": "df97579e305f72ddf0506b5e072b4a541ba7f5a8d8ea0bbbe87da6c6926a9972"
+    },
+    {
+      "path": "mods/sa/maps/066_Combat_Engineering/map.yaml",
+      "sha256": "e2494db2acc12fee7f8c4f74d6e245e03f50a2998b84b5b7adeb331009394d17",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/067_Forbidden_Planet/map.bin",
+      "sha256": "e835722248819ab0b868b4733c65ed73910f2391eefb0e39073dd19546d9b916"
+    },
+    {
+      "path": "mods/sa/maps/067_Forbidden_Planet/map.png",
+      "sha256": "03c8c5b94ce9a98a8746ae45047eedef2f28c2f73240ce0e58dc0f516ec9d32f"
+    },
+    {
+      "path": "mods/sa/maps/067_Forbidden_Planet/map.yaml",
+      "sha256": "94f9132228996c19c8731088b376585ff6dcc36e842b8e0435e1e9be4bc68ae4",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/068_Fortress/map.bin",
+      "sha256": "023aafc6ce00125f2e744726eed27e2072abe36a4a0446cf2da9d076f6eeaf8b"
+    },
+    {
+      "path": "mods/sa/maps/068_Fortress/map.png",
+      "sha256": "08390726c9d2d3a8cfa59bc42d43cde5dda0d5cb19023e2d5db094e897a4075b"
+    },
+    {
+      "path": "mods/sa/maps/068_Fortress/map.yaml",
+      "sha256": "6fbe19b246e106ac99a7df6cbca64470d1d95ad2070d074a7b38823808f3d593",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/069_Checkmate/map.bin",
+      "sha256": "b113bb4fe671747e70e4446c869da0bc869e3dd8b6e1a4291bad92d323d2ef17"
+    },
+    {
+      "path": "mods/sa/maps/069_Checkmate/map.png",
+      "sha256": "e001a8f4e75a6db08fb7235c7236f3b00e761f5eb42d6d76f62f16c54aa6382d"
+    },
+    {
+      "path": "mods/sa/maps/069_Checkmate/map.yaml",
+      "sha256": "c44e4e50fb6f86cb1529b4be28c65273741f2790cd1493cde6f1afa0288d1c29",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/070_X/map.bin",
+      "sha256": "f7c02597f98a75d2143fac650f1664d9ce6e23aedd5a5bb66ea33f78a5ec7a6a"
+    },
+    {
+      "path": "mods/sa/maps/070_X/map.png",
+      "sha256": "df97579e305f72ddf0506b5e072b4a541ba7f5a8d8ea0bbbe87da6c6926a9972"
+    },
+    {
+      "path": "mods/sa/maps/070_X/map.yaml",
+      "sha256": "d3fc073879daddd254743bc1f5207968d892b9282aa499bc22ed2beb06361265",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/071_Microcosm/map.bin",
+      "sha256": "4e94d123bb91872af786916cb56a30832e16b75dd55056a3b9737ac5a62db2fa"
+    },
+    {
+      "path": "mods/sa/maps/071_Microcosm/map.png",
+      "sha256": "df97579e305f72ddf0506b5e072b4a541ba7f5a8d8ea0bbbe87da6c6926a9972"
+    },
+    {
+      "path": "mods/sa/maps/071_Microcosm/map.yaml",
+      "sha256": "d654effce6b27fba935c7db06992943557d4f10ea7852a9251cfef72f0e2156b",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/072_Natural_Selection/map.bin",
+      "sha256": "1b2c399c3d89e72556441eeaa04e4f8fe3f1a9b0edf619ebcc469b496fc01189"
+    },
+    {
+      "path": "mods/sa/maps/072_Natural_Selection/map.png",
+      "sha256": "03c8c5b94ce9a98a8746ae45047eedef2f28c2f73240ce0e58dc0f516ec9d32f"
+    },
+    {
+      "path": "mods/sa/maps/072_Natural_Selection/map.yaml",
+      "sha256": "0ecca596dc688113f7ac285706526734ae9d310904e4318e8ffd70c3e518c501",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/073_The_Journey/map.bin",
+      "sha256": "44134d72bb4eb06babd412bc34d6a48bdf7fa3413617967b68649bd262dff03b"
+    },
+    {
+      "path": "mods/sa/maps/073_The_Journey/map.png",
+      "sha256": "08390726c9d2d3a8cfa59bc42d43cde5dda0d5cb19023e2d5db094e897a4075b"
+    },
+    {
+      "path": "mods/sa/maps/073_The_Journey/map.yaml",
+      "sha256": "a8b55d75670e3b35e23ff7a502059d10c9e717249e8707b99ed4ea8d847f3f19",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/074_Crater/map.bin",
+      "sha256": "1cbc0dcc64ffc614c10cd8c22bf58b963e20d41a54e18056a370719dbdb84692"
+    },
+    {
+      "path": "mods/sa/maps/074_Crater/map.png",
+      "sha256": "08390726c9d2d3a8cfa59bc42d43cde5dda0d5cb19023e2d5db094e897a4075b"
+    },
+    {
+      "path": "mods/sa/maps/074_Crater/map.yaml",
+      "sha256": "3eeb1a494edd4b1e9f0d5d1697ed0cafb1ad17ed27a568351801c7e64f0e6f93",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/075_Beetles_vs_Ants/map.bin",
+      "sha256": "b8525c29b2823617bca16d2b7d48f50a31c07337c3ca2d55a0542f01a77323cb"
+    },
+    {
+      "path": "mods/sa/maps/075_Beetles_vs_Ants/map.png",
+      "sha256": "e001a8f4e75a6db08fb7235c7236f3b00e761f5eb42d6d76f62f16c54aa6382d"
+    },
+    {
+      "path": "mods/sa/maps/075_Beetles_vs_Ants/map.yaml",
+      "sha256": "cc16fd9636eefd2e6efaa732760964fbfe721f47a3ce495dbcee1c4622935117",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/076_Amazing!/map.bin",
+      "sha256": "787150bdf3fc136c912c052b0ba957da96ea72b958f62983de6da6c4feb62b2e"
+    },
+    {
+      "path": "mods/sa/maps/076_Amazing!/map.png",
+      "sha256": "03c8c5b94ce9a98a8746ae45047eedef2f28c2f73240ce0e58dc0f516ec9d32f"
+    },
+    {
+      "path": "mods/sa/maps/076_Amazing!/map.yaml",
+      "sha256": "69a5b2fd09ef1322c1df1a217fec80af87a2eb80768ab05fd0ef3f605d28361d",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/077_Ant_Warfare/map.bin",
+      "sha256": "c745b8707ffd706b25a0340f04d0c564dc951096ebc08b81c676ad7f9d9f8cd1"
+    },
+    {
+      "path": "mods/sa/maps/077_Ant_Warfare/map.png",
+      "sha256": "df97579e305f72ddf0506b5e072b4a541ba7f5a8d8ea0bbbe87da6c6926a9972"
+    },
+    {
+      "path": "mods/sa/maps/077_Ant_Warfare/map.yaml",
+      "sha256": "a198cdd476701ab526b9623f7eebd9ef1d6a5bb30db0425ee5aedba17f337c22",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/078_Carrier_Strike/map.bin",
+      "sha256": "285bb7e6c91a9fd333f7e43397725160e3ecaecd3758a434df152df238905842"
+    },
+    {
+      "path": "mods/sa/maps/078_Carrier_Strike/map.png",
+      "sha256": "e001a8f4e75a6db08fb7235c7236f3b00e761f5eb42d6d76f62f16c54aa6382d"
+    },
+    {
+      "path": "mods/sa/maps/078_Carrier_Strike/map.yaml",
+      "sha256": "07337b628489185aecf9d1e8445fe58fcaf0984ccda721ddc5a097786a353c86",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/079_Scorpions_vs_Beetles/map.bin",
+      "sha256": "293813314d58fabfcba16010c34e57c3af1b25cbf455c7d8067f94a05d7cd0da"
+    },
+    {
+      "path": "mods/sa/maps/079_Scorpions_vs_Beetles/map.png",
+      "sha256": "08390726c9d2d3a8cfa59bc42d43cde5dda0d5cb19023e2d5db094e897a4075b"
+    },
+    {
+      "path": "mods/sa/maps/079_Scorpions_vs_Beetles/map.yaml",
+      "sha256": "e4356d1143438e5905d401c0c607ff1974577ca5bcfd50ced7fd9f29949ff9ef",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/080_Cryptography/map.bin",
+      "sha256": "ddce0ec2d5115a16a13325069f7134fd7778e1d7e6ea94b37691e303c907d788"
+    },
+    {
+      "path": "mods/sa/maps/080_Cryptography/map.png",
+      "sha256": "df97579e305f72ddf0506b5e072b4a541ba7f5a8d8ea0bbbe87da6c6926a9972"
+    },
+    {
+      "path": "mods/sa/maps/080_Cryptography/map.yaml",
+      "sha256": "ae78499fbfcca8a9e1082c7ba5102d8af68eaf67c1191bd67b4d4df8a412ffeb",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/081_Frozen/map.bin",
+      "sha256": "2780d5075e2858ba4ab8128d5653ce671f81b1508823fb7d2760ead70c5547a8"
+    },
+    {
+      "path": "mods/sa/maps/081_Frozen/map.png",
+      "sha256": "03c8c5b94ce9a98a8746ae45047eedef2f28c2f73240ce0e58dc0f516ec9d32f"
+    },
+    {
+      "path": "mods/sa/maps/081_Frozen/map.yaml",
+      "sha256": "00a1ad379ef111d11229673ce0b9b1df4a4b283770e6e5ca9f89adbce6c6e3f5",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/082_Beetles_vs_Spiders/map.bin",
+      "sha256": "393eada82a6ce7fef1d3bf5908350c551df9be6b509a48bf6c0d0551a53a4239"
+    },
+    {
+      "path": "mods/sa/maps/082_Beetles_vs_Spiders/map.png",
+      "sha256": "08390726c9d2d3a8cfa59bc42d43cde5dda0d5cb19023e2d5db094e897a4075b"
+    },
+    {
+      "path": "mods/sa/maps/082_Beetles_vs_Spiders/map.yaml",
+      "sha256": "ac9bc9675241c258e6e0a3f9b472e3f2568d820125b7a1e56ec1028bef17feea",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/083_The_Gathering/map.bin",
+      "sha256": "3bb584d68bec88b0e369d0ae38dbe086e21fffbc2015ef7fa08c4f513df10c38"
+    },
+    {
+      "path": "mods/sa/maps/083_The_Gathering/map.png",
+      "sha256": "e001a8f4e75a6db08fb7235c7236f3b00e761f5eb42d6d76f62f16c54aa6382d"
+    },
+    {
+      "path": "mods/sa/maps/083_The_Gathering/map.yaml",
+      "sha256": "8d941ff41fb921cec0027995c018c11dc1e877239cc50e56e3b6ad18c75bb860",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/084_Spiders_vs_Scorpions/map.bin",
+      "sha256": "d31fc4127df9807288a8979122fa56a82fc1b1c49bdce31d310d0ae1e5863b1e"
+    },
+    {
+      "path": "mods/sa/maps/084_Spiders_vs_Scorpions/map.png",
+      "sha256": "df97579e305f72ddf0506b5e072b4a541ba7f5a8d8ea0bbbe87da6c6926a9972"
+    },
+    {
+      "path": "mods/sa/maps/084_Spiders_vs_Scorpions/map.yaml",
+      "sha256": "1981413d0c262a5594b183cac89eb7985ec38190963adea57f14128a48ef6d4a",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/085_Rain/map.bin",
+      "sha256": "48d26535aae60d67b190318817ab25ecf2f76c66c6991d1603156de020a7c53a"
+    },
+    {
+      "path": "mods/sa/maps/085_Rain/map.png",
+      "sha256": "03c8c5b94ce9a98a8746ae45047eedef2f28c2f73240ce0e58dc0f516ec9d32f"
+    },
+    {
+      "path": "mods/sa/maps/085_Rain/map.yaml",
+      "sha256": "28670918790ff7bcd06abc921ea2dcb4fc04055ae9d0fa4ad25adbab843585da",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/086_Memories_of_Blue/map.bin",
+      "sha256": "3909c705b3e56f86de79fe6b05582e3a833d3e92b00c70e7a7b390e249352edd"
+    },
+    {
+      "path": "mods/sa/maps/086_Memories_of_Blue/map.png",
+      "sha256": "03c8c5b94ce9a98a8746ae45047eedef2f28c2f73240ce0e58dc0f516ec9d32f"
+    },
+    {
+      "path": "mods/sa/maps/086_Memories_of_Blue/map.yaml",
+      "sha256": "36f02c9f6f30e3d9227fefd5293a219b254a320fabfc9562701f8d79e7abd397",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/087_Scorpions_vs_Wasps/map.bin",
+      "sha256": "bd6d1d8bfed90096118bc1b6f10e646d1376fcf10838592255b3e197da7bd840"
+    },
+    {
+      "path": "mods/sa/maps/087_Scorpions_vs_Wasps/map.png",
+      "sha256": "08390726c9d2d3a8cfa59bc42d43cde5dda0d5cb19023e2d5db094e897a4075b"
+    },
+    {
+      "path": "mods/sa/maps/087_Scorpions_vs_Wasps/map.yaml",
+      "sha256": "56103e8edba136c117e561f709e7150e67833c27b57b8ad13c80de2c55d3cfbf",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/088_Wasps_vs_Spiders/map.bin",
+      "sha256": "92c39bbd7507e8dee84382bc0f6e50cf29fce061c596ea72e892effc9a935900"
+    },
+    {
+      "path": "mods/sa/maps/088_Wasps_vs_Spiders/map.png",
+      "sha256": "df97579e305f72ddf0506b5e072b4a541ba7f5a8d8ea0bbbe87da6c6926a9972"
+    },
+    {
+      "path": "mods/sa/maps/088_Wasps_vs_Spiders/map.yaml",
+      "sha256": "a8a05721b2f1cd30404e7aaa9848ae606ea9a6201b38406052d96262234015bd",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/089_Vulture_Tactics/map.bin",
+      "sha256": "458c63fdc4e0db88417696eebe3813fdc5a22524d4d646d2d7693b0766fc72d3"
+    },
+    {
+      "path": "mods/sa/maps/089_Vulture_Tactics/map.png",
+      "sha256": "e001a8f4e75a6db08fb7235c7236f3b00e761f5eb42d6d76f62f16c54aa6382d"
+    },
+    {
+      "path": "mods/sa/maps/089_Vulture_Tactics/map.yaml",
+      "sha256": "9781a6e4e479859c9ad0365ef0f8566ee6fe29c3a2703d5859b8b54e3f565bad",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/090_Beetles_vs_Wasps/map.bin",
+      "sha256": "6f82326aebb6d86145f9fa47179a593b4caf743d588e016cefe4fe795505b8c6"
+    },
+    {
+      "path": "mods/sa/maps/090_Beetles_vs_Wasps/map.png",
+      "sha256": "03c8c5b94ce9a98a8746ae45047eedef2f28c2f73240ce0e58dc0f516ec9d32f"
+    },
+    {
+      "path": "mods/sa/maps/090_Beetles_vs_Wasps/map.yaml",
+      "sha256": "6911868070cc166c63888c02d519b7f4ebc4fb28740968ed74d9f13691793bc0",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/091_Red_Juggernaut/map.bin",
+      "sha256": "b44fec37a7c80ae26facc43dc2d34dcaf4315065ab59b735b4d8ccf9196e313f"
+    },
+    {
+      "path": "mods/sa/maps/091_Red_Juggernaut/map.png",
+      "sha256": "08390726c9d2d3a8cfa59bc42d43cde5dda0d5cb19023e2d5db094e897a4075b"
+    },
+    {
+      "path": "mods/sa/maps/091_Red_Juggernaut/map.yaml",
+      "sha256": "bdedc916befec5fd0a2f6fc01936f881424160d4877144653d61814eadaf0bd6",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/092_Ants_vs_Scorpions/map.bin",
+      "sha256": "b3781684e349f9cdbcd211b5f5c551a6eca28c45fa2198b3a7b4b5716bbadd6a"
+    },
+    {
+      "path": "mods/sa/maps/092_Ants_vs_Scorpions/map.png",
+      "sha256": "03c8c5b94ce9a98a8746ae45047eedef2f28c2f73240ce0e58dc0f516ec9d32f"
+    },
+    {
+      "path": "mods/sa/maps/092_Ants_vs_Scorpions/map.yaml",
+      "sha256": "bbc07cfec88b5f2b65165514fc34404fb0fc3d1dd3c1231c471c185d29ceb973",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/093_Serious_Danger/map.bin",
+      "sha256": "71029e8dc81fad84a05c3e81c506de4f3ce06274a4041d918f67a19b5e96f017"
+    },
+    {
+      "path": "mods/sa/maps/093_Serious_Danger/map.png",
+      "sha256": "df97579e305f72ddf0506b5e072b4a541ba7f5a8d8ea0bbbe87da6c6926a9972"
+    },
+    {
+      "path": "mods/sa/maps/093_Serious_Danger/map.yaml",
+      "sha256": "48c4017012041dccccfce6de59ed31f00c6eff27f598a4a04522b5e628ae325e",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/094_Ants_vs_Wasps/map.bin",
+      "sha256": "49757034fed5a66d8db4c16957f606350806240955581e5024938b3279acf4f3"
+    },
+    {
+      "path": "mods/sa/maps/094_Ants_vs_Wasps/map.png",
+      "sha256": "08390726c9d2d3a8cfa59bc42d43cde5dda0d5cb19023e2d5db094e897a4075b"
+    },
+    {
+      "path": "mods/sa/maps/094_Ants_vs_Wasps/map.yaml",
+      "sha256": "8e62d0f7d857c19fa6c93f7faad39eedf7de30d8bd3b7f10d2669f958fe91307",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/095_Ants_vs_Spiders/map.bin",
+      "sha256": "5dc80ce60f2d638d2a9ab74f22811ed42dbdce49d775a9a9985b8110e2755272"
+    },
+    {
+      "path": "mods/sa/maps/095_Ants_vs_Spiders/map.png",
+      "sha256": "df97579e305f72ddf0506b5e072b4a541ba7f5a8d8ea0bbbe87da6c6926a9972"
+    },
+    {
+      "path": "mods/sa/maps/095_Ants_vs_Spiders/map.yaml",
+      "sha256": "0903679957ce6ed55e6979a30ad44726a3eef51e6daa1253ce78e2b2410b0e0b",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/096_Eye_Of_The_Storm/map.bin",
+      "sha256": "a7edfb382e60f0487ac892617405a6bcc2d2a067e92a44fc9dcfeec8bf576c5a"
+    },
+    {
+      "path": "mods/sa/maps/096_Eye_Of_The_Storm/map.png",
+      "sha256": "08390726c9d2d3a8cfa59bc42d43cde5dda0d5cb19023e2d5db094e897a4075b"
+    },
+    {
+      "path": "mods/sa/maps/096_Eye_Of_The_Storm/map.yaml",
+      "sha256": "c99229a7e30a82831621ddd879128e1c1d915eaaeec79b38862b6e070b86292d",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/097_Patient_Enemy/map.bin",
+      "sha256": "d4563c9183e9b5f4ec79e51742f6c16bf65d561b197e6d44f9479437244080c6"
+    },
+    {
+      "path": "mods/sa/maps/097_Patient_Enemy/map.png",
+      "sha256": "e001a8f4e75a6db08fb7235c7236f3b00e761f5eb42d6d76f62f16c54aa6382d"
+    },
+    {
+      "path": "mods/sa/maps/097_Patient_Enemy/map.yaml",
+      "sha256": "4624ff6f3c8f64f1e4b7dda9b020d000fcd74c40281d3ef6b1fbbf9debad9fe8",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/098_Apocalypse_Now/map.bin",
+      "sha256": "f862cac003e7a54bb12a408719c9d5ae2b75812c4e63e006bb3f99a0040af39e"
+    },
+    {
+      "path": "mods/sa/maps/098_Apocalypse_Now/map.png",
+      "sha256": "03c8c5b94ce9a98a8746ae45047eedef2f28c2f73240ce0e58dc0f516ec9d32f"
+    },
+    {
+      "path": "mods/sa/maps/098_Apocalypse_Now/map.yaml",
+      "sha256": "0524357a47eed02181ba1ccd74f14b633aa075ff5b3f3866d8b7d98722e7d03f",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/099_Super_Colony/map.bin",
+      "sha256": "0f8f0eccdfc99ec6aa0c3c919ff4a04caa5ebf92b5361415f3f4c7f7f8715b89"
+    },
+    {
+      "path": "mods/sa/maps/099_Super_Colony/map.png",
+      "sha256": "df97579e305f72ddf0506b5e072b4a541ba7f5a8d8ea0bbbe87da6c6926a9972"
+    },
+    {
+      "path": "mods/sa/maps/099_Super_Colony/map.yaml",
+      "sha256": "2d7454f5910a6bd6eb1b3eb1435ee90f709893a1dad2e7cb1cd0c4ac6aa33486",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/100_Farewell/map.bin",
+      "sha256": "1daed7ef7789f77e249fc785695725dfa85f50c08354d01235acb37aba61b485"
+    },
+    {
+      "path": "mods/sa/maps/100_Farewell/map.png",
+      "sha256": "e001a8f4e75a6db08fb7235c7236f3b00e761f5eb42d6d76f62f16c54aa6382d"
+    },
+    {
+      "path": "mods/sa/maps/100_Farewell/map.yaml",
+      "sha256": "ae90246af6f6e60b5039396153f8d5af9e4e6dc51756acdba1e5c162bc994697",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/Candyland_Battleground/map.bin",
+      "sha256": "b0a92e563e45f050eeb7c07356ac6ef9fe1f0263148c2a1d12b29b92de06dcc9"
+    },
+    {
+      "path": "mods/sa/maps/Candyland_Battleground/map.png",
+      "sha256": "bcc1dbd0f387680bc64b7a7b71b07c5177129d5e8b2643e0565a80b62923635d"
+    },
+    {
+      "path": "mods/sa/maps/Candyland_Battleground/map.yaml",
+      "sha256": "4add7e23b57cd326c22d2e38cbf05fc2987b40e061bba59ca46aa8bae2f2f755",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/Custom_Mission_Boundary_Line/map.bin",
+      "sha256": "9079a94dee109d6d1aa12a63c65d588511035c4116d09a8f064a53278377299b"
+    },
+    {
+      "path": "mods/sa/maps/Custom_Mission_Boundary_Line/map.png",
+      "sha256": "fbc6a054ad5abf59b78d7d19c6e7857a2dd4e026ecece282560c03609eac251d"
+    },
+    {
+      "path": "mods/sa/maps/Custom_Mission_Candy_Siege/map.bin",
+      "sha256": "4fa3f970acb60c5d0211c782ac34d23b2f313d2a17139e0a01d0a7c57ff946b5"
+    },
+    {
+      "path": "mods/sa/maps/Custom_Mission_Candy_Siege/map.png",
+      "sha256": "df97579e305f72ddf0506b5e072b4a541ba7f5a8d8ea0bbbe87da6c6926a9972"
+    },
+    {
+      "path": "mods/sa/maps/Custom_Mission_En_Garde/map.bin",
+      "sha256": "6fbfc673013d43dd50e25df147cb9cdf19a25503480dbace90a03a7eb961f8b9"
+    },
+    {
+      "path": "mods/sa/maps/Custom_Mission_En_Garde/map.png",
+      "sha256": "08390726c9d2d3a8cfa59bc42d43cde5dda0d5cb19023e2d5db094e897a4075b"
+    },
+    {
+      "path": "mods/sa/maps/Custom_Mission_Firepower_Boosters/map.bin",
+      "sha256": "2d075fe4fb3b43eaebc7496578146ee41963c6c254d7f5f29d569be7df07d910"
+    },
+    {
+      "path": "mods/sa/maps/Custom_Mission_Firepower_Boosters/map.png",
+      "sha256": "df97579e305f72ddf0506b5e072b4a541ba7f5a8d8ea0bbbe87da6c6926a9972"
+    },
+    {
+      "path": "mods/sa/maps/Custom_Mission_Maze/map.bin",
+      "sha256": "2a0a67eef42f719262c93603fb8f9feec45a6712be895ae6a1ae5406bb49caa8"
+    },
+    {
+      "path": "mods/sa/maps/Custom_Mission_Maze/map.png",
+      "sha256": "08390726c9d2d3a8cfa59bc42d43cde5dda0d5cb19023e2d5db094e897a4075b"
+    },
+    {
+      "path": "mods/sa/maps/Custom_Mission_Powimang/map.bin",
+      "sha256": "48df8946d544d6b225c1c2c45e03f30fe4ee4ca1d1d6565efb44e2b8247d1a23"
+    },
+    {
+      "path": "mods/sa/maps/Custom_Mission_Powimang/map.png",
+      "sha256": "fbc6a054ad5abf59b78d7d19c6e7857a2dd4e026ecece282560c03609eac251d"
+    },
+    {
+      "path": "mods/sa/maps/Custom_Mission_Puck-Man/map.bin",
+      "sha256": "4f61b856b4c074fb3a3c1289187a37aac5c0a05914deb3282fe6255600df4135"
+    },
+    {
+      "path": "mods/sa/maps/Custom_Mission_Puck-Man/map.png",
+      "sha256": "e001a8f4e75a6db08fb7235c7236f3b00e761f5eb42d6d76f62f16c54aa6382d"
+    },
+    {
+      "path": "mods/sa/maps/Custom_Mission_Skull/map.bin",
+      "sha256": "929c5b582e4cd181c0f99ac0ef7e2b27c9995dbe26b9e166b5dcf1563314734f"
+    },
+    {
+      "path": "mods/sa/maps/Custom_Mission_Skull/map.png",
+      "sha256": "e001a8f4e75a6db08fb7235c7236f3b00e761f5eb42d6d76f62f16c54aa6382d"
+    },
+    {
+      "path": "mods/sa/maps/Custom_Mission_Sticks_And_Stones/map.bin",
+      "sha256": "ab78fdd5ba170f484149eedfbb3b8f9bc34371a8cbac129a70b234d721a215e3"
+    },
+    {
+      "path": "mods/sa/maps/Custom_Mission_Sticks_And_Stones/map.png",
+      "sha256": "08390726c9d2d3a8cfa59bc42d43cde5dda0d5cb19023e2d5db094e897a4075b"
+    },
+    {
+      "path": "mods/sa/maps/Custom_Mission_Sunken_Snake/map.bin",
+      "sha256": "a32dc808d4ba5d878abff5a4a8f4658c0f7981e0fbee4a72e0352684a1a16a33"
+    },
+    {
+      "path": "mods/sa/maps/Custom_Mission_Sunken_Snake/map.png",
+      "sha256": "df97579e305f72ddf0506b5e072b4a541ba7f5a8d8ea0bbbe87da6c6926a9972"
+    },
+    {
+      "path": "mods/sa/maps/Custom_Mission_Swarm_Assault/map.bin",
+      "sha256": "fde2fa42c1e94e07d0979679fdfdfcc59cda2956bee1b5b2b4eb91e5c7fbaf97"
+    },
+    {
+      "path": "mods/sa/maps/Custom_Mission_Swarm_Assault/map.png",
+      "sha256": "03c8c5b94ce9a98a8746ae45047eedef2f28c2f73240ce0e58dc0f516ec9d32f"
+    },
+    {
+      "path": "mods/sa/maps/Custom_Mission_Tough_Enemies/map.bin",
+      "sha256": "f6cedffff2097ac036553192a982518eda74a63596ab4638a3ba7309ad45747f"
+    },
+    {
+      "path": "mods/sa/maps/Custom_Mission_Tough_Enemies/map.png",
+      "sha256": "08390726c9d2d3a8cfa59bc42d43cde5dda0d5cb19023e2d5db094e897a4075b"
+    },
+    {
+      "path": "mods/sa/maps/Custom_Mission_Usual_Brawl/map.bin",
+      "sha256": "12e1d2feb5b5e2a0f3b4a5df098b5c81c364ba3ae8b8633cfadd833783488c6b"
+    },
+    {
+      "path": "mods/sa/maps/Custom_Mission_Usual_Brawl/map.png",
+      "sha256": "df97579e305f72ddf0506b5e072b4a541ba7f5a8d8ea0bbbe87da6c6926a9972"
+    },
+    {
+      "path": "mods/sa/maps/Desert_Battleground/map.bin",
+      "sha256": "30e743690cd3e638a4af80af772953ee837f2007ba864b2babf15233225d5165"
+    },
+    {
+      "path": "mods/sa/maps/Desert_Battleground/map.png",
+      "sha256": "93c00be76ad5f98ab40ef268e84e4f2915033dcc803b7d94b8df5aa8b5f86069"
+    },
+    {
+      "path": "mods/sa/maps/Desert_Battleground/map.yaml",
+      "sha256": "c4532446a4dd62d1707f001074b8ba4d870107ee69a93e3107f9e870de81e9be",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/Narrow_Passage/map.bin",
+      "sha256": "b50098a90e2ad5cb1532f771eac6b4592eed5f3ecd8a482ce8ba2c7f21c5ee43"
+    },
+    {
+      "path": "mods/sa/maps/Narrow_Passage/map.png",
+      "sha256": "bf733dbae29274a580a80c13d32a5654c02088e110e58c76c5d04e5856b7497f"
+    },
+    {
+      "path": "mods/sa/maps/Narrow_Passage/map.yaml",
+      "sha256": "45eb61e022dbfb9960bda64bed424f5d44f802d291ac1063d5029b3feef43130",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/Suprise/map.bin",
+      "sha256": "6f807ccb8abcac14e0957b4a779ac80f81e15d37106db1d36c8befa0f05a5f15"
+    },
+    {
+      "path": "mods/sa/maps/Suprise/map.png",
+      "sha256": "a9d353a2e4bb647f733bb31f84f8ee2394931251fb533c31fd8cc83e8c62bfd2"
+    },
+    {
+      "path": "mods/sa/maps/Suprise/map.yaml",
+      "sha256": "fd63d8540f073c867582117109b3f3d0245bfba4cf23345fb85121af3b3cbce6",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/Swamp_Battleground/map.bin",
+      "sha256": "f66aa417bd15d0cae3ac8207dff7d3619cd3c5e0a7650212b233d83b2c7a3f23"
+    },
+    {
+      "path": "mods/sa/maps/Swamp_Battleground/map.png",
+      "sha256": "e7cf7c5205d6d2ddf1771545ab3e69b8d71f1177397b708e445b94d4ec8323b5"
+    },
+    {
+      "path": "mods/sa/maps/Swamp_Battleground/map.yaml",
+      "sha256": "d9bea200027f70313642e916ee443d1549131740daa1d6e0d9d2d14d494594d7",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/Sweetness/map.bin",
+      "sha256": "26c6f216699880b82c4fa748af01bd50003de2aab78e7be17984448d9492fc5b"
+    },
+    {
+      "path": "mods/sa/maps/Sweetness/map.png",
+      "sha256": "8c6ad231a96778038f22e00b4ce526919b8ec4d3864849e725726bc6d65db241"
+    },
+    {
+      "path": "mods/sa/maps/Sweetness/map.yaml",
+      "sha256": "6f9190150174a502261a936e5f56fba89d2c5ed6a8830354066fef09dfabe8bc",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/Team_Battle/map.bin",
+      "sha256": "4d5dd82303e4726c1cf54a2ba9d1f94e3f3abe25900d8c3124020a6ae8fd68a4"
+    },
+    {
+      "path": "mods/sa/maps/Team_Battle/map.png",
+      "sha256": "49a5b7eff0c1ffcc31827d8028d2f7afd294ae6dd421a9122ffef34667a2eea9"
+    },
+    {
+      "path": "mods/sa/maps/Team_Battle/map.yaml",
+      "sha256": "78dcdd3a3fa275774af74633df1fc67310ad05e3a13f05f3ee2bde4a06214391",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/Team_Brawl/map.bin",
+      "sha256": "28b53c7fef5eac75012cdd2f5fbe6f0039566e2225997e3822d4821613f9d48e"
+    },
+    {
+      "path": "mods/sa/maps/Team_Brawl/map.png",
+      "sha256": "58bb8db5ef3f4d4432059bcb091726379a343f764a4a0373f7dddb8abfaff29a"
+    },
+    {
+      "path": "mods/sa/maps/Team_Brawl/map.yaml",
+      "sha256": "2bef3ee11221478edc5371a8d3b281899b8f93c031907d89ab3df60aed324e6f",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/Two_Armies/map.bin",
+      "sha256": "de78e899bc406a90128701e52096caf0feb71d0ded5bbd89351caf8a655a779d"
+    },
+    {
+      "path": "mods/sa/maps/Two_Armies/map.png",
+      "sha256": "41872d9a77aecb062153a1c1f61aefb7a93abdf02e17db1a82522ee7c5132024"
+    },
+    {
+      "path": "mods/sa/maps/Two_Armies/map.yaml",
+      "sha256": "0c1d7b90e41cf606ec7d97ea8cc6a8541e3e01c1708d770ca5779c18518fccf1",
+      "hashMode": "lf-text"
+    },
+    {
+      "path": "mods/sa/maps/shellmap/map.bin",
+      "sha256": "f86b77bbfc44c8a82717243745ea2f57902904a1daca94e7d7ee733cb3a26198"
+    },
+    {
+      "path": "mods/sa/maps/shellmap/map.png",
+      "sha256": "7c4a4e3858c2d4b80f8dd02171a00ea1ce5463ce4733e291c72c9862f96a0f1e"
+    },
+    {
+      "path": "mods/sa/maps/skirmish/map.bin",
+      "sha256": "42ce8c712957dd2d4030e237eecc009f8c2fa0a2283e5cf0c9c9afa35aa30be8"
+    },
+    {
+      "path": "mods/sa/maps/skirmish/map.png",
+      "sha256": "d57e2be5389bf71d042caaf16118cad80028a3694521616fdd7a7458f25642f1"
+    },
+    {
+      "path": "mods/sa/maps/swamp_skirmish/map.bin",
+      "sha256": "14e39efef6556e452c6053d20643c485d88f43759939698a965ab51d4f17fc4e"
+    },
+    {
+      "path": "mods/sa/maps/swamp_skirmish/map.png",
+      "sha256": "cd5ac51f79f939bdc82235a9deb48ab79d25c3f103188b038c84f63d383f640b"
+    },
+    {
+      "path": "mods/sa/uibits/chrome.png",
+      "sha256": "9fb02e4f03ebd70b48b861be4e8f6632a07d8a24a0c0787fae1b33487e4fef59"
+    },
+    {
+      "path": "mods/sa/uibits/dialog.png",
+      "sha256": "52ba66c052eff4f503af0bd78aa60b42bb2912be5eb87f3aa1a90f5b2145c0ee"
+    },
+    {
+      "path": "mods/sa/uibits/glyphs-2x.png",
+      "sha256": "d3a4baa3713b6d27c8251f27d53751008a185703370458753e640318b61b2d8e"
+    },
+    {
+      "path": "mods/sa/uibits/glyphs-3x.png",
+      "sha256": "3bd0a8387b902f400e0903f8890a6bd340a79bbd15dc89ca602f95820524070f"
+    },
+    {
+      "path": "mods/sa/uibits/glyphs.png",
+      "sha256": "9592fbe942767a824ba2f8eadee992ddfcabe71d3adbacf9080eae596e485cbf"
+    },
+    {
+      "path": "mods/sa/uibits/loading-rebugged.png",
+      "sha256": "bd2e2e5055662c22cd296f81888aa1c83002f2dcf3a51cce4d3802670c195513"
+    },
+    {
+      "path": "mods/sa/uibits/loading0.png",
+      "sha256": "5b8d1fdf2d47d7f298709175ff0fa694a30fc57a3ce49e4ad710dbde7d339afc"
+    },
+    {
+      "path": "mods/sa/uibits/loading1.png",
+      "sha256": "321441a5aa93c65388a6771acb341f9d28c24779b3e2d5f8153d6d38239cc032"
+    },
+    {
+      "path": "mods/sa/uibits/loading2.png",
+      "sha256": "34597ec4f4ea9974ba31a8826294ac1572bbb9ba6c8cb34adbc4b488a2234a33"
+    },
+    {
+      "path": "mods/sa/uibits/loading3.png",
+      "sha256": "48987aadf649bd202b4cce518119ccf8b0133bf0b1b4d4c1e92817aba4f7553d"
+    },
+    {
+      "path": "mods/sa/uibits/loading4.png",
+      "sha256": "123860d85b9cd84442d4c01d7733eaff0486ef94582b598bfc5958cc238bee4c"
+    },
+    {
+      "path": "mods/sa/uibits/loading5.png",
+      "sha256": "f3d8b9fa21d927f88d6c54e67bf1854322cbc312ad43c0d5ec90a19fb47b4b5b"
+    },
+    {
+      "path": "mods/sacontent/chrome-2x.png",
+      "sha256": "fa0073d9ea5a031c042e66f4daa96518a6a7178dad9bfdc860ee60b64260802d"
+    },
+    {
+      "path": "mods/sacontent/chrome-3x.png",
+      "sha256": "8ca20a21a14bc0091cb6c6ba2c88fe58b105ccf7974c5c192a9568f59871c8b3"
+    },
+    {
+      "path": "mods/sacontent/chrome.png",
+      "sha256": "ee7f7299d9634d2ed19e77ea01c6feaa5ec2bd0c56d1e7e8de51483cde61034f"
+    },
+    {
+      "path": "mods/sacontent/cursor.png",
+      "sha256": "13c2f9f84253aaa3d52aaea82f7f1d1b9164ddf2758fb500068b4f473deb46d6"
+    },
+    {
+      "path": "packaging/artwork/icon_1024x1024.png",
+      "sha256": "ffacba2fca66385c112c96df72dc13081671930215c726a60b4b02ec2bbdc818"
+    },
+    {
+      "path": "packaging/artwork/icon_128x128.png",
+      "sha256": "3cee08a4fa394e2c68375f05b7a9df252d726a25a923cfaac2e725d640e0ce48"
+    },
+    {
+      "path": "packaging/artwork/icon_16x16.png",
+      "sha256": "dc2062b9b129147654b7aa6eb65fa4bd654db7a3dca29d81c2810a34df83afce"
+    },
+    {
+      "path": "packaging/artwork/icon_24x24.png",
+      "sha256": "a2b306b4b66d5f5f15d6b4959478ee8a01c7ac3b39f6e5abf8941a87ccc5b97a"
+    },
+    {
+      "path": "packaging/artwork/icon_256x256.png",
+      "sha256": "24f0f240812da31f49a0d93605e5ef10e510ae110a990f7b9f428f36f7d72d2a"
+    },
+    {
+      "path": "packaging/artwork/icon_32x32.png",
+      "sha256": "afa3fface41c3823eb0c644a67d721a1b99d70c5631e973d6a1b881e7f5635a0"
+    },
+    {
+      "path": "packaging/artwork/icon_48x48.png",
+      "sha256": "baab3903f83c6bf8f8b5a853c0dd568a65357b367d1962ba523a4a9098f25c54"
+    },
+    {
+      "path": "packaging/artwork/icon_512x512.png",
+      "sha256": "b73502ab5cd5ca66347f2409b3fb5b3cee4c674ccc6bfe4c5b02bfc71a878d1f"
+    },
+    {
+      "path": "packaging/artwork/icon_64x64.png",
+      "sha256": "c7d23a29dd5b4ed364d2439d1bbe193c6045cef193c91e1b72f963fc49fab2b0"
+    },
+    {
+      "path": "packaging/artwork/macos-background-2x.png",
+      "sha256": "5e513327db3c587d2ea8d9c31afca510f5c671e756eb4b439ab5331058ee13d0"
+    },
+    {
+      "path": "packaging/artwork/macos-background.png",
+      "sha256": "16525348ff265729657ad0a506229ea92dee08daf8963eaad69e28fe3f18183d"
+    }
+  ]
+}

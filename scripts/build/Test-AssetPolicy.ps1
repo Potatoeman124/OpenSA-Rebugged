@@ -23,10 +23,11 @@ $policy = [ordered]@{
 }
 function Check-Case
 {
-    param([string]$Name, [int]$ExpectedExit, [string]$Kind, [string]$Mode = "Release", [switch]$Stage)
+    param([string]$Name, [int]$ExpectedExit, [string]$Kind, [string]$Mode = "Release", [switch]$Stage, [string]$ReleaseVersion)
     $policy | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $fixture "assets\provenance-policy.json") -Encoding UTF8
     $report = Join-Path $fixture "$Name.report.json"
     $argsList = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $check, "-Root", $fixture, "-Mode", $Mode, "-ReportPath", $report)
+    if ($ReleaseVersion) { $argsList += @("-ReleaseVersion", $ReleaseVersion) }
     if ($Stage) { $argsList += @("-StagePath", (Join-Path $fixture "stage")) }
     & powershell.exe @argsList *> (Join-Path $fixture "$Name.log")
     if ($LASTEXITCODE -ne $ExpectedExit) { throw "$Name returned $LASTEXITCODE; expected $ExpectedExit." }
@@ -61,4 +62,19 @@ Check-Case "source-marker" 1 "source-marker"
 Set-Content -LiteralPath (Join-Path $fixture "marker.md") -Value "No flagged content."
 [IO.File]::WriteAllBytes((Join-Path $fixture "stage\Game.ANI"), [byte[]]@(1))
 Check-Case "forbidden-package" 1 "packaged-original" -Stage
-Write-Host "All 9 asset-policy checks passed. Evidence: $fixture"
+New-Item -ItemType Directory -Path (Join-Path $fixture "assets/provenance") -Force | Out-Null
+$exception = @{ version = "1.1"; basis = "Fixture authorization"; notice = "evidence.md"; files = @(@{ path = "sample.wav"; sha256 = $approval.sha256 }) }
+function Save-Exception { $exception | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $fixture "assets/provenance/release-1.1-exception.json") -Encoding UTF8 }
+$policy.approved = @()
+$policy.unresolved = @(@{ glob = "sample.wav"; reason = "Fixture unresolved media" })
+Save-Exception
+Check-Case "exception-version" 0 "unresolved" -ReleaseVersion "1.1"
+Check-Case "exception-without-version" 1 "unresolved"
+Check-Case "exception-wrong-version" 1 "unresolved" -ReleaseVersion "1.2"
+$exception.files[0].sha256 = "0" * 64
+Save-Exception
+Check-Case "exception-changed-file" 1 "unresolved" -ReleaseVersion "1.1"
+$exception.files[0].sha256 = $approval.sha256
+Save-Exception
+Check-Case "exception-forbidden-bundle" 1 "packaged-original" -ReleaseVersion "1.1" -Stage
+Write-Host "All 14 asset-policy checks passed. Evidence: $fixture"

@@ -87,6 +87,9 @@ else
 	echo "Mod version ${MOD_VERSION} will remain unchanged.";
 fi
 
+cp -R "${TEMPLATE_ROOT}/assets/provenance" "${APPDIR}/usr/lib/openra/provenance"
+pwsh -NoProfile -File "${TEMPLATE_ROOT}/scripts/build/Check-AssetPolicy.ps1" -Mode Release -Root "${TEMPLATE_ROOT}" -ReleaseVersion "${TAG}" -StagePath "${APPDIR}/usr/lib/openra"
+
 # Add native libraries
 echo "Downloading appimagetool"
 if command -v curl >/dev/null 2>&1; then

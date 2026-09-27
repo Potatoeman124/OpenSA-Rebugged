@@ -1,6 +1,6 @@
 # Asset and provenance policy
 
-OpenSA source and release artifacts must contain only material that the project has a documented right to redistribute. The fact that a game is old, unavailable for sale, or commonly described as abandonware does not grant redistribution rights.
+By default, OpenSA source and release artifacts require documented redistribution rights. A maintainer-authorized, version-scoped exception is recorded below for inherited content in OSArB 1.1. This does not resolve or relicense that content. The fact that a game is old, unavailable for sale, or commonly described as abandonware does not grant redistribution rights.
 
 ## Original-game assets
 
@@ -44,3 +44,9 @@ New media or other content-bearing files require provenance before merge. Record
 Approvals name one exact repository path and record `author`, `source`, `license`, a local `evidence` document, and the file's `sha256`. The release gate rejects incomplete approvals, wildcard approvals, missing evidence, and changed file bytes. Source-marker findings and forbidden original bundles remain independent blockers.
 
 See [the September 2026 audit](ASSET_PROVENANCE_AUDIT.md) for the remaining inventory and [the verified sound evidence](../assets/provenance/2026-09-18-sounds.md) for the first three approvals. Attribution notices for those sounds live inside the packaged mod at `mods/sa/ASSET_ATTRIBUTIONS.md`.
+
+## Authorized OSArB 1.1 exception
+
+The maintainer chose upstream-equivalent risk acceptance: preserve the audit and attribution, acknowledge unresolved rights, and permit the existing inherited content for release 1.1. See [the release notice](../mods/sa/RELEASE_EXCEPTION.md) and [exact-file snapshot](../assets/provenance/release-1.1-exception.json). This supersedes the strict blocking decision for those files and that release only.
+
+Pass `-ReleaseVersion 1.1` to `Check-AssetPolicy.ps1` to evaluate this exception. Without it, the strict audit still fails. Reports retain every finding and separately count accepted and blocking findings. Changed/new files, invalid approvals, original bundles, and remote-download routes are not exempt. The portable packager passes its explicit version and scans the stage before making an archive.

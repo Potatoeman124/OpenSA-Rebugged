@@ -5,7 +5,9 @@ param(
     [string]$Command = "help",
     [string]$OriginalGamePath,
     [string]$SupportDir,
-    [string]$Version = (Get-Date -Format "yyyyMMdd")
+    [string]$Version = (Get-Date -Format "yyyyMMdd"),
+    [ValidateSet("x64", "x86")]
+    [string]$Architecture = "x64"
 )
 
 $ErrorActionPreference = "Stop"
@@ -218,10 +220,12 @@ function Invoke-PowerShellScript
 
 function Invoke-AssetPolicy
 {
-    param([ValidateSet("Inventory", "Release")][string]$Mode)
+    param([ValidateSet("Inventory", "Release")][string]$Mode, [string]$ReleaseVersion)
     $reportDirectory = Join-Path $root "artifacts\compliance"
     $reportPath = Join-Path $reportDirectory ("asset-policy-{0}.json" -f $Mode.ToLowerInvariant())
-    Invoke-PowerShellScript (Join-Path $root "scripts\build\Check-AssetPolicy.ps1") @("-Mode", $Mode, "-Root", $root, "-ReportPath", $reportPath)
+    $policyArguments = @("-Mode", $Mode, "-Root", $root, "-ReportPath", $reportPath)
+    if ($ReleaseVersion) { $policyArguments += @("-ReleaseVersion", $ReleaseVersion) }
+    Invoke-PowerShellScript (Join-Path $root "scripts\build\Check-AssetPolicy.ps1") $policyArguments
 }
 
 function Invoke-Validation
@@ -278,8 +282,8 @@ try
         }
         "portable" {
             Invoke-Validation
-            Invoke-AssetPolicy "Release"
-            Invoke-PowerShellScript (Join-Path $root "scripts\build\New-Portable.ps1") @("-Root", $root, "-Version", $Version)
+            Invoke-AssetPolicy "Release" $Version
+            Invoke-PowerShellScript (Join-Path $root "scripts\build\New-Portable.ps1") @("-Root", $root, "-Version", $Version, "-Architecture", $Architecture)
         }
         "import-assets" {
             if ([string]::IsNullOrWhiteSpace($OriginalGamePath))

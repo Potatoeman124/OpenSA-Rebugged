@@ -4,7 +4,8 @@ param(
     [string]$Mode = "Inventory",
     [string]$Root,
     [string]$StagePath,
-    [string]$ReportPath
+    [string]$ReportPath,
+    [string]$ReleaseVersion
 )
 
 $ErrorActionPreference = "Stop"
@@ -147,6 +148,50 @@ if ($StagePath)
     }
 }
 
+function Get-ExceptionHash
+{
+    param([string]$Path, [string]$HashMode)
+    if ($HashMode -eq "lf-text")
+    {
+        $text = [IO.File]::ReadAllText($Path).Replace("`r`n", "`n")
+        $sha = [Security.Cryptography.SHA256]::Create()
+        try { return ([BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($text)))).Replace("-", "").ToLowerInvariant() }
+        finally { $sha.Dispose() }
+    }
+    return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash
+}
+
+# Keep all provenance findings in the report. A scoped exception changes release
+# blocking status only; it does not approve or relicense any file.
+$acceptedFindings = New-Object System.Collections.Generic.List[object]
+$exceptionPath = Join-Path $rootPath "assets/provenance/release-1.1-exception.json"
+if ($ReleaseVersion -and (Test-Path -LiteralPath $exceptionPath -PathType Leaf))
+{
+    $exception = Get-Content -LiteralPath $exceptionPath -Raw | ConvertFrom-Json
+    if ($ReleaseVersion -ceq $exception.version -and $exception.basis -and
+        $exception.notice -and (Test-Path -LiteralPath (Join-Path $rootPath $exception.notice) -PathType Leaf))
+    {
+        foreach ($finding in $findings)
+        {
+            if ($finding.kind -notin @("unresolved", "source-marker")) { continue }
+            $entry = @($exception.files | Where-Object { $_.path -ceq $finding.path })
+            if ($entry.Count -ne 1) { continue }
+            $actual = Get-ExceptionHash -Path (Join-Path $rootPath $finding.path) -HashMode $entry[0].hashMode
+            if ($entry[0].sha256 -notmatch "^[0-9a-fA-F]{64}$" -or $entry[0].sha256 -ne $actual) { continue }
+            # If staged, the covered file must still have the reviewed bytes.
+            if ($StagePath)
+            {
+                $stagedFile = Join-Path $resolvedStage $finding.path
+                if ((Test-Path -LiteralPath $stagedFile -PathType Leaf) -and
+                    (Get-ExceptionHash -Path $stagedFile -HashMode $entry[0].hashMode) -ne $actual) { continue }
+            }
+            $acceptedFindings.Add($finding)
+        }
+    }
+}
+$blockingCount = $findings.Count - $acceptedFindings.Count
+Write-Host "Release version: $ReleaseVersion; accepted unresolved findings: $($acceptedFindings.Count); blocking findings: $blockingCount"
+
 $groupedFindings = @($findings | Group-Object kind | Sort-Object Name)
 Write-Host "Asset policy mode: $Mode"
 Write-Host "Repository files inspected: $($repositoryFiles.Count)"
@@ -188,15 +233,19 @@ if ($ReportPath)
     [pscustomobject]@{
         mode = $Mode
         generatedUtc = [DateTime]::UtcNow.ToString("o")
+        releaseVersion = $ReleaseVersion
+        acceptedFindingCount = $acceptedFindings.Count
+        blockingFindingCount = $blockingCount
+        acceptedFindings = @($acceptedFindings | ForEach-Object { $_ })
         findingCount = $findings.Count
         findings = @($findings | ForEach-Object { $_ })
     } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $absoluteReportPath -Encoding UTF8
     Write-Host "Full report: $absoluteReportPath"
 }
 
-if ($Mode -eq "Release" -and $findings.Count -gt 0)
+if ($Mode -eq "Release" -and $blockingCount -gt 0)
 {
-    Write-Host "Release blocked: all asset provenance findings must be resolved." -ForegroundColor Red
+    Write-Host "Release blocked: findings must be resolved or covered by an explicit release exception." -ForegroundColor Red
     exit 1
 }
 

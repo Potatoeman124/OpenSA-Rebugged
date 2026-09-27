@@ -1,0 +1,48 @@
+name: Build OSArB 1.1 release artifacts
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/release-artifacts.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            platform: linux
+          - os: macos-15-intel
+            platform: macos
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '6.0.428'
+      - name: Check release exception
+        shell: pwsh
+        run: ./scripts/build/Check-AssetPolicy.ps1 -Mode Release -Root . -ReleaseVersion 1.1
+      - name: Prepare engine and release configuration
+        shell: bash
+        run: |
+          make engine
+          printf '%s\n' 'PACKAGING_DISPLAY_NAME="OpenSA reBugged"' 'PACKAGING_INSTALLER_NAME="OpenSA-reBugged"' 'PACKAGING_OSX_LEGACY_MONO="False"' > user.config
+          mkdir -p build/release
+      - name: Install Linux dependency
+        if: matrix.platform == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y libfuse2
+      - name: Package
+        shell: bash
+        env:
+          PLATFORM: ${{ matrix.platform }}
+        run: ./packaging/$PLATFORM/buildpackage.sh 1.1 "$PWD/build/release"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OSArB-1.1-${{ matrix.platform }}
+          path: build/release/*
+          if-no-files-found: error
+          retention-days: 14
