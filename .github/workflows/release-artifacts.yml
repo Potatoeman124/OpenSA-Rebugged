@@ -38,8 +38,8 @@ jobs:
       - name: Package
         shell: bash
         env:
-          PLATFORM: ${{ matrix.platform }}
-        run: ./packaging/$PLATFORM/buildpackage.sh 1.1 "$PWD/build/release"
+          RELEASE_TARGET: ${{ matrix.platform }}
+        run: ./packaging/$RELEASE_TARGET/buildpackage.sh 1.1 "$PWD/build/release"
       - uses: actions/upload-artifact@v4
         with:
           name: OSArB-1.1-${{ matrix.platform }}
