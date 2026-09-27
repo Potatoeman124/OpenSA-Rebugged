@@ -159,6 +159,7 @@ $stagedModYaml = Join-Path $stagePath "mods\sa\mod.yaml"
 $modYamlContent = [IO.File]::ReadAllText($stagedModYaml)
 $versionPattern = New-Object Text.RegularExpressions.Regex("(?m)^(\s*Version:)\s*.*$")
 $modYamlContent = $versionPattern.Replace($modYamlContent, ('$1 ' + $Version), 1)
+$modYamlContent = $modYamlContent.Replace("/" + '{DEV_VERSION}' + ": User", "/$Version" + ": User")
 [IO.File]::WriteAllText($stagedModYaml, $modYamlContent, (New-Object Text.UTF8Encoding($false)))
 
 Copy-Item -LiteralPath (Join-Path $rootPath "assets/provenance") -Destination (Join-Path $stagePath "provenance") -Recurse
