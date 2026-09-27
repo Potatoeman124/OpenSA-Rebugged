@@ -44,6 +44,23 @@ jobs:
         env:
           RELEASE_TARGET: ${{ matrix.platform }}
         run: ./packaging/$RELEASE_TARGET/buildpackage.sh 1.1 "$PWD/build/release"
+      - name: Validate packaged Linux payload
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: |
+          chmod +x build/release/*.AppImage
+          build/release/*.AppImage --appimage-extract > /dev/null
+          (cd squashfs-root/usr/lib/openra && ./OpenRA.Utility sa --check-yaml)
+      - name: Validate packaged macOS payload
+        if: matrix.platform == 'macos'
+        shell: bash
+        run: |
+          hdiutil verify build/release/*.dmg
+          mkdir -p "$RUNNER_TEMP/opensa-dmg"
+          hdiutil attach -readonly -nobrowse -mountpoint "$RUNNER_TEMP/opensa-dmg" build/release/*.dmg
+          trap 'hdiutil detach "$RUNNER_TEMP/opensa-dmg"' EXIT
+          app="$RUNNER_TEMP/opensa-dmg/OpenSA reBugged.app/Contents"
+          ENGINE_DIR="$app/Resources" "$app/MacOS/x86_64/OpenRA.Utility" sa --check-yaml
       - uses: actions/upload-artifact@v4
         with:
           name: OSArB-1.1-${{ matrix.platform }}
